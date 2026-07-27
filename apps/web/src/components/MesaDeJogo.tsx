@@ -12,15 +12,27 @@ function PlayerSeat({
   jogador,
   index,
   active,
+  totalJogadores,
 }: {
   jogador: Jogador;
   index: number;
   active: boolean;
+  totalJogadores: number;
 }) {
   const previewCards = Math.min(jogador.mao.length, 4);
+  const angle = 180 + (index * 360) / totalJogadores;
+  const radians = (angle * Math.PI) / 180;
+  const seatStyle = {
+    '--seat-angle': `${angle}deg`,
+    '--seat-offset-x': `${Math.sin(radians) * 140}px`,
+    '--seat-offset-y': `${-Math.cos(radians) * 210}px`,
+  } as React.CSSProperties;
   return (
     <div
-      className={`player-seat player-seat-${index + 1} ${jogador.isBot ? '' : 'player-seat-you'} ${active ? 'active' : ''}`}
+      className={`player-seat player-seat-ring ${jogador.isBot ? '' : 'player-seat-you'} ${active ? 'active' : ''}`}
+      style={seatStyle}
+      data-seat-index={index}
+      aria-label={`Assento ${index + 1} de ${totalJogadores}: ${jogador.nome}`}
     >
       <div className="player-seat-avatar" aria-hidden="true">
         {jogador.avatar || '👤'}
@@ -46,18 +58,23 @@ export const MesaDeJogo: React.FC<MesaDeJogoProps> = ({ estado, onComprarCarta }
   const corAtiva = (estado.corAtiva || 'LARANJA') as Cor;
   const infoCor = PALETA_CORES[corAtiva] || PALETA_CORES.NEUTRO;
   const jogadorAtual = estado.jogadores.find((j) => j.id === estado.vezDe);
+  const totalJogadores = estado.jogadores.length;
   const compraDisponivel = Boolean(jogadorAtual && !jogadorAtual.isBot && !estado.finalizada);
   const compraLabel =
     estado.ataqueAcumulado > 0 ? `Pagar +${estado.ataqueAcumulado}` : 'Comprar carta';
 
   return (
     <div className="table-area">
-      <div className="player-table" aria-label="Jogadores na mesa">
-        {estado.jogadores.slice(0, 4).map((jogador, index) => (
+      <div
+        className={`player-table player-table-ring player-count-${Math.min(totalJogadores, 10)}`}
+        aria-label="Jogadores na mesa"
+      >
+        {estado.jogadores.map((jogador, index) => (
           <PlayerSeat
             key={jogador.id}
             jogador={jogador}
             index={index}
+            totalJogadores={totalJogadores}
             active={jogador.id === estado.vezDe}
           />
         ))}

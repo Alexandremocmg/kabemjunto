@@ -1989,3 +1989,54 @@ h5 {
     animation: none;
   }
 }
+
+/* Assentos circulares: o índice do array segue a ordem horária visual. */
+.player-table-ring {
+  inset: 0;
+}
+
+.player-seat.player-seat-ring {
+  top: 50%;
+  right: auto;
+  bottom: auto;
+  left: 50%;
+  width: var(--seat-width, 138px);
+  transform: translate(-50%, -50%) rotate(var(--seat-angle))
+    translateY(calc(-1 * var(--seat-radius, min(30vw, 260px)))) rotate(calc(-1 * var(--seat-angle)));
+}
+
+@media (max-width: 480px) {
+  .player-seat.player-seat-ring {
+    top: calc(50% - 20px);
+    width: var(--seat-width, 112px);
+    transform: translate(-50%, -50%) translate(var(--seat-offset-x), var(--seat-offset-y));
+  }
+
+  .player-table-ring .player-seat {
+    padding: 5px;
+  }
+
+  .player-table-ring.player-count-7 .player-seat,
+  .player-table-ring.player-count-8 .player-seat,
+  .player-table-ring.player-count-9 .player-seat,
+  .player-table-ring.player-count-10 .player-seat {
+    width: 92px;
+    grid-template-columns: 28px minmax(0, 1fr) 20px;
+    font-size: 10px;
+  }
+
+  .player-table-ring.player-count-7,
+  .player-table-ring.player-count-8,
+  .player-table-ring.player-count-9,
+  .player-table-ring.player-count-10 {
+    --seat-radius: 142px;
+  }
+
+  .player-table-ring.player-count-2,
+  .player-table-ring.player-count-3,
+  .player-table-ring.player-count-4,
+  .player-table-ring.player-count-5,
+  .player-table-ring.player-count-6 {
+    --seat-radius: 128px;
+  }
+}

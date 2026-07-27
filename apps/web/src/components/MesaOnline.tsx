@@ -14,18 +14,31 @@ interface MesaOnlineProps {
 function AssentoOnline({
   jogador,
   index,
+  totalJogadores,
   ativo,
   jogadorId,
 }: {
   jogador: JogadorPublico;
   index: number;
+  totalJogadores: number;
   ativo: boolean;
   jogadorId?: string | undefined;
 }) {
   const voce = jogador.id === jogadorId;
+  const angle = 180 + (index * 360) / totalJogadores;
+  const radians = (angle * Math.PI) / 180;
   return (
     <div
-      className={`player-seat player-seat-${index + 1} ${voce ? 'player-seat-you' : ''} ${ativo ? 'active' : ''}`}
+      className={`player-seat player-seat-ring ${voce ? 'player-seat-you' : ''} ${ativo ? 'active' : ''}`}
+      style={
+        {
+          '--seat-angle': `${angle}deg`,
+          '--seat-offset-x': `${Math.sin(radians) * 140}px`,
+          '--seat-offset-y': `${-Math.cos(radians) * 210}px`,
+        } as React.CSSProperties
+      }
+      data-seat-index={index}
+      aria-label={`Assento ${index + 1} de ${totalJogadores}: ${jogador.nome}`}
     >
       <div className="player-seat-avatar" aria-hidden="true">
         {jogador.avatar || '👤'}
@@ -51,19 +64,29 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
 }) => {
   const minhaVez = estado.vezDe === jogadorId;
   const jogadorAtual = estado.jogadores.find((jogador) => jogador.id === estado.vezDe);
+  const totalJogadores = estado.jogadores.length;
+  const indiceLocal = estado.jogadores.findIndex((jogador) => jogador.id === jogadorId);
 
   return (
     <div className="table-area online-table-area">
-      <div className="player-table" aria-label="Jogadores na mesa online">
-        {estado.jogadores.slice(0, 4).map((jogador, index) => (
-          <AssentoOnline
-            key={jogador.id}
-            jogador={jogador}
-            index={index}
-            ativo={jogador.id === estado.vezDe}
-            jogadorId={jogadorId}
-          />
-        ))}
+      <div
+        className={`player-table player-table-ring player-count-${Math.min(totalJogadores, 10)}`}
+        aria-label="Jogadores na mesa online"
+      >
+        {estado.jogadores.map((jogador, index) => {
+          const indiceVisual =
+            indiceLocal >= 0 ? (index - indiceLocal + totalJogadores) % totalJogadores : index;
+          return (
+            <AssentoOnline
+              key={jogador.id}
+              jogador={jogador}
+              index={indiceVisual}
+              totalJogadores={totalJogadores}
+              ativo={jogador.id === estado.vezDe}
+              jogadorId={jogadorId}
+            />
+          );
+        })}
       </div>
 
       <div className="table-center" aria-label="Núcleo da mesa online">

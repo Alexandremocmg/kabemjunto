@@ -103,7 +103,7 @@ export const Lobby: React.FC<LobbyProps> = ({ onIniciarJogo }) => {
             <span>
               <SlidersHorizontal size={15} /> MODO DE JOGO
             </span>
-            <small>Fase 1 suporta 2–4 assentos visuais</small>
+            <small>2–10 assentos visuais em disposição circular</small>
           </div>
           <div className="local-mode-toggle" role="group" aria-label="Modo de jogo">
             <button

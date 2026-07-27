@@ -40,6 +40,27 @@ test('dois clientes entram na mesma sala e iniciam uma partida', async ({ browse
   await convidado.context().close();
 });
 
+test('mesa local distribui dez jogadores em ordem circular sem overflow', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await page.getByRole('button', { name: '🏠 Local' }).click();
+  await page.getByRole('slider', { name: 'Quantidade de jogadores' }).fill('10');
+  await page.getByRole('button', { name: 'INICIAR PARTIDA CONFIGURADA' }).click();
+
+  const assentos = page.locator('.player-table-ring .player-seat');
+  await expect(assentos).toHaveCount(10);
+  await expect(page.locator('.player-seat-you')).toBeVisible();
+  await expect(page.locator('.hand-container')).toBeVisible();
+  await expect
+    .poll(async () => page.evaluate(() => document.documentElement.scrollWidth))
+    .toBe(390);
+
+  const indices = await assentos.evaluateAll((elements) =>
+    elements.map((element) => element.getAttribute('data-seat-index')),
+  );
+  expect(indices).toEqual(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']);
+});
+
 test('cliente recarrega e recupera a sessao da partida', async ({ browser }) => {
   const { host, convidado } = await abrirPartida(browser);
 

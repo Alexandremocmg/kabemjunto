@@ -268,3 +268,7 @@ Estado: documentação atualizada e Fase 1 autorizada para implementação.
 - Reconexão inicial e tentativas automáticas exibem `Reconectando...`; falha definitiva retorna a `Offline`.
 - E2E com dois clientes confirmou entrada na mesma sala, início da partida, mesa nos dois clientes e recuperação após reload.
 - Validação visual mobile confirmou `scrollWidth=390`, mesa sem overflow, descarte livre e mão visível no rodapé.
+- Assentos Local e Online passaram a usar anel elíptico responsivo, com o jogador local como referência inferior.
+- A ordem visual agora acompanha a ordem canônica do array de jogadores no sentido horário; no Online, a lista é rotacionada a partir do `jogadorId` local.
+- O modo Local passou a renderizar todos os jogadores permitidos (2–10), removendo o limite acidental de quatro assentos.
+- E2E específico com 10 jogadores confirmou os dez assentos, índices `0..9` e ausência de overflow em `390x844`.
