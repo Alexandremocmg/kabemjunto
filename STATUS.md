@@ -130,13 +130,18 @@ Sprint 1 fechada. Quando pegar a bola de novo, opções:
 
 ---
 
-## 🔵 Antigravity (próxima janela)
+## 🔵 Antigravity ✅ (Sprint 2 — PWA & Mobile Entregue)
 
-Sprint 1 fechada. Quando pegar a bola de novo, opções:
+### Última atualização · 2026-07-26 23:55 BRT
 
-- **Sprint 2 / Beta** — Assets pra mobile (PWA icons, splash screen)
-- **Sprint 3** — Telemetria frontend (PostHog integration)
-- **Polish** — Mais avatares, temas sazonais
+**Hoje (Sprint 2 — PWA & Mobile):**
+
+- ✅ **B6 (Web App Manifest):** Criado `public/manifest.json` com nome _"Kabemjunto"_, cores de tema `#0F172A`/`#1F2937`, display `standalone` e suporte a categorias.
+- ✅ **B7 (Ícones & Favicons):** Criados em SVG responsivo e maskable: `public/favicon.svg`, `public/icon-192.svg`, `public/icon-512.svg` e `public/icon-maskable.svg`.
+- ✅ **B8 (Meta Tags Mobile & CSS Safe Area Insets):**
+  - Adicionadas meta tags PWA em `index.html` e `apps/web/index.html` (`viewport-fit=cover`, `mobile-web-app-capable`, `theme-color`).
+  - Adicionado suporte CSS a `env(safe-area-inset-top)` e `env(safe-area-inset-bottom)` em `src/styles/index.css`.
+- ✅ **Quality Gates (`npm run validate`):** **140/140 testes Vitest passando, 0 erros TS, 0 erros/warnings ESLint e 100% Prettier**.
 
 ---
 
@@ -150,3 +155,4 @@ Sprint 1 fechada. Quando pegar a bola de novo, opções:
 - **2026-07-26 23:30 BRT · Codex** — F1/F3/F4 polish (foco acessível, ARIA, toasts, vite ESM)
 - **2026-07-26 23:30 BRT · Antigravity** — A1-A8: 12 avatares, 2 badges, deck108.test.ts, lib confetti
 - **2026-07-26 23:36 BRT · Mavis** — Sprint 1 FECHADA. 93/93 testes, validação completa verde
+- **2026-07-26 23:55 BRT · Antigravity** — Sprint 2: B6 (Manifest PWA), B7 (Ícones & Favicons), B8 (Safe Area CSS & Meta tags mobile). 140/140 testes verdes!
