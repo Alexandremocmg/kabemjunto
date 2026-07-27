@@ -28,7 +28,7 @@ import {
   type ModoJogo,
 } from '@kabemjunto/shared';
 import { BARALHO_COMPLETO_108 } from '@kabemjunto/shared/constants';
-import type { Carta, Cor, EstadoPartida } from '@kabemjunto/shared';
+import type { Carta, Cor, EstadoPartida, JogadorId } from '@kabemjunto/shared';
 import { audioService } from './audioService';
 
 // ─────────────────────────────────────────────────────────────────────
@@ -90,11 +90,13 @@ export function jogarCarta(
   estado: EstadoPartida,
   cartaIndex: number,
   corEscolhida?: Exclude<Cor, 'NEUTRO'>,
+  alvoTrocaId?: JogadorId,
 ): EstadoPartida {
   const resultado = executarJogada({
     estado,
     cartaIndex,
     ...(corEscolhida ? { corEscolhida } : {}),
+    ...(alvoTrocaId ? { alvoTrocaId } : {}),
   });
   tocarSFX(resultado.sfx);
   logEvents(resultado.eventos);

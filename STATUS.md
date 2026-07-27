@@ -254,3 +254,4 @@ Estado: documentação atualizada e Fase 1 autorizada para implementação.
 - Assento do jogador humano centralizado na borda inferior da mesa mobile, próximo à mão.
 - Modo Local e `EstadoPartida` persistidos em `sessionStorage` para recuperação após reload durante a sessão.
 - Validação confirmou mesa preservada após recarregar, sem retorno ao Lobby e sem erros de console.
+- `Troca Mão` no modo Local abre seleção de alvo, exclui o próprio jogador e encaminha `alvoTrocaId` ao motor autoritativo.

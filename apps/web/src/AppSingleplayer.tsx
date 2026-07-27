@@ -7,6 +7,7 @@ import { HUDJogador } from './components/HUDJogador';
 import { MesaDeJogo } from './components/MesaDeJogo';
 import { MaoDoJogador } from './components/MaoDoJogador';
 import { ModalEscolhaCor } from './components/ModalEscolhaCor';
+import { SelecionarAlvoTrocaMao } from './components/SelecionarAlvoTrocaMao';
 import { RegraDoSilencioBanner } from './components/RegraDoSilencioBanner';
 import { PainelVitoria } from './components/PainelVitoria';
 import { TutorialModal } from './components/TutorialModal';
@@ -39,6 +40,7 @@ export const App: React.FC = () => {
   const [showTutorial, setShowTutorial] = useState<boolean>(false);
   const [modalCorOpen, setModalCorOpen] = useState<boolean>(false);
   const [cartaIndexPendente, setCartaIndexPendente] = useState<number | null>(null);
+  const [cartaTrocaPendente, setCartaTrocaPendente] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [selectedCardIndex, setSelectedCardIndex] = useState<number | null>(null);
   const [eventQueue, setEventQueue] = useState<EventoVisual[]>([]);
@@ -194,6 +196,11 @@ export const App: React.FC = () => {
       audioService.play('descarte'); // toca um som de erro genérico (sem som específico)
     }
 
+    if (carta.acao === 'TROCA_MAO' && validacao.valida) {
+      setCartaTrocaPendente(index);
+      return;
+    }
+
     if (
       carta.tipo === 'NEUTRA' ||
       carta.acao === 'MAIS_QUATRO' ||
@@ -246,6 +253,30 @@ export const App: React.FC = () => {
     } finally {
       setModalCorOpen(false);
       setCartaIndexPendente(null);
+    }
+  };
+
+  const handleConfirmarTroca = (alvoId: string) => {
+    if (!estado || cartaTrocaPendente === null) return;
+    const jogadorAtual = estado.jogadores.find((j: Jogador) => j.id === estado.vezDe);
+    const carta = jogadorAtual?.mao[cartaTrocaPendente];
+    if (!jogadorAtual || !carta) return;
+
+    try {
+      const novoEstado = jogarCarta(estado, cartaTrocaPendente, undefined, alvoId);
+      registrarTransicao(estado, novoEstado, carta, jogadorAtual.nome);
+      setEstado(novoEstado);
+      mostrarFeedback({
+        tipo: 'sucesso',
+        texto: `${jogadorAtual.nome} trocou a mão com outro jogador.`,
+      });
+    } catch (err) {
+      mostrarFeedback({
+        tipo: 'erro',
+        texto: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setCartaTrocaPendente(null);
     }
   };
 
@@ -371,6 +402,24 @@ export const App: React.FC = () => {
       )}
 
       {modalCorOpen && <ModalEscolhaCor onEscolherCor={handleConfirmarCor} />}
+
+      {cartaTrocaPendente !== null && (
+        <SelecionarAlvoTrocaMao
+          jogadores={estado.jogadores.map((jogador) => ({
+            id: jogador.id,
+            nome: jogador.nome,
+            quantidadeCartas: jogador.mao.length,
+            isBot: jogador.isBot,
+            conectado: jogador.conectado,
+            disseUno: jogador.disseUno,
+            avatar: jogador.avatar,
+            pontos: jogador.pontos,
+          }))}
+          jogadorAtualId={estado.vezDe}
+          onCancel={() => setCartaTrocaPendente(null)}
+          onConfirm={handleConfirmarTroca}
+        />
+      )}
 
       {showTutorial && <TutorialModal onClose={() => setShowTutorial(false)} />}
 
