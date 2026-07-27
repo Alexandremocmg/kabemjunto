@@ -8,6 +8,8 @@ Este arquivo registra as Decisões de Arquitetura (ADRs) do projeto Kabemjunto.
 - [ADR-002: Palette de Cores HSL e Sistema de Design SVG/CSS](#adr-002-palette-de-cores-hsl-e-sistema-de-design-svgcss)
 - [ADR-003: Lock Estrito por Issue (Regra de Convivência Multi-Agente)](#adr-003-lock-estrito-por-issue-regra-de-convivência-multi-agente)
 - [ADR-004: Refactor do Motor de Regras para `packages/shared/src/rules/`](#adr-004-refactor-do-motor-de-regras-para-packagessharedsrules)
+- [ADR-005: Telemetria Opcional e Off-by-Default (LGPD)](#adr-005-telemetria-opcional-e-off-by-default-lgpd)
+- [ADR-006: Servidor Autoritativo (Validação no Back, Motor Compartilhado)](#adr-006-servidor-autoritativo-validação-no-back-motor-compartilhado)
 
 ---
 
@@ -117,4 +119,75 @@ Este arquivo registra as Decisões de Arquitetura (ADRs) do projeto Kabemjunto.
     tocarSFX(r.sfx); // Despacha o side effect de áudio
     return r.novoEstado;
   }
+  ```
+
+---
+
+### ADR-005: Telemetria Opcional e Off-by-Default (LGPD)
+
+- **Status:** Aprovado · 2026-07-27 · @Mavis
+- **Contexto:** O motor já retorna `eventos` em `ResultadoJogada` / `ResultadoCompra` (decisão natural durante ADR-004). Precisamos decidir **se** coletar esses eventos em produção, e **como** fazê-lo respeitando a LGPD.
+- **Decisão:**
+  1. Módulo `packages/shared/src/telemetry/telemetry.ts` com API explícita: `configureTelemetry`, `logEvent`, `logEvents`, `logCustom`, `makeContext`.
+  2. `enabled: false` por padrão. Quem quiser ligar chama `configureTelemetry({ enabled: true, sampleRate, sink, context })` no boot.
+  3. Sinks plugáveis: `consoleSink` (dev), `noopSink` (testes), `TelemetrySink` é interface aberta pra PostHog/Sentry/custom no futuro.
+  4. Erros em sinks (sync ou async) **nunca** derrubam o jogo — são logados em `console.error` e descartados.
+  5. **LGPD:** `EventoPartida` carrega só IDs (jogador, sala, partida), não PII. Nomes de jogadores ficam só no estado (não são logados por padrão).
+  6. Wrapper frontend `src/services/gameEngine.ts` chama `logEvents(resultado.eventos)` automaticamente — **mas como `enabled=false` por padrão, é zero-overhead em dev/prod local**.
+- **Consequências:**
+  - ✅ Telemetria não vaza dados sem opt-in explícito.
+  - ✅ Estrutura pronta pra Beta: ligar PostHog é 1 chamada de `configureTelemetry`.
+  - ✅ Testes do motor continuam determinísticos (sink = `noopSink`).
+  - ❌ Telemetria off → perdemos dados de debug em prod até alguém ligar. (Mitigação: doc claro de como ligar no README.)
+- **Configuração sugerida (quando ligar em prod):**
+
+  ```typescript
+  // src/main.tsx
+  if (import.meta.env.PROD) {
+    configureTelemetry({
+      enabled: true,
+      sampleRate: 0.1, // 10% das partidas
+      sink: posthogSink, // implementar adapter PostHog
+      context: { modo: 'ONLINE' },
+    });
+  }
+  ```
+
+---
+
+### ADR-006: Servidor Autoritativo (Validação no Back, Motor Compartilhado)
+
+- **Status:** Aprovado · 2026-07-27 · @Mavis / @Codex
+- **Contexto:** O jogo é competitivo (denúncia, UNO, ataques, 0+). Confiar no cliente abre brechas de cheating: jogador pode editar estado local, jogar carta que não tem, mentir sobre silenciamento, etc. Também precisamos de multiplayer real entre 2-10 jogadores.
+- **Decisão:**
+  1. **`apps/server/`** com Fastify + Socket.IO é a **fonte da verdade** do estado durante partida online.
+  2. Toda entrada de jogador (`client:jogar`, `client:comprar`, `client:escolher:cor`, `client:chat:msg`) passa por `RoomStore`, que:
+     - Confere que é a vez do jogador (`NAO_SUA_VEZ`)
+     - Confere que a carta está na mão (`JOGADA_INVALIDA`)
+     - Chama o **motor compartilhado** (`@kabemjunto/shared`) — mesma função que o cliente usa pra UI.
+  3. **Cliente nunca é confiável:** se o cliente mandar `cartaId` que não tem, `executarJogada` lança → `RoomError('JOGADA_INVALIDA')` → `server:jogada:rejeitada` + `server:erro` pro socket.
+  4. **Estado público sem mãos:** `toPublicState(estado)` projeta o estado, omitindo `jogador.mao`. Cliente só vê `quantidadeCartas` e a carta do topo.
+  5. **Reconexão** (futuro Sprint 3) usará M12 (`SnapshotStack`) pra restaurar estado sem reiniciar a partida.
+  6. **Chat sanitizado** server-side (remove `<` `>`, trim, max 240 chars) — defesa em profundidade, mesmo com sanitização no front.
+- **Consequências:**
+  - ✅ Cheating estruturalmente bloqueado: cliente não tem como jogar carta que não tem.
+  - ✅ Motor escrito 1 vez, validado em 2 lugares (front e back) — zero divergência.
+  - ✅ Estado público seguro: `toPublicState` é o único caminho do servidor pro cliente.
+  - ✅ Reconexão barata (snapshot + diff).
+  - ❌ Latência: cada jogada vai e volta do servidor. Mitigação: Fastify + Socket.IO local-first é < 5 ms; WAN fica em < 80 ms.
+  - ❌ Estado em memória (Sprint 2): restart do servidor = partida perdida. Mitigação: Sprint 3+ adiciona Redis/Postgres.
+- **Diagrama de fluxo de uma jogada online:**
+
+  ```
+  cliente → socket 'client:jogar' { cartaId, corEscolhida? }
+       ↓
+  RoomStore.play() {
+    if (vezDe !== socketId) → NAO_SUA_VEZ
+    if (carta não está na mão) → JOGADA_INVALIDA
+    resultado = executarJogada(...)  // motor puro
+    saveState(...)
+  }
+       ↓
+  broadcast 'server:estado:atualizado' { estado: toPublicState(resultado) }
+  + socket.emit 'server:jogada:aceita' { cartaId, jogadorId }
   ```

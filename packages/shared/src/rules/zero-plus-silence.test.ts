@@ -254,11 +254,9 @@ describe('0+ (Zero Mais) — partida de 2 jogadores', () => {
     if (idx < 0) return;
 
     const r = executarJogada({ estado: novoEstado, cartaIndex: idx, corEscolhida: 'AZUL' });
-    // j1 (que jogou 0+) mantém sua mão
+    // j1 (que jogou 0+) recebe a mão do j2 (swap = 2 jogadores)
     const novaMaoJ1 = r.novoEstado.jogadores[0]!.mao.map((c) => c.id);
     const novaMaoJ2 = r.novoEstado.jogadores[1]!.mao.map((c) => c.id);
-    // eslint-disable-next-line no-console
-    console.log('DEBUG 0+ 2j:', { maoJ1Original, maoJ2Original, novaMaoJ1, novaMaoJ2 });
     // j1 recebe a mão do j2 (7 cartas)
     expect(novaMaoJ1).toEqual(maoJ2Original);
     // j2 recebe a mão do j1 (sem o 0+ descartado: 6 cartas)

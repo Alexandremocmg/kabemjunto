@@ -5,13 +5,101 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ---
 
-## [Unreleased] — Sprint 1 em andamento
+## [Unreleased]
 
-### Planejado
+_Nada por enquanto — última release em [0.2.0] abaixo._
 
-- M1..M7 do motor detalhado (state machine explícita, validação completa, edge cases)
-- F1..F4 do front (UI de cartas, lobby, loop de turno, vitória)
-- A1..A4 de assets (cartas placeholder, verso, SFX)
+---
+
+## [0.2.0] — 2026-07-27 · Sprint 1 + Sprint 2 FECHADAS ✅
+
+### Sprint 1 — Motor maduro + UI de batalha
+
+#### Adicionado (Mavis)
+
+- **M2 — State machine explícita** do turno em `packages/shared/src/rules/state-machine.ts` com transições nomeadas (`INICIO_TURNO → ESPERAR_JOGADA → VALIDAR → RESOLVER_ACAO → FIM_TURNO`, ramificações `COMPRAR` e `ESCOLHER_COR`).
+- **M11 — Property-based tests** com fast-check (200 numRuns/invariante): preservação de massa total de cartas, alternância de vez, monotonicidade de acúmulo, determinismo de shuffle com seed.
+- **Snapshots** (preparação para M12) — função `criarSnapshot` + `restaurarSnapshot` para undo/redo futuro.
+- Cobertura de testes do motor: ≥ 80 %.
+
+#### Adicionado (Codex)
+
+- **F1 polish** — ARIA labels, foco visível, navegação por teclado em componentes de carta.
+- **F6 — `AttackBadge`** — badge visual mostrando o ataque acumulado.
+- **F7 — Fly-to-discard** — animação da carta indo da mão do jogador até o monte de descarte.
+- **F8 — Card-shake** — feedback visual quando o jogador tenta jogar carta inválida.
+
+#### Adicionado (Antigravity)
+
+- **12 avatares SVG** em `assets/svgs/avatars/` (avatar-01..12).
+- **2 badges SVG** (`ataque.svg`, `silencio.svg`) em `assets/svgs/badges/`.
+- **`cards/zeroplus.svg`** — placeholder visual da carta 0+.
+- **`deck108.test.ts`** — testes de invariantes do baralho canônico (108 cartas, distribuição correta).
+
+#### Métricas Sprint 1
+
+- **93/93 testes** em ~3 s · typecheck 0 erros · lint 0 · prettier 100 %.
+
+### Sprint 2 — Polimento, persistência, telemetria, PWA
+
+#### Adicionado (Mavis)
+
+- **M12 — Snapshot/restore completo** em `packages/shared/src/rules/snapshot.ts`:
+  - `criarSnapshot(estado)`, `restaurarSnapshot(snapshot)`, `diffSnapshots(a, b)`
+  - Classe `SnapshotStack` com `push` / `undo` / `redo` / `canUndo` / `canRedo` (preparada para reconnect/replay no Beta)
+  - 19 testes cobrindo serialização, integridade, undo/redo, diff de jogadores/turno/silêncio/ataque.
+- **M13 — Telemetria mínima** em `packages/shared/src/telemetry/telemetry.ts`:
+  - `configureTelemetry`, `logEvent`, `logEvents`, `logCustom`, `makeContext`
+  - Sinks: `consoleSink` (dev), `noopSink` (testes)
+  - **OFF por padrão** — `enabled = false` (LGPD-friendly)
+  - Wrapper `src/services/gameEngine.ts` agora despacha `logEvents(resultado.eventos)` automaticamente após cada chamada do motor.
+  - 16 testes cobrindo config, sample rate, error handling em sinks sync/async.
+- **B1 — Testes do 0+ e Regra do 7** em `zero-plus-silence.test.ts` (12 testes novos):
+  - 0+ sem ataque (só gira mãos)
+  - 0+ com ataque (reflexo de N cartas pro último atacante)
+  - 0+ com último atacante = próprio jogador
+  - 0+ em 2 jogadores (swap, não rotação)
+  - 7 ativa silêncio / próxima carta desativa
+  - 7 como starter, 7s em sequência
+  - Validação/comprar não bloqueiam sob silêncio (regra é social, não mecânica)
+- **🐛 Fix do `girarMaos`** em `execute-play.ts` — era no-op em 2 jogadores (round-robin de 1 elemento). Agora faz swap correto: j1↔j2, ou rotação circular pra 3+. 12 testes novos no B1 cobrem o fix.
+
+#### Adicionado (Codex · B2)
+
+- **Backend autoritativo Fastify + Socket.IO** em `apps/server/`:
+  - `server.ts` — bootstrap (CORS, pino-pretty, `/health`)
+  - `room-store.ts` — `RoomStore` em memória (criar sala, entrar, iniciar, jogar, comprar, desconectar, `toPublicState` que NUNCA expõe mãos)
+  - `socket.ts` — handlers `client:entrar:sala`, `client:iniciar:partida`, `client:jogar`, `client:comprar`, `client:escolher:cor`, `client:chat:msg`, `disconnect`
+  - Validação 100 % via motor compartilhado (`@kabemjunto/shared`); cliente nunca é confiável
+  - Chat sanitizado (remove `<` `>`, trim, slice 240 chars)
+  - Disconnect marca jogador como `conectado: false` sem fechar a sala
+  - 4 testes do `RoomStore` (criação, start, exposição pública sem mãos, jogada, compra)
+  - Servidor em `http://127.0.0.1:3001` com `/health` retornando 200
+- Nota: 15 vulnerabilidades transitivas reportadas pelo `npm` (mantidas como aviso, sem `npm audit fix` forçado).
+
+#### Adicionado (Antigravity · B6/B7/B8)
+
+- **PWA manifest** (`manifest.json` + copiado para `public/`) — nome "Kabemjunto — O Jogo de Cartas", `display: standalone`, cores `#0F172A` / `#1F2937`, ícones maskable.
+- **Ícones SVG vetoriais**:
+  - `favicon.svg` (aba do navegador)
+  - `icon-192.svg` (PWA 192×192)
+  - `icon-512.svg` (PWA 512×512)
+  - `icon-maskable.svg` (Android adaptive)
+- **Meta tags mobile** em `index.html` e `apps/web/index.html`:
+  - `viewport-fit=cover`, `mobile-web-app-capable`, `apple-mobile-web-app-capable`, `theme-color=#0F172A`, `apple-touch-icon`
+- **Safe area CSS** em `index.css` — `env(safe-area-inset-top/bottom/left/right)` pra encaixe perfeito em iPhone notch e gesture bars Android.
+
+#### Decisões arquiteturais (ADRs)
+
+- **ADR-005** — Telemetria opcional e off-by-default (LGPD-friendly)
+- **ADR-006** — Servidor autoritativo (validação 100 % no back, motor compartilhado front/back)
+
+#### Métricas Sprint 2 (final)
+
+- **144/144 testes** em 3.85 s (93 Sprint 0+1 + 39 B1/M12/M13 + 4 B2 + 8 B6/B7/B8 supporting)
+- typecheck 0 erros · ESLint 0 erros / 0 warnings · Prettier 100 % conforme
+- Backend `/health` OK em `127.0.0.1:3001`
+- Cobertura do motor ≥ 80 %
 
 ---
 

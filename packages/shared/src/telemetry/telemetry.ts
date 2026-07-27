@@ -151,15 +151,32 @@ export function logEvents(eventos: ReadonlyArray<EventoPartida>): void {
 /**
  * Helper: log de evento custom (não do motor).
  * Útil pra UI events: 'CARTA_CLICADA', 'PARTIDA_INICIADA', etc.
+ *
+ * Implementação separada de `logEvent` porque `EventoPartida` é uma união
+ * discriminada por `tipo` e não podemos fingir que um evento arbitrário é
+ * um evento do motor — este helper monta um `TelemetryEvent` direto.
  */
 export function logCustom(tipo: string, properties: Record<string, unknown> = {}): void {
-  logEvent({
+  if (!currentConfig.enabled) return;
+  if (Math.random() > currentConfig.sampleRate) return;
+
+  const telEvent: TelemetryEvent = {
     tipo,
     timestamp: Date.now(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ...({} as any), // hack pra satisfazer tipo discriminado
     properties,
-  } as unknown as EventoPartida);
+    context: currentConfig.context ?? {},
+  };
+
+  try {
+    const result = currentConfig.sink.emit(telEvent);
+    if (result instanceof Promise) {
+      result.catch((err) => {
+        console.error('[telemetry] sink error:', err);
+      });
+    }
+  } catch (err) {
+    console.error('[telemetry] sync error:', err);
+  }
 }
 
 /**
