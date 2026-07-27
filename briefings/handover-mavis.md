@@ -168,45 +168,59 @@ Se tiver pressa, leia só os **marcados com ⭐**:
 
 ---
 
-## 📦 Estado atual do projeto (2026-07-27 18:40 BRT)
+## 📦 Estado atual do projeto (2026-07-27 19:10 BRT)
 
 ### Releases
 
 - **v0.3.0** — Sprint 3 release candidate (tag no GitHub)
-- **v0.3.1** — Sprint 3 polish (B12/B13/B16 + telemetria RECONETADO)
-- **v0.4.0** — Sprint 5 (a ser taggeado quando fechada, ~80% pronto)
+- **v0.3.1** — Sprint 3 polish (tag no GitHub)
+- **v0.4.0** — release candidate funcional; tag bloqueada até concluir evidências da Sprint 5
 
-### Commits
+### Repositório
 
-- 21 commits no `main` desde início do projeto (2026-07-26)
-- Working tree tem mudanças untracked do time (Codex/Antigravity em paralelo)
+- `main` local e `origin/main` sincronizados no SHA `02d3dac`
+- Working tree limpo no início da revisão M20
+- App único consolidado em `apps/web/`; não há `src/` legacy rastreado
 
 ### Testes
 
-- **165/165** unit/integration verdes em ~3s
-- **E2E** (Playwright) com 2 specs prontas (`e2e/jogo-completo.spec.ts`, `e2e/lobby-acessibilidade.spec.ts`)
-- **Cobertura do motor** ≥ 80%
+- **171/171** testes unitários/integração verdes
+- **6/6 E2E** Playwright verdes
+- **90,16%** de cobertura de statements/linhas no motor compartilhado
+- Build de produção, lint, typecheck e Prettier verdes
 
-### Issues ativas (Sprint 5 — 80% completa)
+### Sprint 5 — fechamento condicionado
 
-- ✅ M16 (consolidação dual app) — Mavis
-- ✅ M19 (CI + badges) — Mavis
-- ✅ B17 (PostHog) — Mavis (com API key do user)
-- ✅ A11 (404) — Antigravity
-- ✅ A12 (vitória animada) — Antigravity
-- ✅ B18 (E2E Playwright) — Codex (config + specs)
-- ✅ B19 (a11y) — Codex (SelecionarAlvoTrocaMao, hand swap picker)
-- 🟡 Working tree tem mudanças do time (scripts/dev-all.mjs, LobbyOnline.tsx, etc) que precisam ser commitadas
+Itens já entregues:
+
+- ✅ M16 — consolidação do app em `apps/web/`
+- ✅ M19 — workflow de CI, cobertura e E2E
+- ✅ B17 — `posthogSink` e emissão de `RECONECTADO` no código
+- ✅ A11 — 404 estilizada
+- ✅ A12 — vitória animada/confetti
+- ✅ B18 — infraestrutura E2E e seis cenários
+- ✅ B19 — acessibilidade básica do Lobby
+- ✅ Proxy Socket.IO same-origin para túnel público
+- ✅ `npm run dev` inicia backend + frontend
+
+Evidências pendentes antes da tag `v0.4.0`:
+
+1. E2E determinístico de partida Online até a vitória (B20)
+2. CI externo verde no último SHA
+3. Evento `RECONECTADO` confirmado no dashboard PostHog
+4. Lighthouse Accessibility ≥ 95 em build de produção
+5. Fechamento documental e tag anotada
 
 ---
 
 ## ⚠️ Pendências conhecidas
 
-1. **Working tree** tem mudanças untracked (scripts/, App.tsx, LobbyOnline.tsx) — commitar antes de fechar Sprint 5
-2. **`.env`** com API key real do PostHog — não commitar (usar `.env.example` como template)
-3. **CI do GitHub Actions** — vai rodar automaticamente no próximo push. Se badge vermelho, verificar logs
-4. **M17 (persistência)** e **M18 (auth)** ficaram pra Sprint 6 (não-caminho-B)
-5. **Sprint 6+** ainda não foi planejada
+1. **B20** — o E2E atual prova entrada, início e reload, mas não conclui uma partida até a vitória
+2. **PostHog** — sink e evento existem; falta evidência no dashboard real
+3. **GitHub Actions** — workflow está configurado; resultado externo precisa ser confirmado com acesso autenticado
+4. **Lighthouse** — meta ≥95 ainda não foi medida
+5. **M17 (persistência)** e **M18 (auth)** seguem candidatas à Sprint 6
+6. **Sprint 6** recomendada: persistência, deploy estável, hardening e observabilidade
 
 ---
 

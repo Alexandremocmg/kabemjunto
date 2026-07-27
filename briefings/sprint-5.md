@@ -8,7 +8,9 @@
 **Caminho escolhido:** **B (Robusto, ~18h)**
 **Pré-requisito:** Sprint 3+4 fechadas (✅ v0.3.1 released 2026-07-27).
 
-**ADR-009** (a publicar): Decisões de consolidação dual app.
+**ADR-009** publicada: consolidação do app único em `apps/web/`.
+
+**Revisão Mavis (2026-07-27 19:10 BRT):** implementação funcional aprovada com condições. A tag `v0.4.0` permanece bloqueada pelas evidências listadas no fechamento.
 
 ---
 
@@ -209,17 +211,18 @@
 
 ## Definição de Pronto (Sprint 5 fechada quando TUDO isso for verdade)
 
-- [ ] `src/` raiz deletado, app consolidado em `apps/web/`
-- [ ] `npm run dev` mostra app único (single + multiplayer com toggle)
-- [ ] `npm run e2e` verde (≥ 2 testes Playwright)
-- [ ] PostHog recebendo eventos `RECONETADO` em prod
-- [ ] CI roda `validate` + `e2e` em todo PR
+- [x] `src/` raiz deletado, app consolidado em `apps/web/`
+- [x] `npm run dev` mostra app único (Local + Online com toggle)
+- [x] `npm run e2e` verde (6 testes Playwright)
+- [ ] E2E Online conclui uma partida até a vitória (B20)
+- [ ] PostHog recebe e exibe `RECONECTADO` em produção
+- [ ] CI externo confirma `validate` + `e2e` no último SHA
 - [ ] Lighthouse Accessibility ≥ 95
-- [ ] Vitória dispara confetti
-- [ ] 404 page estilizada
-- [ ] `npm run validate` verde
-- [ ] `apps/web/src/components/` contém todos os componentes (movidos de `src/`)
-- [ ] ADR-009 publicado
+- [x] Vitória dispara confetti
+- [x] 404 page estilizada
+- [x] `npm run validate` verde (171 testes)
+- [x] `apps/web/src/components/` contém os componentes consolidados
+- [x] ADR-009 publicada
 - [ ] v0.4.0 tagged + pushed
 
 ---

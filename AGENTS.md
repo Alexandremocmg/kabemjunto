@@ -29,21 +29,18 @@ Cada agente só toca em arquivos do escopo da issue que pegou.
 
 ## Onde achar o quê
 
-| Pasta                              | Dono                        | O quê                                          |
-| ---------------------------------- | --------------------------- | ---------------------------------------------- |
-| `packages/shared/src/rules/**`     | **Mavis**                   | Motor puro (state machine, validar, executar)  |
-| `packages/shared/src/types/**`     | **Mavis**                   | Tipos canônicos (Carta, Jogador, Estado, etc.) |
-| `packages/shared/src/telemetry/**` | **Mavis**                   | Telemetria LGPD-friendly                       |
-| `packages/shared/src/constants/**` | **Mavis**                   | Baralho 108, avatares, etc.                    |
-| `src/components/**` (lógica)       | **Codex**                   | Componentes React com lógica                   |
-| `src/components/**` (só CSS)       | **Antigravity**             | Componentes com estilo, sem regra              |
-| `src/services/**`                  | **Codex**                   | Wrappers, hooks, integrações                   |
-| `src/styles/**`                    | **Antigravity**             | CSS, design system                             |
-| `apps/server/src/**`               | **Codex**                   | Backend Fastify + Socket.IO                    |
-| `apps/web/src/**`                  | **Codex**                   | Frontend PWA (Vite + React)                    |
-| `assets/**`                        | **Antigravity**             | SVGs, áudio, ícones                            |
-| `*.md` (docs)                      | **Mavis** + **Antigravity** | Docs do projeto                                |
-| `DECISIONS.md`                     | **Mavis**                   | ADRs (mudanças estruturais)                    |
+| Pasta                              | Dono                        | O quê                                           |
+| ---------------------------------- | --------------------------- | ----------------------------------------------- |
+| `packages/shared/src/rules/**`     | **Mavis**                   | Motor puro (state machine, validar, executar)   |
+| `packages/shared/src/types/**`     | **Mavis**                   | Tipos canônicos (Carta, Jogador, Estado, etc.)  |
+| `packages/shared/src/telemetry/**` | **Mavis**                   | Telemetria LGPD-friendly                        |
+| `packages/shared/src/constants/**` | **Mavis**                   | Baralho 108, avatares, etc.                     |
+| `apps/server/src/**`               | **Codex**                   | Backend Fastify + Socket.IO                     |
+| `apps/web/src/**`                  | **Codex**                   | Frontend PWA consolidado (lógica e integrações) |
+| `apps/web/src/**/*.css`            | **Antigravity**             | CSS e design system, sem regra de negócio       |
+| `assets/**`                        | **Antigravity**             | SVGs, áudio, ícones                             |
+| `*.md` (docs)                      | **Mavis** + **Antigravity** | Docs do projeto                                 |
+| `DECISIONS.md`                     | **Mavis**                   | ADRs (mudanças estruturais)                     |
 
 ## Quality gates (não negociável)
 
@@ -51,11 +48,11 @@ Cada agente só toca em arquivos do escopo da issue que pegou.
 - TS strict mode (zero `as any` em produção)
 - ESLint 0 erros
 - Prettier 100% conforme
-- Testes verdes (atualmente 150/150)
+- Testes verdes (atualmente 171/171)
 
 ## Onde achar o briefing atual
 
-→ [`briefings/sprint-3.md`](./briefings/sprint-3.md) (Sprint 3 — Beta multiplayer)
+→ [`briefings/sprint-5.md`](./briefings/sprint-5.md) (Sprint 5 — fechamento da v0.4.0)
 
 ## Onde achar feedback histórico
 
