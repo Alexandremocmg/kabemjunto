@@ -12,6 +12,7 @@ Este arquivo registra as Decisões de Arquitetura (ADRs) do projeto Kabemjunto.
 - [ADR-006: Servidor Autoritativo (Validação no Back, Motor Compartilhado)](#adr-006-servidor-autoritativo-validação-no-back-motor-compartilhado)
 - [ADR-007: Mavis como Gerente/Revisor (Especialização por Papel)](#adr-007-mavis-como-gerenterevisor-especialização-por-papel)
 - [ADR-008: Dual App (Manter `src/` Legacy + `apps/web/` Novo)](#adr-008-dual-app-manter-src-legacy--appsweb-novo)
+- [ADR-009: Consolidação do App Único em `apps/web/` (Fim do Dual App)](#adr-009-consolidação-do-app-único-em-appsweb-fim-do-dual-app)
 
 ---
 

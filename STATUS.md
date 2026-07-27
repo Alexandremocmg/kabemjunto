@@ -129,8 +129,9 @@ docs/
 
 **Sprint 2:** ✅ Fechada — M12, M13, B1 entregues (com fix do bug do `girarMaos`)
 **Sprint 3 (papel gerente/revisor):** M14 ✅ (2026-07-27 01:00 BRT) — Identidade estável de jogador destrava B13 (reconnect handler do Codex). Spec em `briefings/m14-reconexao-identidade.md`, feedback em `feedback/2026-07-27-m14-mavis.md`. M15 ✅ (2026-07-27 01:22 BRT) — Decisão de manter dual app (Opção A) documentada em ADR-008. Pendente: nenhum da minha lista.
-**Bloqueios:** nenhum
-**Próximo:** Apoiar Codex/Antigravity em B13 (reconnect) e B16 (integrar assets no lobby)
+**Sprint 5 (Release Robusto):** M16 ✅ (2026-07-27 06:35 BRT) — Consolidação dual app em `apps/web/` (fase 1-5). ADR-009 publicado. Pendente: M19 (CI, vou fazer).
+**Bloqueios:** B17 (PostHog) precisa de API key do user
+**Próximo:** M19 (CI + badge), apoiar B17/B18/B19 do Codex, A11/A12 do Antigravity (Sprint 5)
 
 ---
 
