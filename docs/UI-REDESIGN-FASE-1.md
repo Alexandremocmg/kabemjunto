@@ -93,6 +93,14 @@ por toque e possui alternativa textual em `aria-live`.
 - Histórico mobile ocupa uma faixa intermediária, sem cobrir header, status ou
   mão.
 
+## Fase 3 — lobby local e resultado
+
+- Lobby Local ganhou ação primária `JOGAR AGORA`, criação de mesa Hot-seat e configuração explícita.
+- Nome do jogador e quantidade de jogadores são controles reais, sem valores exibidos apenas como decoração.
+- Tela de vitória exibe vencedor, ordem final e estatísticas derivadas do histórico autoritativo.
+- Pontuação não é inventada: quando não há métrica canônica no estado, a UI exibe contagens de jogadas, compras e efeitos.
+- Vitória respeita `prefers-reduced-motion` ao desabilitar confetti.
+
 ## Acessibilidade
 
 - Monte e cartas são controles focáveis e operáveis por teclado.

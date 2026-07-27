@@ -1279,3 +1279,359 @@ h5 {
     display: none;
   }
 }
+
+/* Fase 3 — Home da mesa Local */
+.local-home-screen {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  background: radial-gradient(circle at 50% 16%, #244b37 0%, #0d1c15 56%, #050b08 100%);
+}
+.local-home-card {
+  width: min(520px, 100%);
+  padding: clamp(24px, 6vw, 42px);
+  background: rgba(9, 18, 14, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 26px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
+}
+.local-home-brand {
+  margin-bottom: 26px;
+  text-align: center;
+}
+.local-home-kicker {
+  color: #a9c1b0;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+}
+.local-home-brand h1 {
+  margin: 7px 0 4px;
+  color: #f8c56b;
+  font-family: var(--font-title);
+  font-size: clamp(38px, 11vw, 60px);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  line-height: 0.95;
+}
+.local-home-brand p {
+  color: #c2d6c8;
+  font-size: 14px;
+}
+.local-home-actions {
+  display: grid;
+  gap: 10px;
+}
+.local-action-primary,
+.local-action-secondary,
+.local-start-secondary,
+.local-mode-toggle button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 0;
+  border-radius: 14px;
+  cursor: pointer;
+  font-family: var(--font-title);
+  font-weight: 900;
+}
+.local-action-primary {
+  flex-direction: column;
+  min-height: 96px;
+  padding: 15px;
+  color: #172015;
+  background: linear-gradient(135deg, #f8c56b, #f39c12);
+  box-shadow: 0 10px 24px rgba(243, 156, 18, 0.24);
+}
+.local-action-primary span {
+  font-size: 18px;
+  letter-spacing: 0.06em;
+}
+.local-action-primary small {
+  color: rgba(23, 32, 21, 0.72);
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 700;
+}
+.local-action-secondary {
+  min-height: 46px;
+  color: #d8f2df;
+  background: rgba(39, 174, 96, 0.22);
+  border: 1px solid rgba(102, 219, 145, 0.46);
+  font-size: 13px;
+}
+.local-home-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 24px 0 16px;
+  color: #7f9d87;
+  font-size: 11px;
+}
+.local-home-divider::before,
+.local-home-divider::after {
+  content: '';
+  height: 1px;
+  flex: 1;
+  background: rgba(255, 255, 255, 0.12);
+}
+.local-config-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.local-field {
+  display: grid;
+  gap: 7px;
+  color: #a9c1b0;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+.local-field input:not([type='range']) {
+  width: 100%;
+  padding: 11px 12px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.26);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  font: inherit;
+  letter-spacing: normal;
+}
+.local-field output {
+  color: #f8c56b;
+  font-family: var(--font-title);
+  font-size: 18px;
+}
+.local-field input[type='range'] {
+  width: 100%;
+  accent-color: #f39c12;
+}
+.local-mode-section {
+  margin-top: 20px;
+}
+.local-section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
+  color: #a9c1b0;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+.local-section-heading span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.local-section-heading small {
+  color: #6e8b75;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-align: right;
+}
+.local-mode-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.local-mode-toggle button {
+  min-height: 42px;
+  color: #b9c9be;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 11px;
+}
+.local-mode-toggle button.active {
+  color: #f8c56b;
+  background: rgba(243, 156, 18, 0.15);
+  border-color: rgba(248, 197, 107, 0.72);
+}
+.local-start-secondary {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 16px;
+  color: #cdebd5;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  font-size: 12px;
+}
+.local-action-primary:focus-visible,
+.local-action-secondary:focus-visible,
+.local-start-secondary:focus-visible,
+.local-mode-toggle button:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+}
+@media (max-width: 480px) {
+  .local-home-screen {
+    align-items: start;
+    padding-top: 34px;
+  }
+  .local-home-card {
+    padding: 26px 18px;
+    border-radius: 20px;
+  }
+  .local-home-brand h1 {
+    font-size: 32px;
+    letter-spacing: 0;
+    white-space: nowrap;
+  }
+  .local-config-grid {
+    grid-template-columns: 1fr;
+  }
+  .local-section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .local-section-heading small {
+    text-align: left;
+  }
+}
+
+/* Fase 3 — resultado da partida */
+.victory-panel {
+  width: min(470px, calc(100% - 28px));
+  max-height: min(760px, calc(100dvh - 28px));
+  overflow-y: auto;
+  padding: clamp(22px, 5vw, 38px);
+  color: #edf8ef;
+  background: linear-gradient(160deg, rgba(22, 47, 32, 0.98), rgba(8, 18, 13, 0.98));
+  border: 1px solid rgba(248, 197, 107, 0.54);
+  border-radius: 24px;
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.56),
+    0 0 40px rgba(248, 197, 107, 0.12);
+  text-align: center;
+}
+.victory-icon {
+  color: #f8c56b;
+  filter: drop-shadow(0 0 15px rgba(248, 197, 107, 0.72));
+}
+.victory-kicker {
+  display: block;
+  margin-top: 10px;
+  color: #a9c1b0;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+}
+.victory-panel h2 {
+  margin: 4px 0 10px;
+  color: #fff;
+  font-family: var(--font-title);
+  font-size: clamp(34px, 9vw, 48px);
+  line-height: 1;
+}
+.victory-winner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0 0 22px;
+  color: #f8c56b;
+  font-size: 16px;
+  font-weight: 800;
+}
+.victory-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.victory-stats div {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  padding: 10px 5px;
+  color: #a9c1b0;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+}
+.victory-stats svg {
+  color: #f8c56b;
+}
+.victory-stats strong {
+  color: #fff;
+  font-family: var(--font-title);
+  font-size: 22px;
+}
+.victory-stats span {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.victory-ranking {
+  display: grid;
+  gap: 6px;
+  padding: 13px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  text-align: left;
+}
+.victory-ranking-title {
+  margin-bottom: 2px;
+  color: #a9c1b0;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+.victory-ranking-row {
+  display: grid;
+  grid-template-columns: 22px 25px 1fr auto;
+  align-items: center;
+  gap: 7px;
+  min-height: 37px;
+  padding: 5px 7px;
+  color: #d4e6d8;
+  border-radius: 8px;
+}
+.victory-ranking-row.winner {
+  color: #172015;
+  background: linear-gradient(90deg, #f8c56b, #f39c12);
+}
+.victory-position {
+  font-family: var(--font-title);
+  font-weight: 900;
+  text-align: center;
+}
+.victory-avatar {
+  font-size: 19px;
+}
+.victory-ranking-row strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.victory-card-count {
+  font-size: 10px;
+  opacity: 0.8;
+}
+.victory-restart {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 46px;
+  margin-top: 18px;
+  color: #172015;
+  background: #f8c56b;
+  border: 0;
+  border-radius: 12px;
+  cursor: pointer;
+  font-family: var(--font-title);
+  font-size: 13px;
+  font-weight: 900;
+}
+.victory-restart:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+}

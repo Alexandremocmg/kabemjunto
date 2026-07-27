@@ -227,3 +227,12 @@ Estado: documentação atualizada e Fase 1 autorizada para implementação.
 - Animação de cartas saindo do núcleo durante compra/punição.
 - Feedback de sucesso duplicado removido; erros continuam no toast acessível.
 - Validação mobile confirmou histórico sem colisão e sem overflow horizontal.
+
+---
+
+## ⚡ UI/UX — Fase 3: lobby local e resultado · 2026-07-27
+
+- Lobby Local com ação `JOGAR AGORA`, Hot-seat e configuração de nome/jogadores.
+- Resultado com vencedor, ordem final e estatísticas extraídas do histórico.
+- Sem pontuação inventada: jogadas, compras e efeitos são contagens autoritativas.
+- Confetti desativado sob `prefers-reduced-motion`.
