@@ -125,6 +125,27 @@ describe('RoomStore — M14 (identidade estável + reconexão)', () => {
     expect(result.session.socketByPlayer.get(id)).toBe('socket-2');
   });
 
+  it('reconecta o mesmo jogador depois que a partida começou', () => {
+    const store = createStartedStore();
+    const id = uuid(2);
+
+    store.disconnect('socket-b');
+    const result = store.join({
+      jogadorId: id,
+      salaId: 'KJTEST',
+      nome: 'Bia',
+      socketId: 'socket-b-new',
+    });
+
+    expect(result.reconectado).toBe(true);
+    expect(result.session.sala.status).toBe('EM_PARTIDA');
+    expect(result.session.estado).toBeDefined();
+    expect(result.session.sala.jogadores.find((jogador) => jogador.id === id)?.conectado).toBe(
+      true,
+    );
+    expect(result.session.socketByPlayer.get(id)).toBe('socket-b-new');
+  });
+
   it('reconexão preserva nome/avatar do servidor (anti-impersonation)', () => {
     const store = new RoomStore();
     const id = uuid(1);

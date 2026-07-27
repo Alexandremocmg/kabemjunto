@@ -28,6 +28,8 @@ Thumbs.db
 # Coverage & testing
 coverage
 .vitest
+playwright-report
+test-results
 
 # Temporary / Binary dumps
 *.zip

@@ -4,7 +4,7 @@ test('lobby apresenta foco inicial, ordem de tab e erro anunciado', async ({ pag
   await page.goto('/');
 
   const nome = page.getByLabel('Seu nome');
-  const codigo = page.getByLabel(/Codigo da sala/i);
+  const codigo = page.getByLabel('Código da sala');
   await expect(nome).toBeFocused();
 
   await page.keyboard.press('Tab');

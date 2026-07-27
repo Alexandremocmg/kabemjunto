@@ -11,7 +11,7 @@ async function criarSala(page: Page, nome: string): Promise<string> {
 async function entrarNaSala(page: Page, nome: string, salaId: string): Promise<void> {
   await page.goto('/');
   await page.getByLabel('Seu nome').fill(nome);
-  await page.getByLabel(/Codigo da sala/i).fill(salaId);
+  await page.getByLabel('Código da sala').fill(salaId);
   await page.getByRole('button', { name: 'Entrar em sala' }).click();
   await expect(page.locator('.room-code')).toHaveText(salaId);
 }

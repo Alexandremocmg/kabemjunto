@@ -141,10 +141,6 @@ export class RoomStore {
       this.rooms.set(salaId, session);
     }
 
-    if (session.sala.status !== 'AGUARDANDO') {
-      throw new RoomError('SALA_CHEIA', 'A partida desta sala já começou.');
-    }
-
     // Tenta encontrar o jogador existente nesta sala (caso de reconexão).
     const jogadorExistente = session.sala.jogadores.find((j) => j.id === input.jogadorId);
 
@@ -162,6 +158,10 @@ export class RoomStore {
       };
       this.rooms.set(salaId, next);
       return { session: next, jogadorId: input.jogadorId, reconectado: true };
+    }
+
+    if (session.sala.status !== 'AGUARDANDO') {
+      throw new RoomError('SALA_CHEIA', 'A partida desta sala já começou.');
     }
 
     // Jogador novo: cria.

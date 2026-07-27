@@ -10,7 +10,7 @@ export default defineConfig({
   workers: 1,
   reporter: process.env.CI ? 'github' : 'list',
   use: {
-    baseURL: 'http://127.0.0.1:5174',
+    baseURL: 'http://127.0.0.1:5175',
     trace: 'on-first-retry',
   },
   projects: [
@@ -22,14 +22,16 @@ export default defineConfig({
   webServer: [
     {
       command: `${npm} --prefix apps/server run dev`,
-      url: 'http://127.0.0.1:3001/health',
-      reuseExistingServer: !process.env.CI,
+      url: 'http://127.0.0.1:3101/health',
+      env: { PORT: '3101' },
+      reuseExistingServer: false,
       timeout: 30_000,
     },
     {
-      command: `${npm} --prefix apps/web run dev -- --host 127.0.0.1 --port 5174`,
-      url: 'http://127.0.0.1:5174',
-      reuseExistingServer: !process.env.CI,
+      command: `${npm} --prefix apps/web run dev -- --host 127.0.0.1 --port 5175`,
+      url: 'http://127.0.0.1:5175',
+      env: { VITE_SOCKET_URL: 'http://127.0.0.1:3101' },
+      reuseExistingServer: false,
       timeout: 30_000,
     },
   ],
