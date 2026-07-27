@@ -113,6 +113,7 @@ Ambos verdes, sem flake em duas execuções consecutivas do cenário novo.
 
 **Lock inicial Antigravity:**
 
+- `apps/web/index.html` (metadados mobile/acessibilidade)
 - `apps/web/src/styles.css`
 - `apps/web/src/styles/**`
 - assets acessíveis estritamente necessários
