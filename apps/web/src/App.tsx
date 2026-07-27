@@ -109,6 +109,8 @@ function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
   const [cartaTrocaPendente, setCartaTrocaPendente] = useState<string>();
   const [cartaCorPendente, setCartaCorPendente] = useState<string>();
   const [cartaSelecionada, setCartaSelecionada] = useState<string>();
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [copyError, setCopyError] = useState(false);
   const entrouNaSala = Boolean(online.salaId);
   const partidaIniciada = Boolean(online.state.estado);
   const wifiOn = online.state.status === 'connected';
@@ -118,6 +120,34 @@ function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
     if (!chatInput.trim()) return;
     online.enviarChat(chatInput);
     setChatInput('');
+  }
+
+  async function copiarCodigoSala(): Promise<void> {
+    if (!online.salaId) return;
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(online.salaId);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = online.salaId;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        const copiado = document.execCommand('copy');
+        textarea.remove();
+        if (!copiado) throw new Error('clipboard fallback failed');
+      }
+      setCopyError(false);
+      setCopiedCode(true);
+      window.setTimeout(() => setCopiedCode(false), 2000);
+    } catch {
+      setCopiedCode(false);
+      setCopyError(true);
+      window.setTimeout(() => setCopyError(false), 3000);
+    }
   }
 
   function selecionarCarta(carta: import('@kabemjunto/shared').Carta): void {
@@ -181,7 +211,18 @@ function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
             <div className="room-toolbar">
               <div>
                 <p className="eyebrow">CÓDIGO DA SALA</p>
-                <strong className="room-code">{online.salaId}</strong>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <strong className="room-code">{online.salaId}</strong>
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    style={{ padding: '4px 10px', fontSize: '12px' }}
+                    onClick={copiarCodigoSala}
+                    aria-label="Copiar código da sala"
+                  >
+                    {copiedCode ? '✓ Copiado!' : copyError ? '⚠ Falha ao copiar' : '📋 Copiar'}
+                  </button>
+                </div>
               </div>
               <button className="button button-secondary" onClick={online.sair}>
                 Sair

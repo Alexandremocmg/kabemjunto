@@ -276,3 +276,5 @@ Estado: documentação atualizada e Fase 1 autorizada para implementação.
 - O frontend agora usa a mesma origem para Socket.IO por padrão e o Vite encaminha `/socket.io` para o backend local, permitindo uso por túnel público sem apontar para `127.0.0.1` do dispositivo cliente.
 - `VITE_SOCKET_URL` continua disponível para deployments com frontend e backend em origens separadas.
 - Investigação reproduzida: frontend em `5173` e Socket.IO em `3001`; o bundle antigo usava fallback local direto, causando `conexão perdida` no acesso externo.
+- `npm run dev` passou a iniciar backend e frontend juntos via `scripts/dev-all.mjs`, com supervisão de encerramento entre os dois processos.
+- Lobby Online mantém nome em `localStorage`, valida nome/código e oferece cópia do código com fallback para browsers sem Clipboard API.

@@ -5,7 +5,9 @@
   "type": "module",
   "description": "Kabemjunto — o jogo de cartas que te denuncia. 2-10 jogadores, 8-15 min por partida.",
   "scripts": {
-    "dev": "npm --prefix apps/web run dev -- --host --port 5173",
+    "dev": "node scripts/dev-all.mjs",
+    "dev:server": "npm --prefix apps/server run dev",
+    "dev:web": "npm --prefix apps/web run dev -- --host --port 5173",
     "build:shared": "npm --prefix packages/shared run build",
     "build": "npm run build:shared && npm --prefix apps/web run build",
     "preview": "npm --prefix apps/web run preview",

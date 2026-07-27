@@ -58,6 +58,7 @@ npm test
 
 # 4. Inicie o dev server
 npm run dev
+# → inicia backend (http://localhost:3001) e frontend (http://localhost:5173)
 # → abre em http://localhost:5173
 ```
 
@@ -69,6 +70,12 @@ Para publicar frontend e backend em origens separadas, defina `VITE_SOCKET_URL` 
 
 ```bash
 VITE_SOCKET_URL=https://seu-backend.example.com npm run build
+```
+
+Para um túnel Cloudflare apontando para o frontend local:
+
+```bash
+cloudflared tunnel --url http://127.0.0.1:5173 --http-host-header localhost:5173
 ```
 
 Não use `127.0.0.1` ou `localhost` como `VITE_SOCKET_URL` em um link acessado por outro dispositivo: esses endereços apontam para o dispositivo do jogador.

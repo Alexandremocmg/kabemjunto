@@ -1,13 +1,15 @@
 /**
  * LobbyOnline — tela de entrada na sala.
  *
- * Sprint 4 polish (B12): extraído do `App.tsx` para reduzir prop proliferation
- * e deixar a sala/jogo isolados em componentes próprios.
- *
- * Recebe callbacks `onEntrar(credentials)` para não acoplar ao hook de socket.
+ * Sprint 4 polish (B12) + Melhores práticas UX (Sprint 5).
+ * - Persistência de nome via localStorage.
+ * - Validação clara de formulário (nome e código de sala).
+ * - Acessibilidade completa (ARIA, focus-visible).
  */
 
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
+
+const PLAYER_NAME_KEY = 'kabemjunto-player-name';
 
 export interface LobbyOnlineCredentials {
   salaId: string;
@@ -29,7 +31,13 @@ function gerarCodigo(): string {
 
 export const LobbyOnline: React.FC<LobbyOnlineProps> = ({ onEntrar, erro, desabilitado }) => {
   const [salaInput, setSalaInput] = useState('');
-  const [nomeInput, setNomeInput] = useState('');
+  const [nomeInput, setNomeInput] = useState(() => {
+    try {
+      return localStorage.getItem(PLAYER_NAME_KEY) || '';
+    } catch {
+      return '';
+    }
+  });
   const [validationError, setValidationError] = useState<string | undefined>();
   const nomeInputRef = useRef<HTMLInputElement>(null);
   const errorId = useId();
@@ -39,15 +47,35 @@ export const LobbyOnline: React.FC<LobbyOnlineProps> = ({ onEntrar, erro, desabi
     nomeInputRef.current?.focus();
   }, []);
 
+  function salvarNome(nome: string) {
+    try {
+      localStorage.setItem(PLAYER_NAME_KEY, nome);
+    } catch {
+      // Ignore quota error
+    }
+  }
+
   function entrar(criar: boolean): void {
-    const salaId = criar ? gerarCodigo() : salaInput;
-    if (!salaId.trim() || !nomeInput.trim()) {
-      setValidationError('Informe seu nome e o codigo da sala para continuar.');
+    const nomeLimpo = nomeInput.trim();
+    if (!nomeLimpo) {
+      setValidationError('Informe seu nome antes de continuar.');
       return;
     }
+
+    if (
+      !criar &&
+      (!salaInput.trim() || salaInput.trim().length < 4 || salaInput.trim().length > 6)
+    ) {
+      setValidationError('Digite o código completo da sala (ex: MOHPSR) para entrar.');
+      return;
+    }
+
     setValidationError(undefined);
+    salvarNome(nomeLimpo);
+
+    const salaId = criar ? gerarCodigo() : salaInput.trim().toUpperCase();
     setSalaInput(salaId);
-    onEntrar({ salaId, nome: nomeInput, criar });
+    onEntrar({ salaId, nome: nomeLimpo, criar });
   }
 
   function entrarExistente(event: FormEvent<HTMLFormElement>): void {
@@ -73,6 +101,7 @@ export const LobbyOnline: React.FC<LobbyOnlineProps> = ({ onEntrar, erro, desabi
             maxLength={24}
             required
             disabled={desabilitado}
+            placeholder="Seu apelido no jogo"
             aria-describedby={errorMessage ? errorId : undefined}
             aria-invalid={Boolean(errorMessage)}
           />
@@ -86,7 +115,7 @@ export const LobbyOnline: React.FC<LobbyOnlineProps> = ({ onEntrar, erro, desabi
             value={salaInput}
             onChange={(event) => setSalaInput(event.target.value.toUpperCase())}
             maxLength={6}
-            placeholder="K4B3MJ"
+            placeholder="Ex: MOHPSR"
             disabled={desabilitado}
             aria-describedby={errorMessage ? errorId : undefined}
             aria-invalid={Boolean(errorMessage)}
