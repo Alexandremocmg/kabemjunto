@@ -278,3 +278,5 @@ Estado: documentação atualizada e Fase 1 autorizada para implementação.
 - Investigação reproduzida: frontend em `5173` e Socket.IO em `3001`; o bundle antigo usava fallback local direto, causando `conexão perdida` no acesso externo.
 - `npm run dev` passou a iniciar backend e frontend juntos via `scripts/dev-all.mjs`, com supervisão de encerramento entre os dois processos.
 - Lobby Online mantém nome em `localStorage`, valida nome/código e oferece cópia do código com fallback para browsers sem Clipboard API.
+
+> Diário completo desta data: [`docs/CHANGELOG-2026-07-27.md`](./docs/CHANGELOG-2026-07-27.md).

@@ -18,6 +18,8 @@ Kabemjunto é um jogo de cartas digital inspirado no UNO, mas com três camadas 
 - **[GDD — Game Design Document](./GDD-Kabemjunto.md)** — documento mestre do jogo
 - **[PLANO-EQUIPE-3DEVS.md](./PLANO-EQUIPE-3DEVS.md)** — plano de desenvolvimento multi-agente
 - **[STATUS.md](./STATUS.md)** — caderno de comunicação do time (atualizado diariamente)
+- **[Diário de mudanças de 2026-07-27](./docs/CHANGELOG-2026-07-27.md)** — consolidação completa das entregas, commits e validações
+- **[Handover de Mavis](./briefings/handover-mavis.md)** — contexto operacional para o próximo gerente/revisor
 - **[DECISIONS.md](./DECISIONS.md)** — ADRs (decisões arquiteturais)
 - **[CONTRIBUTING.md](./CONTRIBUTING.md)** — como contribuir
 

@@ -5,6 +5,36 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ---
 
+## [Unreleased] — 2026-07-27 · Consolidação do dia
+
+O diário completo, com o inventário de commits, decisões, validações e instruções operacionais, está em [`docs/CHANGELOG-2026-07-27.md`](./docs/CHANGELOG-2026-07-27.md).
+
+### Adicionado
+
+- Multiplayer Online autoritativo com identidade estável, reconexão, salas, chat, ações especiais e mãos privadas.
+- UI Local e Online mobile-first para 2–10 jogadores.
+- Lobby Online com persistência de nome, validação, `NotFound` para sala inexistente e cópia de código.
+- `npm run dev` supervisionando backend Fastify e frontend Vite simultaneamente.
+- Proxy Socket.IO same-origin para uso via Cloudflare Tunnel.
+- Playwright E2E para multiplayer, reload, proxy, acessibilidade e mesa Local com 10 jogadores.
+
+### Corrigido
+
+- Limite visual acidental de quatro jogadores.
+- Ordem circular dos assentos incompatível com o sentido do motor.
+- Perda do host durante reconexão.
+- Entrada em sala inexistente que criava sala silenciosamente.
+- Conexão externa quebrada por fallback para `127.0.0.1:3001`.
+- Cópia de código sem fallback em browsers sem Clipboard API.
+
+### Verificado
+
+- `npm run validate`: typecheck, lint, Prettier, 171 testes e build.
+- `npm run e2e`: 6 cenários passando.
+- Backend `/health`, frontend `5173` e proxy `/socket.io` respondendo `200`.
+
+---
+
 ## [0.3.0] — 2026-07-27 · Sprint 3 FECHADA ✅ (release candidate)
 
 ### Sprint 3 — Beta Multiplayer + Estrutura de gestão multi-agente
