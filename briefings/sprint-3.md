@@ -60,34 +60,37 @@
 - [x] `npm run validate` verde (160/160 testes, 0 erros TS/ESLint, Prettier conforme)
 - [x] `apps/web/src/App.tsx` é o app oficial (substitui `src/App.tsx` raiz para online)
 - [x] Nenhum arquivo em `packages/shared/src/rules/**` foi tocado por Codex/Antigravity
-- [ ] Telemetria loga eventos `RECONECTADO` quando aplicável — instrumentar no client (Sprint 4 polish)
+- [x] Telemetria loga eventos `RECONECTADO` quando aplicável — `logCustom('RECONETADO', { salaId, jogadorId, duracaoMs, tentativa })` (Sprint 4 polish, Mavis)
 - [x] Documentação atualizada (CHANGELOG, DECISIONS, STATUS)
 
 ## Pendências conhecidas (Sprint 4 — Polish)
 
-- **B12** — Extrair `LobbyOnline` do `App.tsx` (hoje tá inline, vale refatorar — vercel-composition-patterns)
-- **B13** — Reconnect handler no `socketClient.ts` (estrutura do M14 tá pronta, falta mostrar modal `Reconectando` no client)
-- **B16** — Integrar `AvatarComStatus` + `WifiStatus` + `Reconectando` no `LobbyOnline`
-- **Telemetria RECONECTADO** — instrumentar com `logCustom('RECONECTADO', { salaId, jogadorId })` no client
+- **B12** — Extrair `LobbyOnline` do `App.tsx` — ✅ **Feito** (2026-07-27 01:44 BRT, lock quebrado)
+- **B13** — Reconnect handler UX (modal `Reconectando`) — ✅ **Feito** (2026-07-27)
+- **B16** — Integrar `AvatarComStatus` + `WifiStatus` no lobby/sala — ✅ **Feito** (2026-07-27)
+- **Telemetria RECONETADO** — `logCustom('RECONETADO', { salaId, jogadorId, duracaoMs, tentativa })` — ✅ **Feito** (2026-07-27)
 
-Todas pendências são **pequenas, isoladas, e não bloqueiam release** (código funciona, só falta UX polish).
+Todas as pendências de polish foram fechadas. v0.3.1 (polish) pronto.
+
+⚠️ **Exceção de lock estrito**: Mavis (gerente) executou B12/B13/B16 a pedido do user. Justificativa: tarefas finais, sem paralelo com Codex/Antigravity. Lock volta ao normal na Sprint 5. Detalhes em `feedback/2026-07-27-sprint4-polish-mavis.md`.
 
 ---
 
-## 🎉 Sprint 3 FECHADA · 2026-07-27 01:30 BRT
+## 🎉 Sprint 3 FECHADA · 2026-07-27 01:30 BRT · POLISH 01:44 BRT
 
-`main` em estado de **release candidate v0.3.0**. Tag a ser criada.
+`main` em estado de **release v0.3.1**. Tag já criada e pushada.
 
 **Deliverables:**
 
-- 14 commits no `main` desde o início da sprint
-- 9 ADRs publicadas (001-008, mais a 006 ref)
+- 16 commits no `main` desde o início da sprint
+- 8 ADRs publicadas (001-008)
 - 5 specs de briefing (sprint-3, m14, m15, m14-reconexao, m15-src-legado)
-- 2 feedbacks formais (B9 codex, M14 mavis)
+- 3 feedbacks formais (B9 codex, M14 mavis, Sprint 4 polish mavis)
 - Estrutura de gestão multi-agente (AGENTS.md, agents/, briefings/, feedback/)
 - 4 skills instaladas (Vercel React, Composition Patterns, Frontend Design, Web Design Guidelines)
-- 160/160 testes em 3.82s
+- 160/160 testes em 6.27s
 - 0 erros TS, 0 erros ESLint, 100% Prettier conforme
+- 2 tags: `v0.3.0` (release candidate) + `v0.3.1` (polish final)
 
 ---
 
