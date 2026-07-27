@@ -9,8 +9,8 @@ Este arquivo registra as Decisões de Arquitetura (ADRs) do projeto Kabemjunto.
 - [ADR-003: Lock Estrito por Issue (Regra de Convivência Multi-Agente)](#adr-003-lock-estrito-por-issue-regra-de-convivência-multi-agente)
 - [ADR-004: Refactor do Motor de Regras para `packages/shared/src/rules/`](#adr-004-refactor-do-motor-de-regras-para-packagessharedsrules)
 - [ADR-005: Telemetria Opcional e Off-by-Default (LGPD)](#adr-005-telemetria-opcional-e-off-by-default-lgpd)
-- [ADR-006: Servidor Autoritativo (Validação no Back, Motor Compartilhado)](#adr-006-servidor-autoritativo-validação-no-back-motor-compartilhado)
 - [ADR-007: Mavis como Gerente/Revisor (Especialização por Papel)](#adr-007-mavis-como-gerenterevisor-especialização-por-papel)
+- [ADR-008: Manutenção do `src/` Raiz como Single-Player Legacy (M15 - Opção A)](#adr-008-manutenção-do-src-raiz-como-single-player-legacy-m15---opção-a)
 
 ---
 
@@ -230,3 +230,18 @@ Este arquivo registra as Decisões de Arquitetura (ADRs) do projeto Kabemjunto.
   1. Mavis revisa seu próprio código (autorevisão documentada em `feedback/`)
   2. Pair review com Codex/Antigravity em mudanças grandes (1x por sprint)
 - **Lição aprendida (Sprint 0):** Antigravity extrapolou escopo e implementou motor em `src/services/gameEngine.ts`. Isso motivou ADR-003 (lock) e, eventualmente, ADR-007 (especialização de papéis). **Prevenir é melhor que remediar.**
+
+---
+
+### ADR-008: Manutenção do `src/` Raiz como Single-Player Legacy (M15 - Opção A)
+
+- **Status:** Aprovado · 2026-07-27 · @User / @Mavis
+- **Contexto:** Com a criação de `apps/web/` para o frontend multiplayer online PWA, o repositório passou a conter duas árvores de código frontend paralelas: `src/` (single-player hotseat local funcional) e `apps/web/src/` (multiplayer online em desenvolvimento).
+- **Decisão:** Adotar a **Opção A**:
+  1. Manter `src/` raiz como ambiente funcional de demonstração single-player/hotseat offline durante a Sprint 3.
+  2. `apps/web/src/` evolui o multiplayer online sem riscos de quebra do ambiente offline.
+  3. A consolidação final ou unificação em app único será avaliada na Sprint 4 após o fechamento do Beta Multiplayer.
+- **Consequências:**
+  - ✅ Zero risco de regressão no jogo single-player offline durante a Sprint 3.
+  - ✅ Ritmo acelerado no desenvolvimento das issues multiplayer (B13, B16).
+  - ❌ Manutenção temporária de 2 entrypoints por 1 sprint adicional.

@@ -3,7 +3,7 @@
 > **Spec de decisão, escrita por Mavis (gerente).**
 > Após a migração pra `apps/web/`, o projeto tem **dois apps paralelos**. Decidir o que fazer.
 
-**Status:** ⏳ Aguardando decisão do user (3 opções)
+**Status:** ✅ Aprovado pelo usuário (Opção A — ADR-008)
 **Impacto:** médio — afeta build, deploy e onde cada agente trabalha
 **Pré-requisito:** Sprint 3 em andamento (B9/B10/B12 do Codex usam `apps/web/`)
 
