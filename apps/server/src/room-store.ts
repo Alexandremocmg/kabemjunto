@@ -3,6 +3,7 @@ import {
   comprarCartas,
   criarPartidaInicial,
   executarJogada,
+  type Carta,
   type EstadoPartida,
   type EstadoPartidaPublico,
   type JogadorId,
@@ -33,6 +34,14 @@ export interface JoinRoomResult {
   jogadorId: JogadorId;
   /** True se o jogador já existia (reconexão). False se foi criado agora. */
   reconectado: boolean;
+}
+
+export interface DeterministicVictoryFixture {
+  salaId: SalaId;
+  vencedorId: JogadorId;
+  vencedorCardId: string;
+  vencedorCardLabel: string;
+  oponenteCardLabels: [string, string];
 }
 
 export class RoomError extends Error {
@@ -67,6 +76,26 @@ function publicPlayer(jogador: EstadoPartida['jogadores'][number]): JogadorPubli
     avatar: jogador.avatar,
     pontos: jogador.pontos,
   };
+}
+
+function cardLabel(carta: Carta): string {
+  if (carta.valor !== undefined) {
+    return `Carta ${carta.valor} ${carta.cor ?? ''}`.trim();
+  }
+
+  const labels: Record<string, string> = {
+    SKIP: 'Pula',
+    REVERSE: 'Inverte',
+    MAIS_DOIS: 'Mais dois',
+    MAIS_QUATRO: 'Mais quatro',
+    ZERO_MAIS: 'Zero Mais',
+    TROCA_MAO: 'Troca mão',
+    GIRA_MAO: 'Gira mão',
+    CORINGA_SIMPLES: 'Coringa',
+    SILENCIO: 'Silêncio',
+  };
+
+  return labels[carta.acao ?? ''] ?? 'Carta';
 }
 
 export function toPublicState(estado: EstadoPartida): EstadoPartidaPublico {
@@ -288,6 +317,125 @@ export class RoomStore {
     }
     const resultado = comprarCartas({ estado: session.estado });
     return this.saveState(session, resultado.novoEstado);
+  }
+
+  prepareDeterministicVictoryFixture(salaId: string): {
+    session: RoomSession & { estado: EstadoPartida };
+    fixture: DeterministicVictoryFixture;
+  } {
+    const session = this.requireActive(salaId);
+    const estado = session.estado;
+    const vencedorId = session.sala.hostId;
+    const vencedorOriginal = estado.jogadores.find((jogador) => jogador.id === vencedorId);
+    if (!vencedorOriginal) {
+      throw new RoomError('INTERNAL', 'Host não encontrado na partida.');
+    }
+
+    const cartaVencedora =
+      vencedorOriginal.mao.find((carta) => carta.cor !== 'NEUTRO') ?? vencedorOriginal.mao[0];
+    if (!cartaVencedora) {
+      throw new RoomError('INTERNAL', 'Host sem cartas para fixture determinística.');
+    }
+    const vencedorCardLabel = cardLabel(cartaVencedora);
+
+    const oponenteOriginal = estado.jogadores.find((jogador) => jogador.id !== vencedorId);
+    if (!oponenteOriginal) {
+      throw new RoomError('INTERNAL', 'Fixture precisa de pelo menos dois jogadores.');
+    }
+
+    const allCards = [
+      ...estado.jogadores.flatMap((jogador) => jogador.mao),
+      ...estado.monteCompra,
+      ...estado.monteDescarte,
+    ];
+
+    const cartasRestantes = allCards.filter((carta) => carta.id !== cartaVencedora.id);
+
+    const topo =
+      cartasRestantes.find(
+        (carta) => carta.id !== cartaVencedora.id && carta.cor === cartaVencedora.cor,
+      ) ??
+      cartasRestantes.find(
+        (carta) =>
+          carta.id !== cartaVencedora.id &&
+          ((carta.valor !== undefined && carta.valor === cartaVencedora.valor) ||
+            (carta.acao !== undefined && carta.acao === cartaVencedora.acao)),
+      );
+
+    if (!topo) {
+      throw new RoomError('INTERNAL', 'Não foi possível preparar topo jogável para fixture E2E.');
+    }
+
+    const cartasSemTopo = cartasRestantes.filter((carta) => carta.id !== topo.id);
+    const cartasNaoVencedoras = cartasSemTopo.filter(
+      (carta) => cardLabel(carta) !== vencedorCardLabel,
+    );
+    const cartaSegredoOponente =
+      cartasNaoVencedoras.find((carta) =>
+        ['TROCA_MAO', 'GIRA_MAO', 'ZERO_MAIS'].includes(carta.acao ?? ''),
+      ) ?? cartasNaoVencedoras[0];
+    if (!cartaSegredoOponente) {
+      throw new RoomError('INTERNAL', 'Sem cartas suficientes para mão do oponente.');
+    }
+
+    const cartasSemSegredo = cartasNaoVencedoras.filter(
+      (carta) => carta.id !== cartaSegredoOponente.id,
+    );
+    const labelSegredo = cardLabel(cartaSegredoOponente);
+    const cartaApoioOponente =
+      cartasSemSegredo.find((carta) => cardLabel(carta) !== labelSegredo) ?? cartasSemSegredo[0];
+    if (!cartaApoioOponente) {
+      throw new RoomError('INTERNAL', 'Sem carta de apoio para oponente na fixture E2E.');
+    }
+    const labelApoio = cardLabel(cartaApoioOponente);
+
+    const idsReservados = new Set<string>([
+      cartaVencedora.id,
+      topo.id,
+      cartaSegredoOponente.id,
+      cartaApoioOponente.id,
+    ]);
+
+    const monteCompra = allCards.filter((carta) => !idsReservados.has(carta.id));
+
+    const jogadores = estado.jogadores.map((jogador) => {
+      if (jogador.id === vencedorId) {
+        return { ...jogador, mao: [cartaVencedora], disseUno: false };
+      }
+      if (jogador.id === oponenteOriginal.id) {
+        return { ...jogador, mao: [cartaSegredoOponente, cartaApoioOponente], disseUno: false };
+      }
+      return { ...jogador, mao: [], disseUno: false };
+    });
+
+    const novoEstado: EstadoPartida = {
+      partidaId: estado.partidaId,
+      salaId: estado.salaId,
+      jogadores,
+      monteCompra,
+      monteDescarte: [topo],
+      vezDe: vencedorId,
+      sentido: estado.sentido,
+      corAtiva: cartaVencedora.cor === 'NEUTRO' ? estado.corAtiva : cartaVencedora.cor,
+      ataqueAcumulado: 0,
+      ataqueStack: [],
+      silencio: { ativo: false },
+      historico: estado.historico,
+      finalizada: false,
+    };
+
+    const next = this.saveState(session, novoEstado) as RoomSession & { estado: EstadoPartida };
+
+    return {
+      session: next,
+      fixture: {
+        salaId: session.sala.id,
+        vencedorId,
+        vencedorCardId: cartaVencedora.id,
+        vencedorCardLabel,
+        oponenteCardLabels: [labelSegredo, labelApoio],
+      },
+    };
   }
 
   /**

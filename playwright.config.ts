@@ -23,7 +23,7 @@ export default defineConfig({
     {
       command: `${npm} --prefix apps/server run dev`,
       url: 'http://127.0.0.1:3101/health',
-      env: { PORT: '3101' },
+      env: { PORT: '3101', NODE_ENV: 'test', KABEMJUNTO_E2E_FIXTURE: '1' },
       reuseExistingServer: false,
       timeout: 30_000,
     },

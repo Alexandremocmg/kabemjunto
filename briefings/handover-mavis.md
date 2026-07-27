@@ -185,7 +185,7 @@ Se tiver pressa, leia só os **marcados com ⭐**:
 ### Testes
 
 - **171/171** testes unitários/integração verdes
-- **6/6 E2E** Playwright verdes
+- **7/7 E2E** Playwright verdes, incluindo partida Online determinística até a vitória
 - **90,16%** de cobertura de statements/linhas no motor compartilhado
 - Build de produção, lint, typecheck e Prettier verdes
 
@@ -198,29 +198,27 @@ Itens já entregues:
 - ✅ B17 — `posthogSink` e emissão de `RECONECTADO` no código
 - ✅ A11 — 404 estilizada
 - ✅ A12 — vitória animada/confetti
-- ✅ B18 — infraestrutura E2E e seis cenários
+- ✅ B18/B20 — sete cenários E2E, incluindo partida Online determinística até a vitória
 - ✅ B19 — acessibilidade básica do Lobby
 - ✅ Proxy Socket.IO same-origin para túnel público
 - ✅ `npm run dev` inicia backend + frontend
 
 Evidências pendentes antes da tag `v0.4.0`:
 
-1. E2E determinístico de partida Online até a vitória (B20)
-2. CI externo verde no último SHA
-3. Evento `RECONECTADO` confirmado no dashboard PostHog
-4. Lighthouse Accessibility ≥ 95 em build de produção
-5. Fechamento documental e tag anotada
+1. CI externo verde no último SHA
+2. Evento `RECONECTADO` confirmado no dashboard PostHog
+3. Lighthouse Accessibility ≥ 95 em build de produção
+4. Fechamento documental e tag anotada
 
 ---
 
 ## ⚠️ Pendências conhecidas
 
-1. **B20** — o E2E atual prova entrada, início e reload, mas não conclui uma partida até a vitória
-2. **PostHog** — sink e evento existem; falta evidência no dashboard real
-3. **GitHub Actions** — workflow está configurado; resultado externo precisa ser confirmado com acesso autenticado
-4. **Lighthouse** — meta ≥95 ainda não foi medida
-5. **M17 (persistência)** e **M18 (auth)** seguem candidatas à Sprint 6
-6. **Sprint 6** recomendada: persistência, deploy estável, hardening e observabilidade
+1. **PostHog** — sink e evento existem; falta evidência no dashboard real
+2. **GitHub Actions** — workflow está configurado; resultado externo precisa ser confirmado com acesso autenticado
+3. **Lighthouse** — medição atual 93; remover bloqueio de zoom e repetir auditoria
+4. **M17 (persistência)** e **M18 (auth)** seguem candidatas à Sprint 6
+5. **Sprint 6** recomendada: persistência, deploy estável, hardening e observabilidade
 
 ---
 

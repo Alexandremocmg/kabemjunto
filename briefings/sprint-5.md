@@ -213,8 +213,8 @@
 
 - [x] `src/` raiz deletado, app consolidado em `apps/web/`
 - [x] `npm run dev` mostra app único (Local + Online com toggle)
-- [x] `npm run e2e` verde (6 testes Playwright)
-- [ ] E2E Online conclui uma partida até a vitória (B20)
+- [x] `npm run e2e` verde (7 testes Playwright)
+- [x] E2E Online conclui uma partida até a vitória (B20)
 - [ ] PostHog recebe e exibe `RECONECTADO` em produção
 - [ ] CI externo confirma `validate` + `e2e` no último SHA
 - [ ] Lighthouse Accessibility ≥ 95

@@ -1,4 +1,4 @@
-import { expect, test, type Browser, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Browser, type Page } from '@playwright/test';
 
 async function criarSala(page: Page, nome: string): Promise<string> {
   await page.goto('/');
@@ -16,7 +16,35 @@ async function entrarNaSala(page: Page, nome: string, salaId: string): Promise<v
   await expect(page.locator('.room-code')).toHaveText(salaId);
 }
 
-async function abrirPartida(browser: Browser): Promise<{ host: Page; convidado: Page }> {
+interface OnlineVictoryFixture {
+  salaId: string;
+  vencedorId: string;
+  vencedorCardId: string;
+  vencedorCardLabel: string;
+  oponenteCardLabels: [string, string];
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+async function aplicarFixtureVitoriaDeterministica(
+  request: APIRequestContext,
+  salaId: string,
+): Promise<OnlineVictoryFixture> {
+  const response = await request.post(
+    'http://127.0.0.1:3101/__e2e/fixture/online-vitoria-deterministica',
+    {
+      data: { salaId },
+    },
+  );
+  expect(response.ok()).toBeTruthy();
+  return (await response.json()) as OnlineVictoryFixture;
+}
+
+async function abrirPartida(
+  browser: Browser,
+): Promise<{ host: Page; convidado: Page; salaId: string }> {
   const hostContext = await browser.newContext();
   const guestContext = await browser.newContext();
   const host = await hostContext.newPage();
@@ -27,7 +55,7 @@ async function abrirPartida(browser: Browser): Promise<{ host: Page; convidado: 
   await host.getByRole('button', { name: 'Iniciar partida' }).click();
   await expect(host.getByText('SUA MÃO')).toBeVisible();
   await expect(convidado.getByText('SUA MÃO')).toBeVisible();
-  return { host, convidado };
+  return { host, convidado, salaId };
 }
 
 test('dois clientes entram na mesma sala e iniciam uma partida', async ({ browser }) => {
@@ -35,6 +63,48 @@ test('dois clientes entram na mesma sala e iniciam uma partida', async ({ browse
 
   await expect(host.locator('.online-table-area').getByText('Host E2E')).toBeVisible();
   await expect(convidado.locator('.online-table-area').getByText('Convidado E2E')).toBeVisible();
+
+  await host.context().close();
+  await convidado.context().close();
+});
+
+test('partida online termina deterministicamente com mesmo vencedor e sem vazamento de mão privada', async ({
+  browser,
+  request,
+}) => {
+  const { host, convidado, salaId } = await abrirPartida(browser);
+
+  const fixture = await aplicarFixtureVitoriaDeterministica(request, salaId);
+  await expect(host.locator('.online-hand-container .hand-status span')).toContainText('1 cartas');
+  await expect(convidado.locator('.online-hand-container .hand-status span')).toContainText(
+    '2 cartas',
+  );
+
+  for (const oponenteCardLabel of fixture.oponenteCardLabels) {
+    await expect(host.getByRole('button', { name: oponenteCardLabel, exact: true })).toHaveCount(0);
+  }
+
+  const cartaVencedora = host.getByRole('button', {
+    name: fixture.vencedorCardLabel,
+    exact: true,
+  });
+  await expect(cartaVencedora).toBeVisible();
+  await cartaVencedora.click();
+  await cartaVencedora.click();
+
+  await expect(host.getByRole('heading', { name: 'Você Venceu!' })).toBeVisible();
+  await expect(
+    convidado.getByRole('heading', { name: new RegExp(`^${escapeRegExp('Host E2E')} Venceu!$`) }),
+  ).toBeVisible();
+
+  const linhaHostNoHost = host.locator('.player-list li').filter({ hasText: 'Host E2E' });
+  const linhaHostNoConvidado = convidado.locator('.player-list li').filter({ hasText: 'Host E2E' });
+  await expect(linhaHostNoHost.getByText('0 cartas')).toBeVisible();
+  await expect(linhaHostNoConvidado.getByText('0 cartas')).toBeVisible();
+
+  await expect(
+    convidado.getByRole('button', { name: fixture.vencedorCardLabel, exact: true }),
+  ).toHaveCount(0);
 
   await host.context().close();
   await convidado.context().close();
