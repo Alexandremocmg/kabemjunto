@@ -227,6 +227,7 @@ Estado: documentação atualizada e Fase 1 autorizada para implementação.
 - Animação de cartas saindo do núcleo durante compra/punição.
 - Feedback de sucesso duplicado removido; erros continuam no toast acessível.
 - Validação mobile confirmou histórico sem colisão e sem overflow horizontal.
+- Correção posterior confirmou que o modal de compra desaparece após 1,8 s.
 
 ---
 

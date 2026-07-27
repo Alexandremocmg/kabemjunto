@@ -92,6 +92,8 @@ por toque e possui alternativa textual em `aria-live`.
   grandes; o estado real continua vindo do motor.
 - Histórico mobile ocupa uma faixa intermediária, sem cobrir header, status ou
   mão.
+- Timer do overlay separado do consumo da fila; feedback de compra desaparece
+  após 1,8 s e não permanece sobre a mesa.
 
 ## Fase 3 — lobby local e resultado
 

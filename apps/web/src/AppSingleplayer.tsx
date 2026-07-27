@@ -61,14 +61,18 @@ export const App: React.FC = () => {
   }, [penaltyFlight]);
 
   useEffect(() => {
-    if (activeEvent || eventQueue.length === 0) return undefined;
+    if (activeEvent || eventQueue.length === 0) return;
     const [nextEvent, ...remaining] = eventQueue;
-    if (!nextEvent) return undefined;
+    if (!nextEvent) return;
     setEventQueue(remaining);
     setActiveEvent(nextEvent);
+  }, [activeEvent, eventQueue]);
+
+  useEffect(() => {
+    if (!activeEvent) return undefined;
     const timer = window.setTimeout(() => setActiveEvent(null), 1800);
     return () => window.clearTimeout(timer);
-  }, [activeEvent, eventQueue]);
+  }, [activeEvent]);
 
   // Limpa o shake depois da duração
   useEffect(() => {
