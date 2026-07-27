@@ -1845,3 +1845,13 @@ h5 {
     grid-template-columns: repeat(4, 1fr);
   }
 }
+
+@media (max-width: 480px) {
+  .player-seat.player-seat-you {
+    top: auto;
+    right: auto;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}

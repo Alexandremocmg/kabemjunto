@@ -246,3 +246,11 @@ Estado: documentação atualizada e Fase 1 autorizada para implementação.
 - 12 avatares SVG publicados no bundle web.
 - Preferências locais persistidas no navegador.
 - Preview explicitamente separado do estado autoritativo do jogo.
+
+---
+
+## 🛠️ Correções de fluxo — 2026-07-27
+
+- Assento do jogador humano centralizado na borda inferior da mesa mobile, próximo à mão.
+- Modo Local e `EstadoPartida` persistidos em `sessionStorage` para recuperação após reload durante a sessão.
+- Validação confirmou mesa preservada após recarregar, sem retorno ao Lobby e sem erros de console.

@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useGameSocket } from './services/socketClient';
 import { AvatarComStatus } from './components/AvatarComStatus';
 import { WifiStatus } from './components/WifiStatus';
@@ -22,7 +22,13 @@ import AppSingleplayer from './AppSingleplayer';
 type Modo = 'local' | 'online';
 
 export default function App() {
-  const [modo, setModo] = useState<Modo>('online');
+  const [modo, setModo] = useState<Modo>(() =>
+    window.sessionStorage.getItem('kabemjunto.modo') === 'local' ? 'local' : 'online',
+  );
+
+  useEffect(() => {
+    window.sessionStorage.setItem('kabemjunto.modo', modo);
+  }, [modo]);
 
   // Single-player: renderiza o App legacy (independente)
   if (modo === 'local') {

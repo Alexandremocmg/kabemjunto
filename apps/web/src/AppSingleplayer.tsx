@@ -26,7 +26,16 @@ type EventoVisual = {
 };
 
 export const App: React.FC = () => {
-  const [estado, setEstado] = useState<EstadoPartida | null>(null);
+  const [estado, setEstado] = useState<EstadoPartida | null>(() => {
+    const salvo = window.sessionStorage.getItem('kabemjunto.estado');
+    if (!salvo) return null;
+    try {
+      return JSON.parse(salvo) as EstadoPartida;
+    } catch {
+      window.sessionStorage.removeItem('kabemjunto.estado');
+      return null;
+    }
+  });
   const [showTutorial, setShowTutorial] = useState<boolean>(false);
   const [modalCorOpen, setModalCorOpen] = useState<boolean>(false);
   const [cartaIndexPendente, setCartaIndexPendente] = useState<number | null>(null);
@@ -47,6 +56,14 @@ export const App: React.FC = () => {
   const mostrarFeedback = (novoFeedback: Feedback) => {
     setFeedback(novoFeedback);
   };
+
+  useEffect(() => {
+    if (estado) {
+      window.sessionStorage.setItem('kabemjunto.estado', JSON.stringify(estado));
+    } else {
+      window.sessionStorage.removeItem('kabemjunto.estado');
+    }
+  }, [estado]);
 
   useEffect(() => {
     if (!feedback) return undefined;

@@ -19,7 +19,9 @@ function PlayerSeat({
 }) {
   const previewCards = Math.min(jogador.mao.length, 4);
   return (
-    <div className={`player-seat player-seat-${index + 1} ${active ? 'active' : ''}`}>
+    <div
+      className={`player-seat player-seat-${index + 1} ${jogador.isBot ? '' : 'player-seat-you'} ${active ? 'active' : ''}`}
+    >
       <div className="player-seat-avatar" aria-hidden="true">
         {jogador.avatar || '👤'}
       </div>
