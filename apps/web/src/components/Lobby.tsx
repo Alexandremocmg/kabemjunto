@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Bot, Play, Users, SlidersHorizontal, Sparkles } from 'lucide-react';
+import { PainelColecao, type TemaColecao } from './PainelColecao';
 
 interface LobbyProps {
   onIniciarJogo: (
@@ -14,7 +15,19 @@ export const Lobby: React.FC<LobbyProps> = ({ onIniciarJogo }) => {
   const [modo, setModo] = useState<'HOTSEAT' | 'BOTS'>('BOTS');
   const [totalJogadores, setTotalJogadores] = useState(4);
   const [nomeJogador, setNomeJogador] = useState('Seu Nome');
+  const [showCollection, setShowCollection] = useState(false);
+  const [avatarId, setAvatarId] = useState(
+    () => window.localStorage.getItem('kabemjunto.avatar') ?? '01',
+  );
+  const [tema, setTema] = useState<TemaColecao>(
+    () => (window.localStorage.getItem('kabemjunto.tema') as TemaColecao | null) ?? 'FLORESTA',
+  );
   const dificuldade: 'FACIL' | 'MEDIO' | 'DIFICIL' = 'MEDIO';
+
+  useEffect(() => {
+    window.localStorage.setItem('kabemjunto.avatar', avatarId);
+    window.localStorage.setItem('kabemjunto.tema', tema);
+  }, [avatarId, tema]);
 
   const iniciar = (modoParaIniciar: 'HOTSEAT' | 'BOTS' = modo) => {
     const nomes = [nomeJogador.trim() || 'Jogador'];
@@ -50,6 +63,15 @@ export const Lobby: React.FC<LobbyProps> = ({ onIniciarJogo }) => {
             type="button"
           >
             <Users size={18} /> CRIAR MESA LOCAL
+          </button>
+          <button
+            className="local-collection-trigger"
+            onClick={() => setShowCollection(true)}
+            type="button"
+          >
+            <span className="collection-trigger-avatar">◉</span>
+            <span>PERSONALIZAR PERFIL</span>
+            <small>Avatar e tema da mesa</small>
           </button>
         </div>
 
@@ -105,6 +127,15 @@ export const Lobby: React.FC<LobbyProps> = ({ onIniciarJogo }) => {
           <Sparkles size={17} /> INICIAR PARTIDA CONFIGURADA
         </button>
       </section>
+      {showCollection && (
+        <PainelColecao
+          avatarId={avatarId}
+          tema={tema}
+          onAvatarChange={setAvatarId}
+          onTemaChange={setTema}
+          onClose={() => setShowCollection(false)}
+        />
+      )}
     </main>
   );
 };

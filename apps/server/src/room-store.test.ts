@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Constants, validarJogada, type JogadorId } from '@kabemjunto/shared';
+import { Constants, type JogadorId } from '@kabemjunto/shared';
 import { RoomError, RoomStore, toPublicState } from './room-store.js';
 
 function uuid(n: number): JogadorId {
@@ -43,14 +43,25 @@ describe('RoomStore — básico', () => {
   it('valida a carta no servidor antes de avançar o turno', () => {
     const store = createStartedStore();
     const session = store.get('KJTEST')!;
+    const estado = session.estado!;
+    const carta = Constants.BARALHO_COMPLETO_108.find(
+      (item) => item.tipo === 'NUMERADA' && item.cor === 'LARANJA' && item.valor === 7,
+    )!;
+    const topo = Constants.BARALHO_COMPLETO_108.find(
+      (item) => item.tipo === 'NUMERADA' && item.cor === 'LARANJA' && item.valor === 8,
+    )!;
     const before = {
-      ...session.estado!,
+      ...estado,
+      jogadores: estado.jogadores.map((jogador) =>
+        jogador.id === estado.vezDe ? { ...jogador, mao: [carta] } : jogador,
+      ),
+      monteDescarte: [topo],
+      corAtiva: 'LARANJA' as const,
       ataqueAcumulado: 0,
       ataqueStack: [],
     };
     session.estado = before;
     const jogador = before.jogadores.find((item) => item.id === before.vezDe)!;
-    const carta = jogador.mao.find((item) => validarJogada(before, item, jogador.id).valida)!;
 
     const after = store.play('KJTEST', jogador.id, carta.id).estado!;
     expect(after.monteDescarte.at(-1)?.id).toBe(carta.id);

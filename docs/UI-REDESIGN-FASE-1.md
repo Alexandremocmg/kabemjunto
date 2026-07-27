@@ -101,6 +101,15 @@ por toque e possui alternativa textual em `aria-live`.
 - Pontuação não é inventada: quando não há métrica canônica no estado, a UI exibe contagens de jogadas, compras e efeitos.
 - Vitória respeita `prefers-reduced-motion` ao desabilitar confetti.
 
+## Fase 4 — coleção e personalização local
+
+- Dialog acessível de coleção com Escape, foco inicial e `role="dialog"`.
+- Seleção de 12 avatares SVG já versionados.
+- Prévia de três temas visuais: Floresta, Neon e Areia.
+- Preferências persistidas em `localStorage` apenas no cliente.
+- O escopo é explicitamente uma prévia local: nenhum cosmético altera as regras ou o estado autoritativo.
+- Assets de avatar publicados em `apps/web/public/assets/svgs/avatars/`.
+
 ## Acessibilidade
 
 - Monte e cartas são controles focáveis e operáveis por teclado.

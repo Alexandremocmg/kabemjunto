@@ -236,3 +236,12 @@ Estado: documentação atualizada e Fase 1 autorizada para implementação.
 - Resultado com vencedor, ordem final e estatísticas extraídas do histórico.
 - Sem pontuação inventada: jogadas, compras e efeitos são contagens autoritativas.
 - Confetti desativado sob `prefers-reduced-motion`.
+
+---
+
+## ⚡ UI/UX — Fase 4: coleção e personalização local · 2026-07-27
+
+- Dialog de coleção com seleção de avatar e tema.
+- 12 avatares SVG publicados no bundle web.
+- Preferências locais persistidas no navegador.
+- Preview explicitamente separado do estado autoritativo do jogo.
