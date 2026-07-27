@@ -81,5 +81,15 @@ Engenheiro júnior focado em assets, estilos, copy, e fixtures. **Executor** —
 - [`agents/mavis.md`](./mavis.md) — papel do Mavis
 - [`briefings/sprint-N.md`](../briefings/) — spec da sprint atual
 - [`feedback/`](../feedback/) — feedback de issues anteriores
-- [`DECISIONS.md`](../DECISIONS.md) — especialmente **ADR-002 (paleta de cores)**
+- [`DECISIONS.md`](../DECISIONS.md) — especialmente **ADR-002 (paleta de cores)** e **ADR-008 (dual app)**
 - Assets existentes em `assets/svgs/` pra ver o padrão
+
+## Skills disponíveis pra consulta (Sprint 3+)
+
+| Skill                         | Categoria            | Quando usar                                                        |
+| ----------------------------- | -------------------- | ------------------------------------------------------------------ |
+| `frontend-design`             | Estética intencional | Revisar paleta, tipografia, hierarquia visual, animações           |
+| `web-design-guidelines`       | Acessibilidade/UX    | Validar contraste WCAG, ARIA labels, focus states                  |
+| `vercel-composition-patterns` | Arquitetura          | Se for criar componente com várias variantes (compound components) |
+
+Skills ficam em `.agents/skills/<nome>/SKILL.md` no repo. Ler antes de criar SVGs/CSS complexos.

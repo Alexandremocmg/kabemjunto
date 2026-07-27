@@ -9,8 +9,9 @@ Este arquivo registra as Decisões de Arquitetura (ADRs) do projeto Kabemjunto.
 - [ADR-003: Lock Estrito por Issue (Regra de Convivência Multi-Agente)](#adr-003-lock-estrito-por-issue-regra-de-convivência-multi-agente)
 - [ADR-004: Refactor do Motor de Regras para `packages/shared/src/rules/`](#adr-004-refactor-do-motor-de-regras-para-packagessharedsrules)
 - [ADR-005: Telemetria Opcional e Off-by-Default (LGPD)](#adr-005-telemetria-opcional-e-off-by-default-lgpd)
+- [ADR-006: Servidor Autoritativo (Validação no Back, Motor Compartilhado)](#adr-006-servidor-autoritativo-validação-no-back-motor-compartilhado)
 - [ADR-007: Mavis como Gerente/Revisor (Especialização por Papel)](#adr-007-mavis-como-gerenterevisor-especialização-por-papel)
-- [ADR-008: Manutenção do `src/` Raiz como Single-Player Legacy (M15 - Opção A)](#adr-008-manutenção-do-src-raiz-como-single-player-legacy-m15---opção-a)
+- [ADR-008: Dual App (Manter `src/` Legacy + `apps/web/` Novo)](#adr-008-dual-app-manter-src-legacy--appsweb-novo)
 
 ---
 
@@ -233,7 +234,7 @@ Este arquivo registra as Decisões de Arquitetura (ADRs) do projeto Kabemjunto.
 
 ---
 
-### ADR-008: Manutenção do `src/` Raiz como Single-Player Legacy (M15 - Opção A)
+### ADR-008: Dual App (Manter `src/` Legacy + `apps/web/` Novo)
 
 - **Status:** Aprovado · 2026-07-27 · @User / @Mavis
 - **Contexto:** Com a criação de `apps/web/` para o frontend multiplayer online PWA, o repositório passou a conter duas árvores de código frontend paralelas: `src/` (single-player hotseat local funcional) e `apps/web/src/` (multiplayer online em desenvolvimento).

@@ -62,6 +62,17 @@ Engenheiro pleno focado em implementação full-stack funcional. **Executor** �
 - [`agents/mavis.md`](./mavis.md) — papel do Mavis (pra quem reportar)
 - [`briefings/sprint-N.md`](../briefings/) — spec da sprint atual
 - [`feedback/`](../feedback/) — feedback de issues anteriores
-- [`DECISIONS.md`](../DECISIONS.md) — ADRs (especialmente ADR-003 lock, ADR-006 servidor autoritativo)
+- [`DECISIONS.md`](../DECISIONS.md) — ADRs (especialmente ADR-003 lock, ADR-006 servidor autoritativo, ADR-008 dual app)
 - [`packages/shared/src/types/socket-events.ts`](../packages/shared/src/types/socket-events.ts) — mapa de eventos Socket.IO
 - [`apps/server/src/socket.ts`](../apps/server/src/socket.ts) — handlers do servidor (referência)
+
+## Skills disponíveis pra consulta (Sprint 3+)
+
+| Skill                         | Categoria                  | Quando usar                                                                           |
+| ----------------------------- | -------------------------- | ------------------------------------------------------------------------------------- |
+| `vercel-composition-patterns` | Arquitetura de componentes | Refatorar componentes com prop proliferation (ex: extrair `LobbyOnline` do `App.tsx`) |
+| `vercel-react-best-practices` | Performance React          | Otimizações (memo, dependency arrays, transitions)                                    |
+| `web-design-guidelines`       | Acessibilidade/UX          | Revisão de ARIA, focus, navegação por teclado                                         |
+| `frontend-design`             | Estética intencional       | Diretrizes visuais avançadas (além do ADR-002)                                        |
+
+Skills ficam em `.agents/skills/<nome>/SKILL.md` no repo. Ler antes de planejar issue que toca em UI complexa.
