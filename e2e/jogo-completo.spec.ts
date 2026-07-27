@@ -72,3 +72,13 @@ test('cliente recarrega e recupera a sessao da partida', async ({ browser }) => 
   await host.context().close();
   await convidado.context().close();
 });
+
+test('entrada em sala inexistente mostra estado de sala não encontrada', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Seu nome').fill('Jogador inválido');
+  await page.getByLabel('Código da sala').fill('NAOEXI');
+  await page.getByRole('button', { name: 'Entrar em sala' }).click();
+
+  await expect(page.getByText('Sala não encontrada.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Voltar ao Lobby' })).toBeVisible();
+});

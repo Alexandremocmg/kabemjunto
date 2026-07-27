@@ -164,11 +164,14 @@ function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
         </div>
       </header>
 
-      {online.state.erro?.includes('404') || online.state.erro === 'SALA_NAO_ENCONTRADA' ? (
-        <NotFound onVoltar={online.sair} mensagem={online.state.erro} />
+      {online.state.erroCodigo === 'SALA_INEXISTENTE' ? (
+        <NotFound
+          onVoltar={online.sair}
+          {...(online.state.erro ? { mensagem: online.state.erro } : {})}
+        />
       ) : !entrouNaSala ? (
         <LobbyOnline
-          onEntrar={({ salaId, nome }) => online.entrarSala({ salaId, nome })}
+          onEntrar={({ salaId, nome, criar }) => online.entrarSala({ salaId, nome, criar })}
           erro={online.state.erro}
           desabilitado={online.state.status === 'connecting'}
         />

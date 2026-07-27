@@ -30,6 +30,19 @@ describe('RoomStore — básico', () => {
     expect(() => store.start('KJ01', 'socket-a')).toThrow('pelo menos 2 jogadores');
   });
 
+  it('rejeita entrada em sala inexistente quando não é criação', () => {
+    const store = new RoomStore();
+    expect(() =>
+      store.join({
+        jogadorId: uuid(1),
+        salaId: 'NAOEXI',
+        nome: 'Ana',
+        socketId: 'socket-a',
+        criar: false,
+      }),
+    ).toThrow('Sala não encontrada');
+  });
+
   it('inicia uma partida e nunca expõe mãos na projeção pública', () => {
     const store = createStartedStore();
     const session = store.get('KJTEST');

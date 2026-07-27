@@ -25,6 +25,7 @@ export interface JoinRoomInput {
   salaId: string;
   nome: string;
   socketId: string;
+  criar?: boolean;
 }
 
 export interface JoinRoomResult {
@@ -124,6 +125,9 @@ export class RoomStore {
     }
 
     let session = this.rooms.get(salaId);
+    if (!session && input.criar === false) {
+      throw new RoomError('SALA_INEXISTENTE', 'Sala não encontrada.');
+    }
     if (!session) {
       const sala: Sala = {
         id: salaId,

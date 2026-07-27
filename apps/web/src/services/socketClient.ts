@@ -49,6 +49,7 @@ export interface SocketGameState {
   mensagens: ReadonlyArray<ServerChatEvent>;
   status: ConnectionStatus;
   erro: string | undefined;
+  erroCodigo: ServerErroEvent['codigo'] | undefined;
   cartaAceita: string | undefined;
   cartaRejeitada: string | undefined;
   mao: ReadonlyArray<Carta>;
@@ -62,6 +63,8 @@ export interface SessionCredentials {
   jogadorId: string;
   salaId: string;
   nome: string;
+  /** Indica se a primeira entrada podia criar a sala. */
+  criar?: boolean;
 }
 
 /**
@@ -98,6 +101,7 @@ export function readSession(): SessionCredentials | undefined {
         jogadorId: parsed.jogadorId,
         salaId: parsed.salaId,
         nome: parsed.nome,
+        ...('criar' in parsed && typeof parsed.criar === 'boolean' ? { criar: parsed.criar } : {}),
       };
     }
   } catch {
@@ -123,7 +127,9 @@ export function useGameSocket(): {
   isHost: boolean;
   /** Número da tentativa de reconexão atual (0 = conectado). */
   tentativaReconexao: number;
-  entrarSala: (credentials: Omit<SessionCredentials, 'jogadorId'> & { jogadorId?: string }) => void;
+  entrarSala: (
+    credentials: Omit<SessionCredentials, 'jogadorId'> & { jogadorId?: string; criar?: boolean },
+  ) => void;
   iniciarPartida: () => void;
   jogarCarta: (
     cartaId: string,
@@ -142,6 +148,7 @@ export function useGameSocket(): {
     mensagens: [],
     status: 'idle',
     erro: undefined,
+    erroCodigo: undefined,
     cartaAceita: undefined,
     cartaRejeitada: undefined,
     mao: [],
@@ -155,7 +162,12 @@ export function useGameSocket(): {
 
   useEffect(() => {
     const onConnect = () => {
-      setState((current) => ({ ...current, status: 'connected', erro: undefined }));
+      setState((current) => ({
+        ...current,
+        status: 'connected',
+        erro: undefined,
+        erroCodigo: undefined,
+      }));
       setHostId((current) => current ?? socket.id);
 
       // Telemetria: log de reconexão (se houve queda anterior).
@@ -172,7 +184,7 @@ export function useGameSocket(): {
       }
 
       const saved = credentials ?? readSession();
-      if (saved) socket.emit('client:entrar:sala', saved);
+      if (saved) socket.emit('client:entrar:sala', { ...saved, criar: saved.criar ?? false });
     };
     const onDisconnect = () => {
       setState((current) => ({ ...current, status: 'reconnecting', erro: undefined }));
@@ -193,7 +205,7 @@ export function useGameSocket(): {
       setState((current) => ({ ...current, status: 'offline' }));
     };
     const onState = ({ estado }: ServerEstadoAtualizadoEvent) =>
-      setState((current) => ({ ...current, estado, erro: undefined }));
+      setState((current) => ({ ...current, estado, erro: undefined, erroCodigo: undefined }));
     const onRoom = ({ hostId: nextHostId, jogadores }: ServerSalaAtualizadaEvent) => {
       setHostId(nextHostId);
       setState((current) => ({ ...current, jogadores }));
@@ -203,8 +215,8 @@ export function useGameSocket(): {
         ...current,
         mensagens: [...current.mensagens, message].slice(-40),
       }));
-    const onError = ({ mensagem }: ServerErroEvent) =>
-      setState((current) => ({ ...current, erro: mensagem }));
+    const onError = ({ codigo, mensagem }: ServerErroEvent) =>
+      setState((current) => ({ ...current, erro: mensagem, erroCodigo: codigo }));
     const onAccepted = ({ cartaId }: ServerJogadaAceitaEvent) => {
       setState((current) => ({ ...current, cartaAceita: cartaId, cartaRejeitada: undefined }));
       window.setTimeout(() => {
@@ -260,11 +272,17 @@ export function useGameSocket(): {
   }, [credentials, socket]);
 
   const entrarSala = useCallback(
-    (nextCredentials: Omit<SessionCredentials, 'jogadorId'> & { jogadorId?: string }) => {
+    (
+      nextCredentials: Omit<SessionCredentials, 'jogadorId'> & {
+        jogadorId?: string;
+        criar?: boolean;
+      },
+    ) => {
       const normalized: SessionCredentials = {
         jogadorId: nextCredentials.jogadorId ?? gerarJogadorId(),
         salaId: nextCredentials.salaId.trim().toUpperCase(),
         nome: nextCredentials.nome.trim(),
+        criar: nextCredentials.criar ?? false,
       };
       setCredentials(normalized);
       saveSession(normalized);
@@ -307,6 +325,7 @@ export function useGameSocket(): {
       mensagens: [],
       status: 'idle',
       erro: undefined,
+      erroCodigo: undefined,
       cartaAceita: undefined,
       cartaRejeitada: undefined,
       mao: [],

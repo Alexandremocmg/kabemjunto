@@ -61,6 +61,8 @@ export interface ClientEntrarSalaEvent {
   jogadorId: string;
   salaId: string;
   nome: string;
+  /** `true` cria a sala; `false` exige que a sala já exista. */
+  criar?: boolean;
 }
 
 /** Host quer iniciar a partida. */

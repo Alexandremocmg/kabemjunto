@@ -272,3 +272,4 @@ Estado: documentação atualizada e Fase 1 autorizada para implementação.
 - A ordem visual agora acompanha a ordem canônica do array de jogadores no sentido horário; no Online, a lista é rotacionada a partir do `jogadorId` local.
 - O modo Local passou a renderizar todos os jogadores permitidos (2–10), removendo o limite acidental de quatro assentos.
 - E2E específico com 10 jogadores confirmou os dez assentos, índices `0..9` e ausência de overflow em `390x844`.
+- Lobby Online diferencia explicitamente criação e entrada: código inexistente não cria sala silenciosamente e exibe o estado `NotFound` documentado.
