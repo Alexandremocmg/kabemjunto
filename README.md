@@ -6,7 +6,7 @@ Kabemjunto é um jogo de cartas digital inspirado no UNO, mas com três camadas 
 
 [![CI](https://github.com/Alexandremocmg/kabemjunto/actions/workflows/ci.yml/badge.svg)](https://github.com/Alexandremocmg/kabemjunto/actions/workflows/ci.yml)
 [![Release v0.3.1](https://img.shields.io/badge/release-v0.3.1-success)](https://github.com/Alexandremocmg/kabemjunto/releases/tag/v0.3.1)
-![Tests: 169/169](https://img.shields.io/badge/tests-169%2F169-success)
+![Tests: 170/170](https://img.shields.io/badge/tests-170%2F170-success)
 ![TS: strict](https://img.shields.io/badge/TypeScript-strict-blue)
 ![Lint: clean](https://img.shields.io/badge/lint-clean-success)
 ![Coverage: ≥80%](https://img.shields.io/badge/coverage-%E2%89%A580%25-success)

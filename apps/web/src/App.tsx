@@ -6,6 +6,7 @@ import { Reconectando } from './components/Reconectando';
 import { LobbyOnline } from './components/LobbyOnline';
 import { VitoriaAnimada } from './components/VitoriaAnimada';
 import { NotFound } from './components/NotFound';
+import { SelecionarAlvoTrocaMao } from './components/SelecionarAlvoTrocaMao';
 import AppSingleplayer from './AppSingleplayer';
 
 /**
@@ -98,6 +99,7 @@ function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
   const online = useGameSocket();
   const [chatInput, setChatInput] = useState('');
   const [cartaInput, setCartaInput] = useState('');
+  const [cartaTrocaPendente, setCartaTrocaPendente] = useState<string>();
   const entrouNaSala = Boolean(online.salaId);
   const partidaIniciada = Boolean(online.state.estado);
   const wifiOn = online.state.status === 'connected';
@@ -107,6 +109,15 @@ function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
     if (!chatInput.trim()) return;
     online.enviarChat(chatInput);
     setChatInput('');
+  }
+
+  function selecionarCarta(cartaId: string): void {
+    const carta = online.state.mao.find((item) => item.id === cartaId);
+    if (carta?.acao === 'TROCA_MAO') {
+      setCartaTrocaPendente(cartaId);
+      return;
+    }
+    online.jogarCarta(cartaId);
   }
 
   return (
@@ -189,7 +200,7 @@ function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
                         key={carta.id}
                         className="card-button"
                         disabled={online.jogadorId !== online.state.estado?.vezDe}
-                        onClick={() => online.jogarCarta(carta.id)}
+                        onClick={() => selecionarCarta(carta.id)}
                       >
                         <strong>{carta.efeito_texto_curto}</strong>
                         <small>{carta.id}</small>
@@ -272,6 +283,18 @@ function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
             </section>
           </aside>
         </section>
+      )}
+
+      {cartaTrocaPendente && (
+        <SelecionarAlvoTrocaMao
+          jogadores={online.state.jogadores}
+          jogadorAtualId={online.jogadorId}
+          onCancel={() => setCartaTrocaPendente(undefined)}
+          onConfirm={(alvoId) => {
+            online.jogarCarta(cartaTrocaPendente, undefined, alvoId);
+            setCartaTrocaPendente(undefined);
+          }}
+        />
       )}
 
       {online.state.status === 'reconnecting' && (

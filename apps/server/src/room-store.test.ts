@@ -54,7 +54,9 @@ describe('RoomStore — básico', () => {
 
     const after = store.play('KJTEST', jogador.id, carta.id).estado!;
     expect(after.monteDescarte.at(-1)?.id).toBe(carta.id);
-    expect(after.jogadores.find((item) => item.id === jogador.id)?.mao).toHaveLength(6);
+    expect(after.jogadores.find((item) => item.id === jogador.id)?.mao).toHaveLength(
+      jogador.mao.length - 1,
+    );
   });
 
   it('encaminha o alvo de TROCA_MAO para o motor autoritativo', () => {

@@ -11,8 +11,8 @@
 
 - ✅ Motor implementa `TROCA_MAO` com alvo obrigatório, troca imutável e evento `MAO_TROCADA`.
 - ✅ Contrato multiplayer transporta `alvoTrocaId` do cliente ao `RoomStore` e ao motor autoritativo.
-- ✅ Testes: 169/169; cobertura do motor: 89,16%; build e 3 E2E verdes.
-- ⏳ UI de seleção do jogador ainda aguarda proposta visual antes de implementação.
+- ✅ UI de `Troca Mão`: dialog no desktop, bottom sheet no mobile e seleção acessível por teclado.
+- ✅ Testes: 170/170; cobertura do motor: 89,16%; build e 3 E2E verdes.
 
 ---
 
