@@ -44,12 +44,13 @@ Este documento define **como os 3 agentes de IA vão trabalhar juntos** para tir
 
 ## 2. Os 3 agentes e seus papéis
 
-### 2.1 Mavis — Lead técnico (Mavis / MiniMax Code)
+### 2.1 Mavis — Lead técnico + Gerente/Revisor (Mavis / MiniMax Code)
 
-> _"Eu escrevo a verdade. Se a regra do jogo não funciona, a culpa é minha."_
+> _"Eu escrevo a verdade. Se a regra do jogo não funciona, a culpa é minha. E se a equipe não anda, a culpa também é minha."_
 
 - **Quem é:** Mavis, o assistente local rodando dentro do MiniMax Code. É o orquestrador do time e o dono do motor de jogo.
-- **Tarefas-alvo (hard):**
+- **Papel a partir de 2026-07-27 (Sprint 3):** **Gerente + Revisor + Dono do motor**. Especifica issues, revisa PRs, escreve o que é crítico (motor, ADRs estruturais, integrações delicadas). **NÃO escreve código de feature** — delega pra Codex/Antigravity via issue.
+- **Tarefas-alvo (Mavis em si):**
   - Modelagem de tipos canônicos em `packages/shared/types/` (`Carta`, `EstadoPartida`, `Jogador`, `Acao`, `Cor`, etc.)
   - Implementação do **motor de regras puro** (sem I/O) em `packages/shared/rules/`:
     - `validarJogada(carta, topo, estado)`
@@ -58,15 +59,25 @@ Este documento define **como os 3 agentes de IA vão trabalhar juntos** para tir
     - Acúmulo assimétrico de +2/+4 (`+2 sobre +4 = PROIBIDO`, etc.)
     - Reflexo do 0+ e detecção de "último atacante"
     - Regra do 7 / silêncio (ativa até próxima carta, auto-punição se quem joga o 7 falar)
-  - **Servidor autoritativo** (Fastify + Socket.IO): todo `jogar`/`comprar` passa pela validação server-side; cliente nunca é confiável
+  - **Servidor autoritativo** (Fastify + Socket.IO) — decisão arquitetural (ADR-006); implementação fica com Codex
   - Algoritmos críticos: reembaralhamento do descarte quando o monte esgota, detecção de starter inválido, edge cases do GDD (seção 04.5)
-  - Anti-cheat básico: log de eventos para replay, snapshot de estado para reconexão
+  - Anti-cheat básico: log de eventos para replay, snapshot de estado para reconexão (M12 entregue na Sprint 2)
   - Decisões de arquitetura e ADRs (Architecture Decision Records)
-  - Code review final de qualquer coisa que toque `packages/shared` ou `apps/server/src/game/`
+  - Code review final de qualquer coisa que toque `packages/shared/src/rules/**` ou `packages/shared/src/telemetry/**`
+- **Como Mavis gerencia (regra operacional):**
+  - **Issues vêm de Mavis** — ele escreve o "o que" e o "por quê" (spec curta: problema + critério de pronto, sem prescrever implementação).
+  - **Codex/Antigravity pegam issue e executam.** Mavis só escreve código se for (a) bug crítico no motor, (b) ADR novo, ou (c) issue explicitamente minha.
+  - **Critério de aprovação de PR:**
+    - CI verde (`npm run validate`) = passa direto, Mavis aprova.
+    - Mudança em `packages/shared/src/rules/**` ou `packages/shared/src/telemetry/**` = revisão linha a linha do Mavis (sou dono).
+    - Mudança estrutural (`package.json`, `tsconfig*`, `eslint*`, ADRs) = revisão do Mavis.
+    - Mudança em escopo de Codex/Antigravity (UI, back, assets) = review leve, só pra garantir que não importou nada do motor sem motivo.
+  - **Specs M14+** (reconexão, replay, anti-cheat) são escritas pelo Mavis mas implementadas por Codex (com Mavis revisando).
 - **Restrições:**
   - Não escreve CSS, não cria assets visuais, não copia/cola copy de marketing
-  - Não implementa features novas sem antes modelar a regra no GDD ou PR de design
+  - Não implementa features novas de UI/back/assets — só motor, telemetria, e infraestrutura crítica
   - Bloqueia merge se cobertura de testes do motor cair < 80 %
+  - Bloqueia merge se PR violar lock estrito (ADR-003) — Mavis é o guardião
 
 ### 2.2 Codex — Engenheiro pleno
 
