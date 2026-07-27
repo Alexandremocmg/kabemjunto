@@ -178,3 +178,10 @@ docs/
 - `8c8cff1` — feat: Sprint 1 visual assets + tests (Antigravity)
 - `dd4c651` — docs: STATUS git init progress
 - `1aed955` — feat: initial commit v1.0 (Mavis)
+
+### Codex — Sprint 3 B9/B10/B12
+
+- B9: cliente Socket.IO tipado em `apps/web/src/services/socketClient.ts`, hook `useGameSocket`, estado publico sincronizado e mao privada atualizada pelo servidor.
+- B10: lobby online em `apps/web/src/App.tsx` com criar/entrar por codigo, lista de jogadores, inicio pelo host e chat.
+- B12 cliente: sessao persistida, reconexao automatica e indicador `Reconectando...`.
+- Dependencia: restauracao server-side com identidade estavel ainda aguarda M14; o backend atual usa `socket.id` como identidade de jogador.
