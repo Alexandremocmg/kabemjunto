@@ -70,7 +70,7 @@ export interface SessionCredentials {
  * navegadores modernos + Node 19+). Fallback pra `Math.random()` se
  * indisponível (não-criptograficamente seguro, mas suficiente pra MVP).
  */
-function gerarJogadorId(): string {
+export function gerarJogadorId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }
@@ -78,7 +78,7 @@ function gerarJogadorId(): string {
   return `jogador-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function readSession(): SessionCredentials | undefined {
+export function readSession(): SessionCredentials | undefined {
   try {
     const raw = sessionStorage.getItem(SESSION_KEY);
     if (!raw) return undefined;
@@ -105,7 +105,7 @@ function readSession(): SessionCredentials | undefined {
   return undefined;
 }
 
-function saveSession(credentials: SessionCredentials): void {
+export function saveSession(credentials: SessionCredentials): void {
   sessionStorage.setItem(SESSION_KEY, JSON.stringify(credentials));
 }
 
@@ -117,9 +117,10 @@ export function useGameSocket(): {
   socket: GameSocket;
   state: SocketGameState;
   socketId: string | undefined;
+  jogadorId: string | undefined;
   salaId: string | undefined;
   isHost: boolean;
-  entrarSala: (credentials: SessionCredentials) => void;
+  entrarSala: (credentials: Omit<SessionCredentials, 'jogadorId'> & { jogadorId?: string }) => void;
   iniciarPartida: () => void;
   jogarCarta: (cartaId: string, corEscolhida?: ClientJogarEvent['corEscolhida']) => void;
   comprarCarta: () => void;
@@ -251,6 +252,7 @@ export function useGameSocket(): {
       socket,
       state,
       socketId: socket.id,
+      jogadorId: credentials?.jogadorId,
       salaId: credentials?.salaId,
       isHost: Boolean(hostId && socket.id === hostId),
       entrarSala,
@@ -263,6 +265,7 @@ export function useGameSocket(): {
     [
       comprarCarta,
       credentials?.salaId,
+      credentials?.jogadorId,
       entrarSala,
       enviarChat,
       hostId,

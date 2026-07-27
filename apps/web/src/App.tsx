@@ -130,7 +130,7 @@ export default function App() {
                       <button
                         key={carta.id}
                         className="card-button"
-                        disabled={online.socketId !== online.state.estado?.vezDe}
+                        disabled={online.jogadorId !== online.state.estado?.vezDe}
                         onClick={() => online.jogarCarta(carta.id)}
                       >
                         <strong>{carta.efeito_texto_curto}</strong>

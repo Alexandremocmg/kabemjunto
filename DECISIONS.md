@@ -10,6 +10,7 @@ Este arquivo registra as Decisões de Arquitetura (ADRs) do projeto Kabemjunto.
 - [ADR-004: Refactor do Motor de Regras para `packages/shared/src/rules/`](#adr-004-refactor-do-motor-de-regras-para-packagessharedsrules)
 - [ADR-005: Telemetria Opcional e Off-by-Default (LGPD)](#adr-005-telemetria-opcional-e-off-by-default-lgpd)
 - [ADR-006: Servidor Autoritativo (Validação no Back, Motor Compartilhado)](#adr-006-servidor-autoritativo-validação-no-back-motor-compartilhado)
+- [ADR-007: Mavis como Gerente/Revisor (Especialização por Papel)](#adr-007-mavis-como-gerenterevisor-especialização-por-papel)
 
 ---
 
@@ -191,3 +192,41 @@ Este arquivo registra as Decisões de Arquitetura (ADRs) do projeto Kabemjunto.
   broadcast 'server:estado:atualizado' { estado: toPublicState(resultado) }
   + socket.emit 'server:jogada:aceita' { cartaId, jogadorId }
   ```
+
+---
+
+### ADR-007: Mavis como Gerente/Revisor (Especialização por Papel)
+
+- **Status:** Aprovado · 2026-07-27 · @Mavis
+- **Contexto:** Nas Sprints 0-2, o Mavis (eu) atuou como **engenheiro pleno + lead técnico** — escrevia código de feature (motor, telemetria, ADRs) E revisava o trabalho dos outros agentes. Em paralelo, o time cresceu: Codex começou a tocar UI complexa (B9/B10/B12) e Antigravity acumulou assets (B11/B13/B14). Carga do Mavis na Sprint 2 foi: M12 (snapshot) + M13 (telemetria) + B1 (testes 0+/7) + fix do bug `girarMaos` + rever + commitar tudo. **Não escala** se o time crescer mais.
+- **Decisão:**
+  1. A partir da **Sprint 3** (2026-07-27), Mavis vira **Gerente + Revisor + Dono do motor**. Não escreve código de feature.
+  2. **Mavis escreve apenas:**
+     - Specs em `briefings/sprint-N.md`
+     - ADRs em `DECISIONS.md` (decisões estruturais)
+     - Código crítico do motor (`packages/shared/src/rules/**`, `packages/shared/src/telemetry/**`)
+     - Issues explicitamente suas (ex: M14 — identidade estável)
+     - Feedback em `feedback/<data>-<issue>-<agente>.md` (revisão formal)
+  3. **Codex e Antigravity executam** issues do Mavis. Eles escrevem código de feature.
+  4. **Critério de aprovação de PR** (Mavis revisa, mas com filtro):
+     - CI verde (`npm run validate`) = passa direto
+     - Mudança em `packages/shared/src/rules/**` ou `packages/shared/src/telemetry/**` = revisão linha a linha
+     - Mudança estrutural (`package.json`, `tsconfig*`, `eslint*`, ADRs, novo diretório) = revisão do Mavis
+     - Mudança em escopo de Codex/Antigravity = review leve, só pra garantir que não importou nada do motor sem motivo
+  5. **Comunicação inter-agente via arquivos** versionados no repo:
+     - `AGENTS.md` (raiz) — entry point do time
+     - `agents/<nome>.md` — perfil de cada agente (escopo, restrições)
+     - `briefings/sprint-N.md` — spec da sprint (issues por agente, DoD)
+     - `feedback/<data>-<issue>-<agente>.md` — review formal (status, problemas, pendências, decisão)
+  6. **Mavis é o guardião do lock estrito** (ADR-003). Qualquer PR que toque em arquivo fora do escopo do agente = rejeitado.
+- **Consequências:**
+  - ✅ Mavis não vira gargalo de execução (delega feature work)
+  - ✅ Codex/Antigravity ganham ownership claro das issues deles
+  - ✅ Tudo documentado no repo (rastreável, versionado, sobrevive a restart de agentes)
+  - ✅ Time pode crescer sem sobrecarregar Mavis
+  - ❌ Mudança estrutural tem que passar pelo Mavis (mitigação: Mavis revisa em < 4h)
+  - ❌ Se Mavis sumir, ninguém revisa motor (mitigação: 2ª pessoa com conhecimento de motor)
+- **Quem revisa o Mavis?** Mavis é o **último reviewer** no fluxo normal, mas pra mudanças no motor há 2 caminhos:
+  1. Mavis revisa seu próprio código (autorevisão documentada em `feedback/`)
+  2. Pair review com Codex/Antigravity em mudanças grandes (1x por sprint)
+- **Lição aprendida (Sprint 0):** Antigravity extrapolou escopo e implementou motor em `src/services/gameEngine.ts`. Isso motivou ADR-003 (lock) e, eventualmente, ADR-007 (especialização de papéis). **Prevenir é melhor que remediar.**
