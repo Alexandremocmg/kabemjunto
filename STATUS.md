@@ -5,7 +5,14 @@
 **Time:** Mavis (lead) · Codex (eng. pleno) · Antigravity (eng. júnior)
 **Fonte da verdade:** [`GDD-Kabemjunto.md`](./GDD-Kabemjunto.md) v1.0 + [`PLANO-EQUIPE-3DEVS.md`](./PLANO-EQUIPE-3DEVS.md) v1.0
 **Branch:** `main`
-**Sprint atual:** Sprint 3 — **FECHADA** (2026-07-27 01:30 BRT) — release candidate v0.3.0
+**Sprint atual:** Sprint 5 — **em andamento** — release robusta v0.4.0
+
+### Atualização técnica — TROCA_MAO
+
+- ✅ Motor implementa `TROCA_MAO` com alvo obrigatório, troca imutável e evento `MAO_TROCADA`.
+- ✅ Contrato multiplayer transporta `alvoTrocaId` do cliente ao `RoomStore` e ao motor autoritativo.
+- ✅ Testes: 169/169; cobertura do motor: 89,16%; build e 3 E2E verdes.
+- ⏳ UI de seleção do jogador ainda aguarda proposta visual antes de implementação.
 
 ---
 

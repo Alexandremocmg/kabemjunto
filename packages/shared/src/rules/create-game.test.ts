@@ -560,6 +560,61 @@ describe('executarJogada()', () => {
     expect(temReflexo).toBe(true);
   });
 
+  it('TROCA_MAO troca as mãos com o alvo informado e registra o evento', () => {
+    const estado = criarPartidaTeste();
+    const j1 = estado.jogadores[0]!;
+    const j2 = estado.jogadores[1]!;
+    const cartaTroca = cartaNeutra('TROCA_MAO');
+    const maoJ1 = [cartaTroca, cartaNum('LARANJA', 1)];
+    const maoJ2 = [cartaNum('AZUL', 2), cartaNum('VERDE', 3), cartaNum('PRETO', 4)];
+    const estadoCustom: EstadoPartida = {
+      ...estado,
+      jogadores: [
+        { ...j1, mao: maoJ1 },
+        { ...j2, mao: maoJ2 },
+      ],
+      monteDescarte: [cartaNum('LARANJA', 0)],
+      corAtiva: 'LARANJA',
+    };
+
+    const resultado = executarJogada({
+      estado: estadoCustom,
+      cartaIndex: 0,
+      alvoTrocaId: 'j2',
+    });
+
+    expect(resultado.novoEstado.jogadores[0]?.mao).toEqual(maoJ2);
+    expect(resultado.novoEstado.jogadores[1]?.mao).toEqual([maoJ1[1]]);
+    expect(resultado.eventos).toContainEqual(
+      expect.objectContaining({
+        tipo: 'MAO_TROCADA',
+        jogadorA: 'j1',
+        jogadorB: 'j2',
+      }),
+    );
+    expect(resultado.novoEstado.jogadores[0]?.mao).not.toBe(j2.mao);
+    expect(resultado.novoEstado.jogadores[1]?.mao).not.toBe(j1.mao);
+  });
+  it('TROCA_MAO exige um alvo diferente do jogador atual', () => {
+    const estado = criarPartidaTeste();
+    const j1 = estado.jogadores[0]!;
+    const estadoComTroca: EstadoPartida = {
+      ...estado,
+      jogadores: [{ ...j1, mao: [cartaNeutra('TROCA_MAO')] }, ...estado.jogadores.slice(1)],
+      monteDescarte: [cartaNum('LARANJA', 0)],
+      corAtiva: 'LARANJA',
+    };
+
+    expect(() => executarJogada({ estado: estadoComTroca, cartaIndex: 0 })).toThrow(
+      /requer alvoTrocaId/i,
+    );
+    expect(() =>
+      executarJogada({ estado: estadoComTroca, cartaIndex: 0, alvoTrocaId: 'j1' }),
+    ).toThrow(/próprio jogador/i);
+    expect(() =>
+      executarJogada({ estado: estadoComTroca, cartaIndex: 0, alvoTrocaId: 'ausente' }),
+    ).toThrow(/não encontrado/i);
+  });
   it('detecta vitória: mão vazia → finalizada = true, vencedor = j1', () => {
     const estado = criarPartidaTeste();
     const j1 = estado.jogadores[0]!;

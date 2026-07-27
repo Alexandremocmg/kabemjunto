@@ -6,7 +6,7 @@ Kabemjunto é um jogo de cartas digital inspirado no UNO, mas com três camadas 
 
 [![CI](https://github.com/Alexandremocmg/kabemjunto/actions/workflows/ci.yml/badge.svg)](https://github.com/Alexandremocmg/kabemjunto/actions/workflows/ci.yml)
 [![Release v0.3.1](https://img.shields.io/badge/release-v0.3.1-success)](https://github.com/Alexandremocmg/kabemjunto/releases/tag/v0.3.1)
-![Tests: 165/165](https://img.shields.io/badge/tests-165%2F165-success)
+![Tests: 169/169](https://img.shields.io/badge/tests-169%2F169-success)
 ![TS: strict](https://img.shields.io/badge/TypeScript-strict-blue)
 ![Lint: clean](https://img.shields.io/badge/lint-clean-success)
 ![Coverage: ≥80%](https://img.shields.io/badge/coverage-%E2%89%A580%25-success)
@@ -65,27 +65,27 @@ npm run dev
 
 ```bash
 npm run validate
-# Roda: typecheck + lint + format:check + test
+# → Roda: typecheck + lint + format:check + test + build
 ```
 
 ---
 
 ## 🛠️ Scripts disponíveis
 
-| Script                 | O que faz                                                     |
-| ---------------------- | ------------------------------------------------------------- |
-| `npm run dev`          | Inicia o Vite dev server (http://localhost:5173)              |
-| `npm run build`        | Build de produção (Vite + TypeScript check)                   |
-| `npm run preview`      | Serve o build de produção localmente                          |
-| `npm run typecheck`    | TypeScript sem emitir (checa tipos)                           |
-| `npm test`             | Roda os testes do motor (Vitest)                              |
-| `npm run test:watch`   | Modo watch (TDD)                                              |
-| `npm run test:cov`     | Testes com cobertura                                          |
-| `npm run lint`         | ESLint em todo o projeto                                      |
-| `npm run lint:fix`     | ESLint com auto-fix                                           |
-| `npm run format`       | Prettier write (formata tudo)                                 |
-| `npm run format:check` | Prettier check (CI)                                           |
-| `npm run validate`     | Roda typecheck + lint + format:check + test (o que o CI roda) |
+| Script                 | O que faz                                                           |
+| ---------------------- | ------------------------------------------------------------------- |
+| `npm run dev`          | Inicia o Vite dev server (http://localhost:5173)                    |
+| `npm run build`        | Build de produção (Vite + TypeScript check)                         |
+| `npm run preview`      | Serve o build de produção localmente                                |
+| `npm run typecheck`    | TypeScript sem emitir (checa tipos)                                 |
+| `npm test`             | Roda os testes do motor (Vitest)                                    |
+| `npm run test:watch`   | Modo watch (TDD)                                                    |
+| `npm run test:cov`     | Testes com cobertura                                                |
+| `npm run lint`         | ESLint em todo o projeto                                            |
+| `npm run lint:fix`     | ESLint com auto-fix                                                 |
+| `npm run format`       | Prettier write (formata tudo)                                       |
+| `npm run format:check` | Prettier check (CI)                                                 |
+| `npm run validate`     | Roda typecheck + lint + format:check + test + build (gate local/CI) |
 
 ---
 

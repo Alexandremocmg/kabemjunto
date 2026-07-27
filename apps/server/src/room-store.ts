@@ -249,6 +249,7 @@ export class RoomStore {
     jogadorId: JogadorId,
     cartaId: string,
     corEscolhida?: Parameters<typeof executarJogada>[0]['corEscolhida'],
+    alvoTrocaId?: Parameters<typeof executarJogada>[0]['alvoTrocaId'],
   ): RoomSession {
     const session = this.requireActive(salaId);
     if (session.estado.vezDe !== jogadorId) {
@@ -265,6 +266,7 @@ export class RoomStore {
         estado: session.estado,
         cartaIndex,
         ...(corEscolhida !== undefined ? { corEscolhida } : {}),
+        ...(alvoTrocaId !== undefined ? { alvoTrocaId } : {}),
       });
       return this.saveState(session, resultado.novoEstado);
     } catch (error) {

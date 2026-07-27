@@ -22,6 +22,8 @@ export interface ClientJogarEvent {
   cartaId: string;
   /** Obrigatório se a carta jogada é neutra (coringa). */
   corEscolhida?: Cor;
+  /** Obrigatório ao jogar TROCA_MAO. */
+  alvoTrocaId?: JogadorId;
   /** Se true, jogador está gritando "UNO!" ao ficar com 1 carta. */
   gritandoUno?: boolean;
 }

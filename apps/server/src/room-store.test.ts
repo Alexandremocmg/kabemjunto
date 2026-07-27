@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validarJogada, type JogadorId } from '@kabemjunto/shared';
+import { Constants, validarJogada, type JogadorId } from '@kabemjunto/shared';
 import { RoomError, RoomStore, toPublicState } from './room-store.js';
 
 function uuid(n: number): JogadorId {
@@ -42,7 +42,13 @@ describe('RoomStore — básico', () => {
 
   it('valida a carta no servidor antes de avançar o turno', () => {
     const store = createStartedStore();
-    const before = store.get('KJTEST')!.estado!;
+    const session = store.get('KJTEST')!;
+    const before = {
+      ...session.estado!,
+      ataqueAcumulado: 0,
+      ataqueStack: [],
+    };
+    session.estado = before;
     const jogador = before.jogadores.find((item) => item.id === before.vezDe)!;
     const carta = jogador.mao.find((item) => validarJogada(before, item, jogador.id).valida)!;
 
@@ -51,6 +57,32 @@ describe('RoomStore — básico', () => {
     expect(after.jogadores.find((item) => item.id === jogador.id)?.mao).toHaveLength(6);
   });
 
+  it('encaminha o alvo de TROCA_MAO para o motor autoritativo', () => {
+    const store = createStartedStore();
+    const session = store.get('KJTEST')!;
+    const estado = session.estado!;
+    const jogadorAtual = estado.jogadores.find((item) => item.id === estado.vezDe)!;
+    const alvo = estado.jogadores.find((item) => item.id !== estado.vezDe)!;
+    const cartaTroca = Constants.BARALHO_COMPLETO_108.find((carta) => carta.acao === 'TROCA_MAO')!;
+
+    session.estado = {
+      ...estado,
+      jogadores: estado.jogadores.map((jogador) =>
+        jogador.id === jogadorAtual.id
+          ? { ...jogador, mao: [cartaTroca, jogador.mao[0]!] }
+          : jogador.id === alvo.id
+            ? { ...jogador, mao: [jogador.mao[0]!, jogador.mao[1]!, jogador.mao[2]!] }
+            : jogador,
+      ),
+      monteDescarte: [estado.monteDescarte.at(-1)!],
+      corAtiva: 'LARANJA',
+    };
+
+    const after = store.play('KJTEST', jogadorAtual.id, cartaTroca.id, undefined, alvo.id).estado!;
+    expect(after.jogadores.find((jogador) => jogador.id === jogadorAtual.id)?.mao).toHaveLength(3);
+    expect(after.jogadores.find((jogador) => jogador.id === alvo.id)?.mao).toHaveLength(1);
+    expect(after.historico.some((evento) => evento.tipo === 'MAO_TROCADA')).toBe(true);
+  });
   it('calcula a compra no servidor e passa o turno', () => {
     const store = createStartedStore();
     const before = store.get('KJTEST')!.estado!;

@@ -125,7 +125,11 @@ export function useGameSocket(): {
   tentativaReconexao: number;
   entrarSala: (credentials: Omit<SessionCredentials, 'jogadorId'> & { jogadorId?: string }) => void;
   iniciarPartida: () => void;
-  jogarCarta: (cartaId: string, corEscolhida?: ClientJogarEvent['corEscolhida']) => void;
+  jogarCarta: (
+    cartaId: string,
+    corEscolhida?: ClientJogarEvent['corEscolhida'],
+    alvoTrocaId?: ClientJogarEvent['alvoTrocaId'],
+  ) => void;
   comprarCarta: () => void;
   enviarChat: (texto: string) => void;
   sair: () => void;
@@ -249,8 +253,16 @@ export function useGameSocket(): {
 
   const iniciarPartida = useCallback(() => socket.emit('client:iniciar:partida', {}), [socket]);
   const jogarCarta = useCallback(
-    (cartaId: string, corEscolhida?: ClientJogarEvent['corEscolhida']) =>
-      socket.emit('client:jogar', { cartaId, ...(corEscolhida ? { corEscolhida } : {}) }),
+    (
+      cartaId: string,
+      corEscolhida?: ClientJogarEvent['corEscolhida'],
+      alvoTrocaId?: ClientJogarEvent['alvoTrocaId'],
+    ) =>
+      socket.emit('client:jogar', {
+        cartaId,
+        ...(corEscolhida ? { corEscolhida } : {}),
+        ...(alvoTrocaId ? { alvoTrocaId } : {}),
+      }),
     [socket],
   );
   const comprarCarta = useCallback(() => socket.emit('client:comprar', {}), [socket]);

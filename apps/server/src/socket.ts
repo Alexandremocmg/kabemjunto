@@ -128,7 +128,13 @@ export function registerSocketHandlers(io: GameServer, store: RoomStore): void {
           throw new RoomError('SALA_INEXISTENTE', 'Entre em uma sala primeiro.');
         }
         const corEscolhida = payload.corEscolhida === 'NEUTRO' ? undefined : payload.corEscolhida;
-        const session = store.play(salaId, jogadorId, payload.cartaId, corEscolhida);
+        const session = store.play(
+          salaId,
+          jogadorId,
+          payload.cartaId,
+          corEscolhida,
+          payload.alvoTrocaId,
+        );
         socket.emit('server:jogada:aceita', { cartaId: payload.cartaId, jogadorId });
         broadcastState(io, salaId, { estado: toPublicState(session.estado!) });
         sendPrivateHands(io, session);

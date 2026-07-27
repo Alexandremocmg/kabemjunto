@@ -20,7 +20,7 @@
  *   atacante; senão, só gira a mão entre todos
  * - Regra do 7 (Silêncio): ativa silêncio até próxima carta
  * - Coringa Simples: muda cor ativa
- * - Troca Mão / Gira Mão: definidos em cartas-especiais.ts (futuro)
+ * - Troca Mão / Gira Mão: troca ou rotaciona mãos de forma imutável
  */
 
 import type { Carta, Cor, Acao } from '../types/card.js';
@@ -57,7 +57,7 @@ export interface ExecutarJogadaOpcoes {
   cartaIndex: number;
   /** Cor escolhida (obrigatório se a carta é neutra). */
   corEscolhida?: Exclude<Cor, 'NEUTRO'>;
-  /** Alvo para TROCA_MÃO (futuro). */
+  /** Alvo obrigatório para TROCA_MÃO. */
   alvoTrocaId?: JogadorId;
   /** RNG opcional (default `Math.random`). */
   rng?: () => number;
@@ -126,7 +126,7 @@ export function executarJogada(opcoes: ExecutarJogadaOpcoes): ResultadoJogada {
 
   // 3a. Efeitos de cada tipo de ação
   if (carta.acao !== undefined) {
-    const r = resolverAcao(novoEstado, carta, jogadorId, rng);
+    const r = resolverAcao(novoEstado, carta, jogadorId, rng, opcoes.alvoTrocaId);
     novoEstado = r.novoEstado;
     sfx.push(...r.sfx);
     eventos.push(...r.eventos);
@@ -173,6 +173,7 @@ function resolverAcao(
   carta: Carta,
   jogadorId: JogadorId,
   rng: () => number,
+  alvoTrocaId?: JogadorId,
 ): ResultadoAcao {
   const eventos: EventoPartida[] = [];
   const sfx: SfxEvent[] = [];
@@ -298,10 +299,33 @@ function resolverAcao(
     }
 
     case 'TROCA_MAO': {
-      // TODO: implementar quando alvoTrocaId for fornecido
+      if (!alvoTrocaId) {
+        throw new Error('TROCA_MAO requer alvoTrocaId');
+      }
+      if (alvoTrocaId === jogadorId) {
+        throw new Error('TROCA_MAO não pode escolher o próprio jogador');
+      }
+
+      const jogadorIndex = estado.jogadores.findIndex((j) => j.id === jogadorId);
+      const alvoIndex = estado.jogadores.findIndex((j) => j.id === alvoTrocaId);
+      if (jogadorIndex < 0 || alvoIndex < 0) {
+        throw new Error(`Alvo de TROCA_MAO não encontrado: ${alvoTrocaId}`);
+      }
+
+      const maoJogador = estado.jogadores[jogadorIndex]!.mao;
+      const maoAlvo = estado.jogadores[alvoIndex]!.mao;
+      const jogadoresTrocados = estado.jogadores.map((j, index) => {
+        if (index === jogadorIndex) return { ...j, mao: [...maoAlvo] };
+        if (index === alvoIndex) return { ...j, mao: [...maoJogador] };
+        return j;
+      });
+
       sfx.push('descarte');
-      eventos.push({ tipo: 'ACAO_RESOLVIDA', timestamp: ts, acao: 'TROCA_MAO' });
-      return { novoEstado: estado, sfx, eventos };
+      eventos.push(
+        { tipo: 'ACAO_RESOLVIDA', timestamp: ts, acao: 'TROCA_MAO', alvo: alvoTrocaId },
+        { tipo: 'MAO_TROCADA', timestamp: ts, jogadorA: jogadorId, jogadorB: alvoTrocaId },
+      );
+      return { novoEstado: { ...estado, jogadores: jogadoresTrocados }, sfx, eventos };
     }
 
     case 'GIRA_MAO': {

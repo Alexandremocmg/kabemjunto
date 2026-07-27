@@ -159,7 +159,7 @@ export type EventoPartida =
     }
   | { tipo: 'SENTIDO_INVERTIDO'; timestamp: number; novo: 1 | -1 }
   | { tipo: 'MAO_GIRADA'; timestamp: number; sentido: 1 | -1 }
-  | { tipo: 'MAO_TROCADa'; timestamp: number; jogadorA: JogadorId; jogadorB: JogadorId }
+  | { tipo: 'MAO_TROCADA'; timestamp: number; jogadorA: JogadorId; jogadorB: JogadorId }
   | { tipo: 'VITORIA'; timestamp: number; vencedorId: JogadorId }
   | { tipo: 'PARTIDA_FINALIZADA'; timestamp: number; motivo: 'VITORIA' | 'ABANDONO' | 'TIMEOUT' };
 
