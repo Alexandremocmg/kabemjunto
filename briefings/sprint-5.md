@@ -217,7 +217,7 @@
 - [x] E2E Online conclui uma partida até a vitória (B20)
 - [ ] PostHog recebe e exibe `RECONECTADO` em produção
 - [ ] CI externo confirma `validate` + `e2e` no último SHA
-- [ ] Lighthouse Accessibility ≥ 95
+- [x] Lighthouse Accessibility ≥ 95 (100/100 em build de produção)
 - [x] Vitória dispara confetti
 - [x] 404 page estilizada
 - [x] `npm run validate` verde (171 testes)

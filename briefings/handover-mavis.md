@@ -207,8 +207,7 @@ Evidências pendentes antes da tag `v0.4.0`:
 
 1. CI externo verde no último SHA
 2. Evento `RECONECTADO` confirmado no dashboard PostHog
-3. Lighthouse Accessibility ≥ 95 em build de produção
-4. Fechamento documental e tag anotada
+3. Fechamento documental e tag anotada
 
 ---
 
@@ -216,9 +215,8 @@ Evidências pendentes antes da tag `v0.4.0`:
 
 1. **PostHog** — sink e evento existem; falta evidência no dashboard real
 2. **GitHub Actions** — workflow está configurado; resultado externo precisa ser confirmado com acesso autenticado
-3. **Lighthouse** — medição atual 93; remover bloqueio de zoom e repetir auditoria
-4. **M17 (persistência)** e **M18 (auth)** seguem candidatas à Sprint 6
-5. **Sprint 6** recomendada: persistência, deploy estável, hardening e observabilidade
+3. **M17 (persistência)** e **M18 (auth)** seguem candidatas à Sprint 6
+4. **Sprint 6** recomendada: persistência, deploy estável, hardening e observabilidade
 
 ---
 

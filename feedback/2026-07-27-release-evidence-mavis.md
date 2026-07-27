@@ -7,32 +7,33 @@
 
 Auditoria executada contra o build de produção servido por `vite preview` em `http://127.0.0.1:4173`.
 
+Resultado inicial:
+
 ```text
 Accessibility: 93/100
 Gate exigido:   95/100
 Resultado:      REPROVADO
+Audit:          meta-viewport = 0
 ```
 
-Único audit reprovado:
+Causa confirmada: `maximum-scale=1.0` e `user-scalable=no` impediam zoom em dispositivos móveis, violando WCAG 1.4.4 para usuários com baixa visão.
 
-```text
-meta-viewport = 0
-```
-
-Causa confirmada em `apps/web/index.html`:
+Correção aplicada em `apps/web/index.html`:
 
 ```html
-<meta
-  name="viewport"
-  content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
-/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 ```
 
-`user-scalable=no` impede zoom em dispositivos móveis e viola WCAG 1.4.4 para usuários com baixa visão.
+Reauditoria Mavis após novo build:
 
-**Correção solicitada:** remover `maximum-scale=1.0` e `user-scalable=no`, preservando `width=device-width`, `initial-scale=1.0` e `viewport-fit=cover`.
+```text
+Accessibility: 100/100
+Gate exigido:   95/100
+Audits falhos:  nenhum
+Resultado:      APROVADO
+```
 
-**Critério de aprovação:** repetir Lighthouse no build de produção e obter Accessibility ≥95.
+O Lighthouse produziu o relatório completo; depois disso, o Chrome Launcher registrou `EPERM` apenas na limpeza de sua pasta temporária no Windows. O score e os audits foram lidos do JSON gerado, e o arquivo temporário não foi versionado.
 
 ## B21 — PostHog `RECONECTADO`
 
