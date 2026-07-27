@@ -13,10 +13,10 @@
 
 ### 🟢 Mavis (gerente — não escreve código de feature nesta sprint)
 
-| ID  | Issue                                                                  | Status          | Spec                                                                     |
-| --- | ---------------------------------------------------------------------- | --------------- | ------------------------------------------------------------------------ |
-| M14 | Identidade estável de jogador (reconexão)                              | 🔄 Em progresso | [`briefings/m14-reconexao-identidade.md`](./m14-reconexao-identidade.md) |
-| M15 | Decidir destino do `src/` raiz (manter legacy ou deletar pós-migração) | ⏳ A fazer      | —                                                                        |
+| ID  | Issue                                                                  | Status                | Spec                                                                     |
+| --- | ---------------------------------------------------------------------- | --------------------- | ------------------------------------------------------------------------ |
+| M14 | Identidade estável de jogador (reconexão)                              | ✅ Feito (2026-07-27) | [`briefings/m14-reconexao-identidade.md`](./m14-reconexao-identidade.md) |
+| M15 | Decidir destino do `src/` raiz (manter legacy ou deletar pós-migração) | ⏳ A fazer            | —                                                                        |
 
 > **Nota:** Mavis só escreve código se for (a) bug crítico no motor, (b) ADR novo, ou (c) issue explicitamente sua. M14 destrava B13 (Codex — reconnect handler).
 

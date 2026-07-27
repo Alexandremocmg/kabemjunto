@@ -128,8 +128,9 @@ docs/
 ## 🟢 Mavis (lead técnico)
 
 **Sprint 2:** ✅ Fechada — M12, M13, B1 entregues (com fix do bug do `girarMaos`)
+**Sprint 3 (papel gerente/revisor):** M14 ✅ (2026-07-27 01:00 BRT) — Identidade estável de jogador destrava B13 (reconnect handler do Codex). Spec em `briefings/m14-reconexao-identidade.md`, feedback em `feedback/2026-07-27-m14-mavis.md`. Pendente: M15 (decidir destino do `src/` raiz).
 **Bloqueios:** nenhum
-**Próximo:** Aguardando decisão do usuário
+**Próximo:** Apoiar Codex/Antigravity em B13 (reconnect) e B16 (integrar assets no lobby)
 
 ---
 
