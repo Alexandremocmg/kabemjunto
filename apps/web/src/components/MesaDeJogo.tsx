@@ -1,6 +1,6 @@
 import React from 'react';
-import { Cor, EstadoPartida } from '@shared/types';
-import { PALETA_CORES } from '@shared/constants/cards';
+import { Cor, EstadoPartida } from '@kabemjunto/shared/types';
+import { PALETA_CORES } from '@kabemjunto/shared/constants/cards';
 import { CartaView } from './CartaView';
 
 interface MesaDeJogoProps {
@@ -26,7 +26,7 @@ export const MesaDeJogo: React.FC<MesaDeJogoProps> = ({ estado, onComprarCarta }
           <CartaView
             verso={true}
             jogavel={compraDisponivel}
-            motivoBloqueio={jogadorAtual?.isBot ? 'Aguardando o bot jogar.' : undefined}
+            {...(jogadorAtual?.isBot ? { motivoBloqueio: 'Aguardando o bot jogar.' } : {})}
             onClick={onComprarCarta}
           />
           <div

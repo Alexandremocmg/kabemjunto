@@ -11,5 +11,9 @@ export default defineConfig({
     include: ['**/*.{test,spec}.{ts,tsx}'],
     exclude: ['**/node_modules/**', '**/dist/**', 'e2e/**', '**/.{playwright,output}*/**'],
     environment: 'node',
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html', 'json'],
+    },
   },
 });

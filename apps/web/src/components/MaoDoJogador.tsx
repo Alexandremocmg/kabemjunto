@@ -1,5 +1,5 @@
 import React from 'react';
-import { Carta, EstadoPartida } from '@shared/types';
+import { Carta, EstadoPartida } from '@kabemjunto/shared/types';
 import { validarJogada } from '../services/gameEngine';
 import { CartaView } from './CartaView';
 
@@ -57,7 +57,11 @@ export const MaoDoJogador: React.FC<MaoDoJogadorProps> = ({
               <CartaView
                 carta={carta}
                 jogavel={jogavel}
-                motivoBloqueio={jogadorAtual.isBot ? 'Aguardando o bot jogar.' : res.motivo}
+                {...(jogadorAtual.isBot
+                  ? { motivoBloqueio: 'Aguardando o bot jogar.' }
+                  : res.motivo
+                    ? { motivoBloqueio: res.motivo }
+                    : {})}
                 onClick={() => jogavel && onJogarCarta(index)}
                 shaking={isShaking}
               />

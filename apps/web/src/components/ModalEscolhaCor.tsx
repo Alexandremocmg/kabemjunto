@@ -1,6 +1,6 @@
 import React from 'react';
-import { Cor } from '@shared/types';
-import { PALETA_CORES } from '@shared/constants/cards';
+import { Cor } from '@kabemjunto/shared/types';
+import { PALETA_CORES } from '@kabemjunto/shared/constants/cards';
 
 type CorAtiva = Exclude<Cor, 'NEUTRO'>;
 

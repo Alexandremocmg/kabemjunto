@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Cor, EstadoPartida, Jogador, Carta } from '@shared/types';
-import type { NivelBot } from '@shared';
+import { Cor, EstadoPartida, Jogador, Carta } from '@kabemjunto/shared/types';
+import type { NivelBot } from '@kabemjunto/shared';
 import { validarJogada, comprar, criarPartida, jogarCarta, turnoBot } from './services/gameEngine';
 import { Lobby } from './components/Lobby';
 import { HUDJogador } from './components/HUDJogador';

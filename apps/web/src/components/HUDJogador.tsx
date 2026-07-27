@@ -1,5 +1,5 @@
 import React from 'react';
-import { EstadoPartida, Jogador } from '@shared/types';
+import { EstadoPartida, Jogador } from '@kabemjunto/shared/types';
 import { Volume2, VolumeX, ShieldAlert, HelpCircle, Zap } from 'lucide-react';
 import { audioService } from '../services/audioService';
 

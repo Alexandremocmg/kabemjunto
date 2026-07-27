@@ -1,6 +1,6 @@
 import React from 'react';
-import { Carta } from '@shared/types';
-import { PALETA_CORES } from '@shared/constants/cards';
+import { Carta } from '@kabemjunto/shared/types';
+import { PALETA_CORES } from '@kabemjunto/shared/constants/cards';
 
 interface CartaViewProps {
   carta?: Carta;

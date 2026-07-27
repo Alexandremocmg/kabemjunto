@@ -30,9 +30,14 @@ function criarEstadoBase(): EstadoPartida {
   });
 }
 
+function criarEstadoBaseSemAtaque(): EstadoPartida {
+  const estado = criarEstadoBase();
+  return { ...estado, ataqueAcumulado: 0, ataqueStack: [] };
+}
+
 describe('snapshot()', () => {
   it('clona o estado de forma profunda', () => {
-    const original = criarEstadoBase();
+    const original = criarEstadoBaseSemAtaque();
     const clone = snapshot(original);
     expect(clone).not.toBe(original);
     expect(clone.jogadores).not.toBe(original.jogadores);
@@ -40,7 +45,7 @@ describe('snapshot()', () => {
   });
 
   it('clone tem os mesmos valores que o original', () => {
-    const original = criarEstadoBase();
+    const original = criarEstadoBaseSemAtaque();
     const clone = snapshot(original);
     expect(clone.vezDe).toBe(original.vezDe);
     expect(clone.ataqueAcumulado).toBe(original.ataqueAcumulado);
@@ -49,7 +54,7 @@ describe('snapshot()', () => {
   });
 
   it('modificar o clone não afeta o original', () => {
-    const original = criarEstadoBase();
+    const original = criarEstadoBaseSemAtaque();
     const clone = snapshot(original);
     // Modificar o clone
     const novoEstado = comprarCartas({ estado: clone }).novoEstado;
@@ -60,7 +65,7 @@ describe('snapshot()', () => {
 
 describe('restore()', () => {
   it('devolve estado idêntico ao snapshot', () => {
-    const original = criarEstadoBase();
+    const original = criarEstadoBaseSemAtaque();
     const snap = snapshot(original);
     const restaurado = restore(snap);
     expect(restaurado.vezDe).toBe(original.vezDe);
@@ -68,7 +73,7 @@ describe('restore()', () => {
   });
 
   it('restore de snapshot é independente do snapshot', () => {
-    const original = criarEstadoBase();
+    const original = criarEstadoBaseSemAtaque();
     const snap = snapshot(original);
     const restaurado = restore(snap);
     // Modificar restaurado
@@ -82,7 +87,7 @@ describe('restore()', () => {
 
 describe('snapshotToJSON() / snapshotFromJSON()', () => {
   it('round-trip preserva dados', () => {
-    const original = criarEstadoBase();
+    const original = criarEstadoBaseSemAtaque();
     const json = snapshotToJSON(original);
     const restaurado = snapshotFromJSON(json);
     expect(restaurado.vezDe).toBe(original.vezDe);
@@ -90,7 +95,7 @@ describe('snapshotToJSON() / snapshotFromJSON()', () => {
   });
 
   it('JSON é uma string válida', () => {
-    const original = criarEstadoBase();
+    const original = criarEstadoBaseSemAtaque();
     const json = snapshotToJSON(original);
     expect(typeof json).toBe('string');
     expect(json.length).toBeGreaterThan(0);
@@ -103,14 +108,14 @@ describe('snapshotToJSON() / snapshotFromJSON()', () => {
 
 describe('diff()', () => {
   it('detecta mudança em vezDe', () => {
-    const a = criarEstadoBase();
+    const a = criarEstadoBaseSemAtaque();
     const b = comprarCartas({ estado: a }).novoEstado;
     const changes = diff(a, b);
     expect(changes).toContain('vezDe');
   });
 
   it('detecta mudança em ataqueAcumulado', () => {
-    const a = criarEstadoBase();
+    const a = criarEstadoBaseSemAtaque();
     // Força um estado com ataque
     const b: EstadoPartida = { ...a, ataqueAcumulado: 4, ataqueStack: ['MAIS_QUATRO'] };
     const changes = diff(a, b);
@@ -118,14 +123,14 @@ describe('diff()', () => {
   });
 
   it('detecta mudança em monteDescarte.length', () => {
-    const a = criarEstadoBase();
+    const a = criarEstadoBaseSemAtaque();
     const b: EstadoPartida = { ...a, monteDescarte: [...a.monteDescarte, a.monteCompra[0]!] };
     const changes = diff(a, b);
     expect(changes).toContain('monteDescarte.length');
   });
 
   it('retorna array vazio pra estados idênticos', () => {
-    const a = criarEstadoBase();
+    const a = criarEstadoBaseSemAtaque();
     const b = snapshot(a);
     const changes = diff(a, b);
     expect(changes).toEqual([]);
@@ -143,7 +148,7 @@ describe('SnapshotStack (undo/redo)', () => {
 
   it('push adiciona snapshot', () => {
     const stack = new SnapshotStack();
-    const estado = criarEstadoBase();
+    const estado = criarEstadoBaseSemAtaque();
     stack.push(estado);
     expect(stack.size()).toBe(1);
     expect(stack.canUndo()).toBe(false); // só 1 snapshot
@@ -152,7 +157,7 @@ describe('SnapshotStack (undo/redo)', () => {
 
   it('push de 2 snapshots permite undo', () => {
     const stack = new SnapshotStack();
-    const a = criarEstadoBase();
+    const a = criarEstadoBaseSemAtaque();
     const b = comprarCartas({ estado: a }).novoEstado;
     stack.push(a);
     stack.push(b);
@@ -163,7 +168,7 @@ describe('SnapshotStack (undo/redo)', () => {
 
   it('undo e redo navegam no histórico', () => {
     const stack = new SnapshotStack();
-    const a = criarEstadoBase();
+    const a = criarEstadoBaseSemAtaque();
     const b = comprarCartas({ estado: a }).novoEstado;
     const c = comprarCartas({ estado: b }).novoEstado;
     stack.push(a);
@@ -180,9 +185,9 @@ describe('SnapshotStack (undo/redo)', () => {
 
   it('push após undo trunca o future', () => {
     const stack = new SnapshotStack();
-    const a = criarEstadoBase();
+    const a = criarEstadoBaseSemAtaque();
     const b = comprarCartas({ estado: a }).novoEstado;
-    const c = criarEstadoBase(); // diferente
+    const c = criarEstadoBaseSemAtaque(); // diferente
     stack.push(a);
     stack.push(b);
     stack.undo(); // volta pra a
@@ -192,7 +197,7 @@ describe('SnapshotStack (undo/redo)', () => {
 
   it('respeita maxSize', () => {
     const stack = new SnapshotStack(3);
-    const a = criarEstadoBase();
+    const a = criarEstadoBaseSemAtaque();
     stack.push(a);
     stack.push(comprarCartas({ estado: a }).novoEstado);
     stack.push(comprarCartas({ estado: a }).novoEstado);
@@ -202,7 +207,7 @@ describe('SnapshotStack (undo/redo)', () => {
 
   it('clear limpa tudo', () => {
     const stack = new SnapshotStack();
-    stack.push(criarEstadoBase());
+    stack.push(criarEstadoBaseSemAtaque());
     stack.clear();
     expect(stack.size()).toBe(0);
     expect(stack.current()).toBeNull();

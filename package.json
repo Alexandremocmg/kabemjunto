@@ -6,7 +6,7 @@
   "description": "Kabemjunto — o jogo de cartas que te denuncia. 2-10 jogadores, 8-15 min por partida.",
   "scripts": {
     "dev": "npm --prefix apps/web run dev -- --host --port 5173",
-    "build": "npm --prefix apps/web run build",
+    "build": "npm --prefix packages/shared run build && npm --prefix apps/web run build",
     "preview": "npm --prefix apps/web run preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -17,7 +17,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md,css,yml,yaml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md,css,yml,yaml}\"",
-    "validate": "npm run typecheck && npm run lint && npm run format:check && npm run test"
+    "validate": "npm run typecheck && npm run lint && npm run format:check && npm run test && npm run build"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4",

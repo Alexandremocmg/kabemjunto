@@ -55,20 +55,43 @@ jobs:
       - name: Build
         run: npm run build
 
-      # 5. Cobertura: falha se o motor de regras cair abaixo de 80%
-      # (regra do PLANO §10.3 DoD Hard)
+      # 5. Cobertura: falha se as regras puras caírem abaixo de 80%
       - name: Verify motor coverage ≥ 80%
         run: |
-          if [ ! -f coverage/coverage-summary.json ]; then
-            echo "::error::coverage-summary.json não encontrado"
-            exit 1
-          fi
-          LINES=$(node -e "const c=require('./coverage/coverage-summary.json'); console.log(c.total.lines.pct)")
-          echo "Cobertura total de linhas: ${LINES}%"
-          if (( $(echo "$LINES < 80" | bc -l) )); then
-            echo "::error::Cobertura de linhas do motor abaixo de 80% (atual: ${LINES}%)"
-            exit 1
-          fi
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const reportPath = path.join('coverage', 'coverage-final.json');
+          if (!fs.existsSync(reportPath)) {
+            console.error('::error::coverage-final.json não encontrado');
+            process.exit(1);
+          }
+          const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+          const ruleFiles = Object.entries(report).filter(([file]) => {
+            const normalizedFile = file.split(path.win32.sep).join('/');
+            return normalizedFile.includes('/packages/shared/src/rules/');
+          });
+          if (ruleFiles.length === 0) {
+            console.error('::error::Nenhum arquivo do motor encontrado no relatório de cobertura');
+            process.exit(1);
+          }
+          const totals = ruleFiles.reduce(
+            (acc, [, data]) => {
+              for (const count of Object.values(data.s ?? {})) {
+                acc.found += 1;
+                if (count > 0) acc.hit += 1;
+              }
+              return acc;
+            },
+            { found: 0, hit: 0 },
+          );
+          const lines = totals.found === 0 ? 100 : (totals.hit / totals.found) * 100;
+          console.log(`Cobertura de linhas do motor: ${lines.toFixed(2)}%`);
+          if (lines < 80) {
+            console.error(`::error::Cobertura de linhas do motor abaixo de 80% (atual: ${lines.toFixed(2)}%)`);
+            process.exit(1);
+          }
+          NODE
 
       # 6. Upload da cobertura pro Codecov (opcional, configurável depois)
       - name: Upload coverage artifact

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { EstadoPartida, Jogador } from '@shared/types';
+import { EstadoPartida, Jogador } from '@kabemjunto/shared/types';
 import confetti from 'canvas-confetti';
 import { Trophy, RotateCcw } from 'lucide-react';
 
