@@ -14,6 +14,7 @@ import type {
   ServerEstadoAtualizadoEvent,
   ServerJogadaAceitaEvent,
   ServerJogadaRejeitadaEvent,
+  ServerMaoAtualizadaEvent,
   ServerSalaAtualizadaEvent,
 } from '@kabemjunto/shared';
 
@@ -35,7 +36,7 @@ type ServerEvents = {
   'server:erro': (payload: ServerErroEvent) => void;
   'server:jogada:aceita': (payload: ServerJogadaAceitaEvent) => void;
   'server:jogada:rejeitada': (payload: ServerJogadaRejeitadaEvent) => void;
-  'server:mao:atualizada': (payload: { mao: ReadonlyArray<Carta> }) => void;
+  'server:mao:atualizada': (payload: ServerMaoAtualizadaEvent) => void;
 };
 
 export type GameSocket = Socket<ServerEvents, ClientEvents>;
@@ -56,8 +57,25 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL ?? 'http://127.0.0.1:3001';
 const SESSION_KEY = 'kabemjunto-online-session';
 
 export interface SessionCredentials {
+  /** Identidade estável do jogador (UUID v4). Persistida entre reconexões. */
+  jogadorId: string;
   salaId: string;
   nome: string;
+}
+
+/**
+ * Gera um identificador único pra jogador.
+ *
+ * Usa `crypto.randomUUID()` (browser nativo, disponível em todos os
+ * navegadores modernos + Node 19+). Fallback pra `Math.random()` se
+ * indisponível (não-criptograficamente seguro, mas suficiente pra MVP).
+ */
+function gerarJogadorId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  // Fallback: timestamp + random. NÃO usar em produção real.
+  return `jogador-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function readSession(): SessionCredentials | undefined {
@@ -68,12 +86,18 @@ function readSession(): SessionCredentials | undefined {
     if (
       typeof parsed === 'object' &&
       parsed !== null &&
+      'jogadorId' in parsed &&
       'salaId' in parsed &&
       'nome' in parsed &&
+      typeof parsed.jogadorId === 'string' &&
       typeof parsed.salaId === 'string' &&
       typeof parsed.nome === 'string'
     ) {
-      return { salaId: parsed.salaId, nome: parsed.nome };
+      return {
+        jogadorId: parsed.jogadorId,
+        salaId: parsed.salaId,
+        nome: parsed.nome,
+      };
     }
   } catch {
     sessionStorage.removeItem(SESSION_KEY);
@@ -142,7 +166,7 @@ export function useGameSocket(): {
       setState((current) => ({ ...current, cartaAceita: cartaId, cartaRejeitada: undefined }));
     const onRejected = ({ cartaId, motivo }: ServerJogadaRejeitadaEvent) =>
       setState((current) => ({ ...current, cartaRejeitada: `${cartaId}: ${motivo}` }));
-    const onHand = ({ mao }: { mao: ReadonlyArray<Carta> }) =>
+    const onHand = ({ mao }: ServerMaoAtualizadaEvent) =>
       setState((current) => ({ ...current, mao }));
 
     socket.on('connect', onConnect);
@@ -176,8 +200,9 @@ export function useGameSocket(): {
   }, [credentials, socket]);
 
   const entrarSala = useCallback(
-    (nextCredentials: SessionCredentials) => {
-      const normalized = {
+    (nextCredentials: Omit<SessionCredentials, 'jogadorId'> & { jogadorId?: string }) => {
+      const normalized: SessionCredentials = {
+        jogadorId: nextCredentials.jogadorId ?? gerarJogadorId(),
         salaId: nextCredentials.salaId.trim().toUpperCase(),
         nome: nextCredentials.nome.trim(),
       };

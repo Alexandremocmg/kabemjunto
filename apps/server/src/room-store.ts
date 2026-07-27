@@ -15,10 +15,13 @@ import {
 export interface RoomSession {
   sala: Sala;
   estado?: EstadoPartida;
+  /** Mapeia `jogadorId` (identidade estável) → `socketId` atual. */
   socketByPlayer: ReadonlyMap<JogadorId, string>;
 }
 
 export interface JoinRoomInput {
+  /** Identidade estável do jogador (UUID v4). Veio do cliente. */
+  jogadorId: string;
   salaId: string;
   nome: string;
   socketId: string;
@@ -27,12 +30,19 @@ export interface JoinRoomInput {
 export interface JoinRoomResult {
   session: RoomSession;
   jogadorId: JogadorId;
+  /** True se o jogador já existia (reconexão). False se foi criado agora. */
+  reconectado: boolean;
 }
 
 export class RoomError extends Error {
   constructor(
     public readonly code:
-      'SALA_INEXISTENTE' | 'SALA_CHEIA' | 'NAO_SUA_VEZ' | 'JOGADA_INVALIDA' | 'INTERNAL',
+      | 'SALA_INEXISTENTE'
+      | 'SALA_CHEIA'
+      | 'NAO_SUA_VEZ'
+      | 'JOGADA_INVALIDA'
+      | 'JOGADOR_EM_OUTRA_SALA'
+      | 'INTERNAL',
     message: string,
   ) {
     super(message);
@@ -84,9 +94,34 @@ export function toPublicState(estado: EstadoPartida): EstadoPartidaPublico {
 export class RoomStore {
   private readonly rooms = new Map<SalaId, RoomSession>();
 
+  /**
+   * Adiciona ou restaura um jogador na sala.
+   *
+   * Identidade estável (Sprint 3 — M14):
+   * - `jogadorId` novo → cria jogador na sala
+   * - `jogadorId` existente NESTA sala → atualiza socket, marca `conectado: true`
+   *   (usado em reconexão)
+   * - `jogadorId` existente em OUTRA sala → throw `JOGADOR_EM_OUTRA_SALA`
+   *   (anti-impersonation: jogador não pode estar em 2 salas ao mesmo tempo)
+   */
   join(input: JoinRoomInput): JoinRoomResult {
     const salaId = input.salaId.trim().toUpperCase();
     if (!salaId) throw new RoomError('SALA_INEXISTENTE', 'Informe o código da sala.');
+
+    if (!input.jogadorId) {
+      throw new RoomError('INTERNAL', 'Jogador precisa de um jogadorId (UUID v4).');
+    }
+
+    // Verifica se o jogador já existe em OUTRA sala.
+    for (const [outraSalaId, outraSession] of this.rooms) {
+      if (outraSalaId === salaId) continue;
+      if (outraSession.sala.jogadores.some((j) => j.id === input.jogadorId)) {
+        throw new RoomError(
+          'JOGADOR_EM_OUTRA_SALA',
+          `Jogador ${input.jogadorId} já está na sala ${outraSalaId}. Saia dela primeiro.`,
+        );
+      }
+    }
 
     let session = this.rooms.get(salaId);
     if (!session) {
@@ -94,7 +129,9 @@ export class RoomStore {
         id: salaId,
         codigo: salaId,
         nome: `Sala ${salaId}`,
-        hostId: input.socketId,
+        // hostId é o jogadorId do primeiro jogador (identidade estável).
+        // O socketId muda a cada reconexão, mas o jogadorId não.
+        hostId: input.jogadorId,
         jogadores: [],
         maxJogadores: 10,
         modo: 'ONLINE_PRIVADA',
@@ -107,11 +144,32 @@ export class RoomStore {
     if (session.sala.status !== 'AGUARDANDO') {
       throw new RoomError('SALA_CHEIA', 'A partida desta sala já começou.');
     }
+
+    // Tenta encontrar o jogador existente nesta sala (caso de reconexão).
+    const jogadorExistente = session.sala.jogadores.find((j) => j.id === input.jogadorId);
+
+    if (jogadorExistente) {
+      // Reconexão: atualiza o socket, marca como conectado.
+      const jogadores = session.sala.jogadores.map((j) =>
+        j.id === input.jogadorId ? { ...j, conectado: true } : j,
+      );
+      const socketByPlayer = new Map(session.socketByPlayer);
+      socketByPlayer.set(input.jogadorId, input.socketId);
+      const next: RoomSession = {
+        ...session,
+        sala: { ...session.sala, jogadores },
+        socketByPlayer,
+      };
+      this.rooms.set(salaId, next);
+      return { session: next, jogadorId: input.jogadorId, reconectado: true };
+    }
+
+    // Jogador novo: cria.
     if (session.sala.jogadores.length >= session.sala.maxJogadores) {
       throw new RoomError('SALA_CHEIA', 'A sala atingiu o limite de jogadores.');
     }
 
-    const jogadorId = input.socketId;
+    const jogadorId = input.jogadorId;
     const jogador: JogadorPublico = {
       id: jogadorId,
       nome: sanitizeName(input.nome),
@@ -124,22 +182,44 @@ export class RoomStore {
     };
     const socketByPlayer = new Map(session.socketByPlayer);
     socketByPlayer.set(jogadorId, input.socketId);
-    session = {
+    const next: RoomSession = {
       ...session,
       sala: { ...session.sala, jogadores: [...session.sala.jogadores, jogador] },
       socketByPlayer,
     };
-    this.rooms.set(salaId, session);
-    return { session, jogadorId };
+    this.rooms.set(salaId, next);
+    return { session: next, jogadorId, reconectado: false };
   }
 
   get(salaId: string): RoomSession | undefined {
     return this.rooms.get(salaId.trim().toUpperCase());
   }
 
-  start(salaId: string, requesterId: JogadorId): RoomSession {
+  /**
+   * Encontra a sala em que um socket está conectado. Helper pra `disconnect`.
+   */
+  findBySocketId(socketId: string): { salaId: SalaId; session: RoomSession } | undefined {
+    for (const [salaId, session] of this.rooms) {
+      for (const socket of session.socketByPlayer.values()) {
+        if (socket === socketId) {
+          return { salaId, session };
+        }
+      }
+    }
+    return undefined;
+  }
+
+  start(salaId: string, requesterSocketId: string): RoomSession {
     const session = this.require(salaId);
-    if (session.sala.hostId !== requesterId) {
+    // Encontra o jogadorId do requester via socket → jogadorId
+    const requesterEntry = [...session.socketByPlayer.entries()].find(
+      ([, socket]) => socket === requesterSocketId,
+    );
+    const requesterJogadorId = requesterEntry?.[0];
+
+    if (!requesterJogadorId || session.sala.hostId !== requesterJogadorId) {
+      // Em caso de reconexão do host, o hostId original (jogadorId do 1º jogador)
+      // deve bater. Verificamos pelo socketByPlayer.
       throw new RoomError('INTERNAL', 'Apenas o host pode iniciar a partida.');
     }
     if (session.sala.jogadores.length < 2) {
@@ -204,18 +284,29 @@ export class RoomStore {
     return this.saveState(session, resultado.novoEstado);
   }
 
+  /**
+   * Marca jogador como desconectado, mas NÃO remove ele da sala.
+   * M14 (identidade estável): o jogador pode reconectar com o mesmo
+   * `jogadorId` e voltar a jogar.
+   */
   disconnect(socketId: string): RoomSession | undefined {
-    for (const session of this.rooms.values()) {
-      const jogador = session.sala.jogadores.find((item) => item.id === socketId);
-      if (!jogador) continue;
-      const jogadores = session.sala.jogadores.map((item) =>
-        item.id === socketId ? { ...item, conectado: false } : item,
-      );
-      const next = { ...session, sala: { ...session.sala, jogadores } };
-      this.rooms.set(session.sala.id, next);
-      return next;
-    }
-    return undefined;
+    const found = this.findBySocketId(socketId);
+    if (!found) return undefined;
+    const { salaId, session } = found;
+
+    // Encontra o jogadorId deste socket
+    const jogadorEntry = [...session.socketByPlayer.entries()].find(
+      ([, sock]) => sock === socketId,
+    );
+    const jogadorId = jogadorEntry?.[0];
+    if (!jogadorId) return undefined;
+
+    const jogadores = session.sala.jogadores.map((j) =>
+      j.id === jogadorId ? { ...j, conectado: false } : j,
+    );
+    const next = { ...session, sala: { ...session.sala, jogadores } };
+    this.rooms.set(salaId, next);
+    return next;
   }
 
   private require(salaId: string): RoomSession {

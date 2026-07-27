@@ -13,12 +13,12 @@
 
 ### 🟢 Mavis (gerente — não escreve código de feature nesta sprint)
 
-| ID  | Issue                                                                  | Status     |
-| --- | ---------------------------------------------------------------------- | ---------- |
-| M14 | Spec de reconexão com snapshot                                         | ⏳ A fazer |
-| M15 | Decidir destino do `src/` raiz (manter legacy ou deletar pós-migração) | ⏳ A fazer |
+| ID  | Issue                                                                  | Status          | Spec                                                                     |
+| --- | ---------------------------------------------------------------------- | --------------- | ------------------------------------------------------------------------ |
+| M14 | Identidade estável de jogador (reconexão)                              | 🔄 Em progresso | [`briefings/m14-reconexao-identidade.md`](./m14-reconexao-identidade.md) |
+| M15 | Decidir destino do `src/` raiz (manter legacy ou deletar pós-migração) | ⏳ A fazer      | —                                                                        |
 
-> **Nota:** Mavis só escreve código se for (a) bug crítico no motor, (b) ADR novo, ou (c) issue explicitamente sua. Esta sprint o foco é revisar e orientar.
+> **Nota:** Mavis só escreve código se for (a) bug crítico no motor, (b) ADR novo, ou (c) issue explicitamente sua. M14 destrava B13 (Codex — reconnect handler).
 
 ---
 
@@ -36,7 +36,7 @@
 - `apps/server/src/socket.ts` (handlers prontos)
 - `apps/server/src/room-store.ts` (RoomStore)
 - `packages/shared/src/types/socket-events.ts` (mapa de eventos — **Mavis adicionou `server:mao:atualizada` nesta sprint**)
-- `apps/web/src/services/socketClient.ts` (já criado na Sprint 3, parcial — tem bug, ver feedback)
+- `apps/web/src/services/socketClient.ts` (já criado na Sprint 3, B9 aceito com pendência de `state.mao` que o Codex **já corrigiu sozinho** — listener `server:mao:atualizada` adicionado)
 
 ---
 

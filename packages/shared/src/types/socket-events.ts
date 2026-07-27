@@ -47,8 +47,16 @@ export interface ClientChatEvent {
   texto: string;
 }
 
-/** Jogador está entrando em uma sala. */
+/**
+ * Jogador está entrando em uma sala (ou reconectando).
+ *
+ * Sprint 3 (M14): `jogadorId` é gerado pelo cliente na primeira entrada
+ * (UUID v4 via `crypto.randomUUID()`) e persistido no sessionStorage. Em
+ * reconexões, o cliente reenvia o mesmo `jogadorId` para o servidor
+ * restaurar o jogador (mão, pontos, posição).
+ */
 export interface ClientEntrarSalaEvent {
+  jogadorId: string;
   salaId: string;
   nome: string;
 }
@@ -129,6 +137,7 @@ export interface ServerErroEvent {
     | 'SALA_CHEIA'
     | 'JOGADA_INVALIDA'
     | 'NAO_SUA_VEZ'
+    | 'JOGADOR_EM_OUTRA_SALA'
     | 'AUTH_REQUIRED'
     | 'INTERNAL';
   mensagem: string;

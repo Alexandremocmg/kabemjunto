@@ -12,6 +12,7 @@ import type {
   ServerErroEvent,
   ServerJogadaAceitaEvent,
   ServerJogadaRejeitadaEvent,
+  ServerMaoAtualizadaEvent,
   ServerSalaAtualizadaEvent,
   SocketEventMap,
 } from '@kabemjunto/shared';
@@ -33,6 +34,7 @@ type ServerEvents = {
   'server:sala:atualizada': (payload: ServerSalaAtualizadaEvent) => void;
   'server:cor:trocada': (payload: ServerCorTrocadaEvent) => void;
   'server:chat:msg': (payload: ServerChatEvent) => void;
+  'server:mao:atualizada': (payload: ServerMaoAtualizadaEvent) => void;
   'server:erro': (payload: ServerErroEvent) => void;
 };
 
@@ -51,21 +53,56 @@ function roomId(socket: GameSocket): string | undefined {
   return socket.data.salaId as string | undefined;
 }
 
+function jogadorIdFromSocket(socket: GameSocket): string | undefined {
+  return socket.data.jogadorId as string | undefined;
+}
+
 function broadcastState(io: GameServer, salaId: string, estado: ServerEstadoAtualizadoEvent): void {
   io.to(salaId).emit('server:estado:atualizado', estado);
+}
+
+/**
+ * Envia a mão privada de cada jogador pro socket correspondente.
+ * (Sprint 3 — M14: canal privado de mão, complemento do broadcast público.)
+ */
+function sendPrivateHands(io: GameServer, session: ReturnType<RoomStore['get']>): void {
+  if (!session?.estado) return;
+  for (const [jogadorId, socketId] of session.socketByPlayer) {
+    const jogador = session.estado.jogadores.find((item) => item.id === jogadorId);
+    const playerSocket = io.sockets.sockets.get(socketId);
+    if (jogador && playerSocket) {
+      playerSocket.emit('server:mao:atualizada', { mao: jogador.mao });
+    }
+  }
 }
 
 export function registerSocketHandlers(io: GameServer, store: RoomStore): void {
   io.on('connection', (socket: GameSocket) => {
     socket.on('client:entrar:sala', (payload) => {
       try {
-        const joined = store.join({ ...payload, socketId: socket.id });
+        const joined = store.join({
+          jogadorId: payload.jogadorId,
+          salaId: payload.salaId,
+          nome: payload.nome,
+          socketId: socket.id,
+        });
         socket.data.salaId = joined.session.sala.id;
         socket.data.jogadorId = joined.jogadorId;
         void socket.join(joined.session.sala.id);
+
+        // Broadcast: sala atualizada (incluindo `conectado: true` no reconectado).
         io.to(joined.session.sala.id).emit('server:sala:atualizada', {
           jogadores: joined.session.sala.jogadores,
         });
+
+        // Se a partida JÁ está em andamento (reconexão no meio do jogo),
+        // reenvia o estado público + a mão privada pro novo socket.
+        if (joined.session.estado) {
+          socket.emit('server:estado:atualizado', {
+            estado: toPublicState(joined.session.estado),
+          });
+          sendPrivateHands(io, joined.session);
+        }
       } catch (error) {
         emitError(socket, error);
       }
@@ -77,6 +114,7 @@ export function registerSocketHandlers(io: GameServer, store: RoomStore): void {
         if (!salaId) throw new RoomError('SALA_INEXISTENTE', 'Entre em uma sala primeiro.');
         const session = store.start(salaId, socket.id);
         broadcastState(io, salaId, { estado: toPublicState(session.estado!) });
+        sendPrivateHands(io, session);
       } catch (error) {
         emitError(socket, error);
       }
@@ -85,11 +123,15 @@ export function registerSocketHandlers(io: GameServer, store: RoomStore): void {
     socket.on('client:jogar', (payload) => {
       try {
         const salaId = roomId(socket);
-        if (!salaId) throw new RoomError('SALA_INEXISTENTE', 'Entre em uma sala primeiro.');
+        const jogadorId = jogadorIdFromSocket(socket);
+        if (!salaId || !jogadorId) {
+          throw new RoomError('SALA_INEXISTENTE', 'Entre em uma sala primeiro.');
+        }
         const corEscolhida = payload.corEscolhida === 'NEUTRO' ? undefined : payload.corEscolhida;
-        const session = store.play(salaId, socket.id, payload.cartaId, corEscolhida);
-        socket.emit('server:jogada:aceita', { cartaId: payload.cartaId, jogadorId: socket.id });
+        const session = store.play(salaId, jogadorId, payload.cartaId, corEscolhida);
+        socket.emit('server:jogada:aceita', { cartaId: payload.cartaId, jogadorId });
         broadcastState(io, salaId, { estado: toPublicState(session.estado!) });
+        sendPrivateHands(io, session);
       } catch (error) {
         const roomError =
           error instanceof RoomError ? error : new RoomError('JOGADA_INVALIDA', 'Jogada inválida.');
@@ -104,9 +146,13 @@ export function registerSocketHandlers(io: GameServer, store: RoomStore): void {
     socket.on('client:comprar', (_payload) => {
       try {
         const salaId = roomId(socket);
-        if (!salaId) throw new RoomError('SALA_INEXISTENTE', 'Entre em uma sala primeiro.');
-        const session = store.buy(salaId, socket.id);
+        const jogadorId = jogadorIdFromSocket(socket);
+        if (!salaId || !jogadorId) {
+          throw new RoomError('SALA_INEXISTENTE', 'Entre em uma sala primeiro.');
+        }
+        const session = store.buy(salaId, jogadorId);
         broadcastState(io, salaId, { estado: toPublicState(session.estado!) });
+        sendPrivateHands(io, session);
       } catch (error) {
         emitError(socket, error);
       }
@@ -121,13 +167,14 @@ export function registerSocketHandlers(io: GameServer, store: RoomStore): void {
 
     socket.on('client:chat:msg', (payload) => {
       const salaId = roomId(socket);
-      if (!salaId) {
+      const jogadorId = jogadorIdFromSocket(socket);
+      if (!salaId || !jogadorId) {
         emitError(socket, new RoomError('SALA_INEXISTENTE', 'Entre em uma sala primeiro.'));
         return;
       }
       const texto = payload.texto.replace(/[<>]/g, '').trim().slice(0, 240);
       if (!texto) return;
-      const message: ServerChatEvent = { jogadorId: socket.id, texto, timestamp: Date.now() };
+      const message: ServerChatEvent = { jogadorId, texto, timestamp: Date.now() };
       io.to(salaId).emit('server:chat:msg', message);
     });
 

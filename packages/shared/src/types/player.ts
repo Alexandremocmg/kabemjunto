@@ -54,3 +54,27 @@ export interface JogadorPublico {
   avatar: string;
   pontos: number;
 }
+
+/**
+ * Identidade persistente de um jogador, independente do socket.
+ *
+ * Sprint 3 (M14): cada jogador recebe um `jogadorId` UUID v4 na primeira
+ * entrada e o persiste no cliente. O servidor mapeia `jogadorId → socketId`
+ * (atualizado a cada reconexão), permitindo que o jogador saia e volte sem
+ * perder a mão, pontos ou posição na mesa.
+ *
+ * Fluxo:
+ * - Cliente novo: gera UUID local, salva em sessionStorage, envia ao entrar.
+ * - Reconexão: lê UUID do sessionStorage, reenvia ao reconectar.
+ * - Servidor: aceita UUID novo (cria jogador) ou existente (atualiza socket).
+ *
+ * Fora de escopo (Sprint 4+): autenticação real, JWT, validação de formato.
+ */
+export interface SessaoJogador {
+  /** UUID v4 gerado pelo cliente via `crypto.randomUUID()`. */
+  jogadorId: JogadorId;
+  /** Sala em que o jogador está (ou pretende entrar). */
+  salaId: string;
+  /** Nome de exibição (sanitizado no servidor). */
+  nome: string;
+}
