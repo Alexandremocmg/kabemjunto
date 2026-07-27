@@ -83,6 +83,16 @@ por toque e possui alternativa textual em `aria-live`.
 - Suporte visual completo para 5–10 jogadores.
 - Drag-and-drop como única forma de jogar.
 
+## Fase 2 — eventos de compra e punição
+
+- Compra aceita gera evento visual `COMPRA` e histórico dos últimos eventos.
+- Modal de compra substitui o toast de sucesso duplicado.
+- Cartas estilizadas voam do núcleo central durante compra/punição.
+- A animação é limitada a seis cartas visuais para evitar sobrecarga em ataques
+  grandes; o estado real continua vindo do motor.
+- Histórico mobile ocupa uma faixa intermediária, sem cobrir header, status ou
+  mão.
+
 ## Acessibilidade
 
 - Monte e cartas são controles focáveis e operáveis por teclado.

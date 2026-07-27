@@ -1,7 +1,7 @@
 import React from 'react';
 
 type EventoVisual = {
-  tipo: 'SILENCIO' | 'ATAQUE' | 'ZERO_MAIS';
+  tipo: 'SILENCIO' | 'ATAQUE' | 'ZERO_MAIS' | 'COMPRA';
   titulo: string;
   detalhe: string;
 };
@@ -20,7 +20,13 @@ export const EventoPartidaOverlay: React.FC<EventoPartidaOverlayProps> = ({ even
     >
       <div className="game-event-card">
         <span className="game-event-icon" aria-hidden="true">
-          {evento.tipo === 'SILENCIO' ? '🤫' : evento.tipo === 'ZERO_MAIS' ? '0+' : '⚡'}
+          {evento.tipo === 'SILENCIO'
+            ? '🤫'
+            : evento.tipo === 'ZERO_MAIS'
+              ? '0+'
+              : evento.tipo === 'COMPRA'
+                ? '🃏'
+                : '⚡'}
         </span>
         <strong>{evento.titulo}</strong>
         <span>{evento.detalhe}</span>

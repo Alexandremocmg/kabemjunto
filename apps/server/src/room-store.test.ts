@@ -78,6 +78,8 @@ describe('RoomStore — básico', () => {
       ),
       monteDescarte: [estado.monteDescarte.at(-1)!],
       corAtiva: 'LARANJA',
+      ataqueAcumulado: 0,
+      ataqueStack: [],
     };
 
     const after = store.play('KJTEST', jogadorAtual.id, cartaTroca.id, undefined, alvo.id).estado!;

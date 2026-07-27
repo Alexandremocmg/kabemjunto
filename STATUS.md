@@ -217,3 +217,13 @@ Decisões registradas:
 - `+4 sobre +4` permanece regra canônica e não vira toggle no MVP.
 
 Estado: documentação atualizada e Fase 1 autorizada para implementação.
+
+---
+
+## ⚡ UI/UX — Fase 2: eventos de compra e punição · 2026-07-27
+
+- Evento visual `COMPRA` com modal temporário.
+- Histórico compacto dos três eventos mais recentes.
+- Animação de cartas saindo do núcleo durante compra/punição.
+- Feedback de sucesso duplicado removido; erros continuam no toast acessível.
+- Validação mobile confirmou histórico sem colisão e sem overflow horizontal.

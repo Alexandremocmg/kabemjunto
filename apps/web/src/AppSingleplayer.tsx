@@ -20,7 +20,7 @@ type Feedback = {
 
 type EventoVisual = {
   id: string;
-  tipo: 'SILENCIO' | 'ATAQUE' | 'ZERO_MAIS';
+  tipo: 'SILENCIO' | 'ATAQUE' | 'ZERO_MAIS' | 'COMPRA';
   titulo: string;
   detalhe: string;
 };
@@ -33,7 +33,11 @@ export const App: React.FC = () => {
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [selectedCardIndex, setSelectedCardIndex] = useState<number | null>(null);
   const [eventQueue, setEventQueue] = useState<EventoVisual[]>([]);
+  const [eventHistory, setEventHistory] = useState<EventoVisual[]>([]);
   const [activeEvent, setActiveEvent] = useState<EventoVisual | null>(null);
+  const [penaltyFlight, setPenaltyFlight] = useState<{ id: string; quantidade: number } | null>(
+    null,
+  );
 
   // F8: carta que deve tremer (clicou em inválida)
   const [shakeCartaKey, setShakeCartaKey] = useState<string | null>(null);
@@ -49,6 +53,12 @@ export const App: React.FC = () => {
     const timer = window.setTimeout(() => setFeedback(null), 2800);
     return () => window.clearTimeout(timer);
   }, [feedback]);
+
+  useEffect(() => {
+    if (!penaltyFlight) return undefined;
+    const timer = window.setTimeout(() => setPenaltyFlight(null), 650);
+    return () => window.clearTimeout(timer);
+  }, [penaltyFlight]);
 
   useEffect(() => {
     if (activeEvent || eventQueue.length === 0) return undefined;
@@ -131,7 +141,10 @@ export const App: React.FC = () => {
         detalhe: `${nome} colocou uma carta de ataque na mesa.`,
       });
     }
-    if (eventos.length > 0) setEventQueue((atual) => [...atual, ...eventos]);
+    if (eventos.length > 0) {
+      setEventQueue((atual) => [...atual, ...eventos]);
+      setEventHistory((atual) => [...atual, ...eventos].slice(-5));
+    }
   };
 
   const handleSelecionarCarta = (index: number) => {
@@ -217,17 +230,20 @@ export const App: React.FC = () => {
 
   const handleComprar = () => {
     if (!estado) return;
+    const jogadorAtual = estado.jogadores.find((j: Jogador) => j.id === estado.vezDe);
     try {
       const novoState = comprar(estado);
+      const quantidade = estado.ataqueAcumulado > 0 ? estado.ataqueAcumulado : 1;
+      const eventoCompra: EventoVisual = {
+        id: `compra-${Date.now()}`,
+        tipo: 'COMPRA',
+        titulo: `Compra +${quantidade}`,
+        detalhe: `${jogadorAtual?.nome ?? 'Jogador'} recebeu ${quantidade} carta${quantidade === 1 ? '' : 's'}.`,
+      };
+      setEventQueue((atual) => [...atual, eventoCompra]);
+      setEventHistory((atual) => [...atual, eventoCompra].slice(-5));
+      setPenaltyFlight({ id: eventoCompra.id, quantidade });
       setEstado(novoState);
-      const jogadorAtual = estado.jogadores.find((j: Jogador) => j.id === estado.vezDe);
-      mostrarFeedback({
-        tipo: 'info',
-        texto:
-          estado.ataqueAcumulado > 0
-            ? `${jogadorAtual?.nome ?? 'Jogador'} pagou +${estado.ataqueAcumulado}.`
-            : `${jogadorAtual?.nome ?? 'Jogador'} comprou uma carta.`,
-      });
     } catch (err) {
       mostrarFeedback({
         tipo: 'erro',
@@ -269,6 +285,32 @@ export const App: React.FC = () => {
       />
 
       <EventoPartidaOverlay evento={activeEvent} />
+
+      {eventHistory.length > 0 && (
+        <aside className="event-history" aria-label="Eventos recentes">
+          <span className="event-history-title">EVENTOS</span>
+          {eventHistory
+            .slice(-3)
+            .reverse()
+            .map((evento) => (
+              <div key={evento.id} className="event-history-item">
+                <strong>{evento.titulo}</strong>
+                <span>{evento.detalhe}</span>
+              </div>
+            ))}
+        </aside>
+      )}
+
+      {penaltyFlight && (
+        <div className="penalty-flight" aria-hidden="true">
+          {Array.from({ length: Math.min(penaltyFlight.quantidade, 6) }, (_, index) => (
+            <span
+              key={`${penaltyFlight.id}-${index}`}
+              style={{ '--flight-delay': `${index * 55}ms` } as React.CSSProperties}
+            />
+          ))}
+        </div>
+      )}
 
       {/* F7: carta voando pro descarte */}
       {flyingCarta && (
