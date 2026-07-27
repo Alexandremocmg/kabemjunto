@@ -205,18 +205,16 @@ Itens já entregues:
 
 Evidências pendentes antes da tag `v0.4.0`:
 
-1. CI externo verde no último SHA
-2. Evento `RECONECTADO` confirmado no dashboard PostHog
-3. Fechamento documental e tag anotada
+1. Evento `RECONECTADO` confirmado no dashboard PostHog Cloud ou waiver explícito de Mavis/proprietário
+2. Fechamento documental e tag anotada
 
 ---
 
 ## ⚠️ Pendências conhecidas
 
-1. **PostHog** — sink e evento existem; falta evidência no dashboard real
-2. **GitHub Actions** — workflow está configurado; resultado externo precisa ser confirmado com acesso autenticado
-3. **M17 (persistência)** e **M18 (auth)** seguem candidatas à Sprint 6
-4. **Sprint 6** recomendada: persistência, deploy estável, hardening e observabilidade
+1. **PostHog Cloud** — sink e evento foram comprovados em build de produção contra endpoint controlado; falta project token/dashboard real ou waiver explícito
+2. **M17 (persistência)** e **M18 (auth)** seguem candidatas à Sprint 6
+3. **Sprint 6** recomendada: persistência, deploy estável, hardening e observabilidade
 
 ---
 

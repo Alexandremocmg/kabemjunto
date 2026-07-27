@@ -43,14 +43,35 @@ Código revisado:
 - `apps/web/src/main.tsx` ativa o sink somente em build de produção;
 - `apps/web/src/services/socketClient.ts` emite `RECONECTADO` após queda real.
 
-Bloqueio de evidência:
+Validação executada com build de produção e endpoint local controlado, sem credencial real:
 
 ```text
-apps/web/.env           ausente
-VITE_POSTHOG_API_KEY    não configurada
+frontend preview                 4174
+backend isolado                  3101
+mock PostHog                     3999
+queda reconhecida                Reconectando... / xhr poll error
+reconexão                        Online
+capture_count                    1
+event                            RECONECTADO
+api_key                          presente (valor fake não persistido)
+distinct_id                      presente
+properties                       duracaoMs,jogadorId,modo,salaId,tentativa
+tipos                            number,string,string,string,number
 ```
 
-Nenhum segredo deve ser commitado. A aprovação exige configuração local/CI protegida e confirmação do evento no dashboard PostHog.
+Como a configuração usa `sampleRate: 0.1`, a auditoria fixou `Math.random()` em zero somente na página de QA para tornar a amostragem determinística. Nenhum código foi alterado.
+
+Após o teste, processos, payload e script temporários foram removidos e o bundle normal foi reconstruído sem chave fake.
+
+Bloqueio externo remanescente:
+
+```text
+apps/web/.env                    ausente
+VITE_POSTHOG_API_KEY             não configurada
+GitHub Actions secrets/variables sem configuração PostHog
+```
+
+A integração está funcional, mas o critério literal “visível no dashboard PostHog Cloud” exige um project token real ou waiver explícito do proprietário/Mavis.
 
 ## CI externo
 
@@ -62,4 +83,16 @@ Causa raiz confirmada no log remoto:
 - `npm ci` não instalava dependências dos apps;
 - `packages/shared/tsconfig.tsbuildinfo` versionado impedia geração dos `.d.ts` em checkout limpo.
 
-B22 corrige a configuração do monorepo, regenera o lockfile e remove o cache incremental rastreado. Instalações limpas com npm 11 e npm 10 passaram em `npm run typecheck`. O gate só será marcado como concluído depois que o novo SHA ficar verde no GitHub Actions.
+B22 corrigiu a configuração do monorepo, regenerou o lockfile e removeu o cache incremental rastreado. Instalações limpas com npm 11 e npm 10 passaram em `npm run typecheck`.
+
+Evidência remota final:
+
+```text
+SHA:         4a95189
+Workflow:    .github/workflows/ci.yml
+Run:         30313623191
+quality-gate completed / success
+E2E          completed / success
+```
+
+O gate de CI está aprovado.
