@@ -43,14 +43,24 @@ export type EstadoTurno =
   | { tipo: 'REJEITADA'; timestamp: number; jogadorId: JogadorId; carta: Carta; motivo: string }
   | { tipo: 'RESOLVENDO_ACAO'; timestamp: number; jogadorId: JogadorId; carta: Carta; acao?: Acao }
   | { tipo: 'COMPRANDO'; timestamp: number; jogadorId: JogadorId; quantidade: number }
-  | { tipo: 'PASSANDO_TURNO'; timestamp: number; jogadorAnterior: JogadorId; jogadorProximo: JogadorId }
+  | {
+      tipo: 'PASSANDO_TURNO';
+      timestamp: number;
+      jogadorAnterior: JogadorId;
+      jogadorProximo: JogadorId;
+    }
   | { tipo: 'VITORIA'; timestamp: number; vencedorId: JogadorId }
   | { tipo: 'FINALIZADA'; timestamp: number; motivo: 'VITORIA' | 'ABANDONO' | 'TIMEOUT' };
 
 /** Evento que dispara uma transição. */
 export type EventoTurno =
   | { tipo: 'TURNO_INICIADO'; jogadorId: JogadorId }
-  | { tipo: 'CARTA_SELECIONADA'; jogadorId: JogadorId; carta: Carta; corEscolhida?: Exclude<Cor, 'NEUTRO'> }
+  | {
+      tipo: 'CARTA_SELECIONADA';
+      jogadorId: JogadorId;
+      carta: Carta;
+      corEscolhida?: Exclude<Cor, 'NEUTRO'>;
+    }
   | { tipo: 'CARTA_REJEITADA'; jogadorId: JogadorId; carta: Carta; motivo: string }
   | { tipo: 'CARTA_COMPRADA'; jogadorId: JogadorId; quantidade: number }
   | { tipo: 'ACAO_RESOLVIDA'; jogadorId: JogadorId; carta: Carta }
@@ -63,7 +73,9 @@ export type ResultadoTransicao =
   | { ok: false; motivo: string };
 
 /** Tabela de transições válidas (declarativa, type-checked). */
-const TRANSICOES_VALIDAS: Readonly<Record<EstadoTurno['tipo'], ReadonlyArray<EventoTurno['tipo']>>> = {
+const TRANSICOES_VALIDAS: Readonly<
+  Record<EstadoTurno['tipo'], ReadonlyArray<EventoTurno['tipo']>>
+> = {
   INICIO_TURNO: ['TURNO_INICIADO'],
   ESPERANDO_CARTA: ['CARTA_SELECIONADA', 'CARTA_COMPRADA', 'PARTIDA_ABANDONADA', 'TURNO_TIMEOUT'],
   VALIDANDO: ['CARTA_REJEITADA', 'ACAO_RESOLVIDA', 'PARTIDA_ABANDONADA', 'TURNO_TIMEOUT'],
@@ -113,7 +125,11 @@ export function transicionar(estadoAtual: EstadoTurno, evento: EventoTurno): Res
       };
 
     case 'CARTA_SELECIONADA':
-      if (estadoAtual.tipo !== 'ESPERANDO_CARTA' && estadoAtual.tipo !== 'REJEITADA' && estadoAtual.tipo !== 'COMPRANDO') {
+      if (
+        estadoAtual.tipo !== 'ESPERANDO_CARTA' &&
+        estadoAtual.tipo !== 'REJEITADA' &&
+        estadoAtual.tipo !== 'COMPRANDO'
+      ) {
         return { ok: false, motivo: `Não pode selecionar carta em ${estadoAtual.tipo}` };
       }
       return {

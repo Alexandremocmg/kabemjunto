@@ -14,7 +14,6 @@ import {
   iniciarStateMachine,
   inferirEstadoTurno,
   type EstadoTurno,
-  type EventoTurno,
 } from './state-machine.js';
 import type { Carta, Cor, Acao } from '../types/card.js';
 import type { EstadoPartida } from '../types/game.js';

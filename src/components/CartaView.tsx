@@ -6,6 +6,7 @@ interface CartaViewProps {
   carta: Carta;
   onClick?: () => void;
   jogavel?: boolean;
+  motivoBloqueio?: string;
   verso?: boolean;
   pequena?: boolean;
 }
@@ -14,6 +15,7 @@ export const CartaView: React.FC<CartaViewProps> = ({
   carta,
   onClick,
   jogavel = true,
+  motivoBloqueio,
   verso = false,
   pequena = false,
 }) => {
@@ -22,6 +24,7 @@ export const CartaView: React.FC<CartaViewProps> = ({
       <div
         className={`card-wrapper ${!jogavel ? 'disabled' : ''}`}
         onClick={jogavel ? onClick : undefined}
+        title={motivoBloqueio ?? 'Monte de compra'}
         style={{ width: pequena ? '80px' : '130px', height: pequena ? '115px' : '185px' }}
       >
         <img
@@ -59,8 +62,9 @@ export const CartaView: React.FC<CartaViewProps> = ({
 
   return (
     <div
-      className={`card-wrapper ${!jogavel ? 'disabled' : ''}`}
+      className={`card-wrapper ${jogavel ? 'playable' : 'disabled'}`}
       onClick={jogavel ? onClick : undefined}
+      title={motivoBloqueio ?? carta.efeito_texto_longo}
       style={{
         width: pequena ? '85px' : '130px',
         height: pequena ? '120px' : '185px',

@@ -10,7 +10,7 @@
 export function embaralhar<T>(array: readonly T[], rng: () => number = Math.random): T[] {
   const copia = [...array];
   for (let i = copia.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
+    const j = Math.min(i, Math.floor(rng() * (i + 1)));
     const tmp = copia[i] as T;
     copia[i] = copia[j] as T;
     copia[j] = tmp;
