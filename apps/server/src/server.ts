@@ -1,7 +1,6 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import sensible from '@fastify/sensible';
-import { createServer } from 'node:http';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Server as SocketIOServer } from 'socket.io';
@@ -33,16 +32,11 @@ export async function buildServer() {
 
 async function bootstrap(): Promise<void> {
   const { app, store } = await buildServer();
-  const httpServer = createServer(app.server);
-  const io = new SocketIOServer(httpServer, { cors: { origin: true } });
+  const io = new SocketIOServer(app.server, { cors: { origin: true } });
   registerSocketHandlers(io, store);
 
   try {
-    await app.ready();
-    await new Promise<void>((resolve, reject) => {
-      httpServer.listen(PORT, HOST, () => resolve());
-      httpServer.once('error', reject);
-    });
+    await app.listen({ port: PORT, host: HOST });
     app.log.info(`Kabemjunto server escutando em http://${HOST}:${PORT}`);
   } catch (error) {
     app.log.error(error);
