@@ -368,7 +368,17 @@ function calcularProximoTurno(estado: EstadoPartida, cartaJogada: Carta): Jogado
 
 /**
  * Gira todas as mãos no sentido atual.
- * Quem jogou mantém a mão; os outros passam a mão pro próximo.
+ *
+ * Lógica (sentido horário como exemplo; anti-horário é o oposto):
+ * - Quem jogou (índice 0) PASSA sua mão (já sem a carta descartada) para o próximo
+ * - Os outros passam a mão pro próximo no sentido
+ * - O último jogador dá sua mão para quem jogou
+ *
+ * Para 2 jogadores: swap direto (j1 ↔ j2).
+ * Para 3+ jogadores: rotação circular (j1 → j2 → j3 → ... → jN → j1).
+ *
+ * @param jogadores Array de jogadores. `jogadores[0]` é quem jogou a carta.
+ * @param sentido Direção do jogo (1 = horário, -1 = anti-horário).
  */
 function girarMaos(
   jogadores: ReadonlyArray<Jogador>,
@@ -377,17 +387,44 @@ function girarMaos(
 ): ReadonlyArray<Jogador> {
   if (jogadores.length <= 1) return jogadores;
 
-  // Quem jogou mantém (índice 0, o da vez).
-  // Os outros passam a mão.
+  // Mão do jogador atual (já sem a carta descartada)
+  const maoJogadorAtual = jogadores[0]!.mao;
+  // Mãos dos outros jogadores
   const outrasMaos = jogadores.slice(1).map((j) => j.mao);
-  // Gira as "outras" no sentido
-  const maosGiradas =
-    sentido === 1
-      ? [...outrasMaos.slice(1), outrasMaos[0]!] // horário
-      : [outrasMaos[outrasMaos.length - 1]!, ...outrasMaos.slice(0, -1)]; // anti-horário
+  const N = outrasMaos.length + 1;
+
+  // Cada jogador[i] (i > 0) recebe a mão do jogador[i-1] no sentido do jogo
+  // jogadores[0] (quem jogou) recebe a mão do ÚLTIMO jogador (wraparound)
+  //
+  // Para sentido 1 (horário, j1 → j2 → j3 → ... → jN → j1):
+  //   jogadores[0].mao = outrasMaos[N-2]   (= jN)
+  //   jogadores[1].mao = maoJogadorAtual   (= j1 sem a carta)
+  //   jogadores[2].mao = outrasMaos[0]    (= j2)
+  //   jogadores[3].mao = outrasMaos[1]    (= j3)
+  //   ...
+  //   jogadores[N-1].mao = outrasMaos[N-3] (= j(N-1))
+  //
+  // Para sentido -1 (anti-horário, j1 → jN → j(N-1) → ... → j2 → j1):
+  //   jogadores[0].mao = outrasMaos[0]    (= j2)
+  //   jogadores[1].mao = outrasMaos[1]    (= j3)
+  //   ...
+  //   jogadores[N-1].mao = maoJogadorAtual (= j1 sem a carta)
+  const novasMaos: (readonly Carta[])[] = new Array(N);
+  if (sentido === 1) {
+    novasMaos[0] = outrasMaos[N - 2]!; // jN
+    for (let i = 1; i < N; i++) {
+      novasMaos[i] = i === 1 ? maoJogadorAtual : outrasMaos[i - 2]!;
+    }
+  } else {
+    novasMaos[0] = outrasMaos[0]!; // j2
+    for (let i = 1; i < N - 1; i++) {
+      novasMaos[i] = outrasMaos[i]!; // j3, j4, ..., j(N-1) → j(i-1) → ji
+    }
+    novasMaos[N - 1] = maoJogadorAtual; // jN ← j1
+  }
 
   // Embaralha para aleatoriedade extra (opcional, mas divertido)
   void rng; // silencia lint
 
-  return jogadores.map((j, i) => (i === 0 ? j : { ...j, mao: maosGiradas[i - 1]! }));
+  return jogadores.map((j, i) => ({ ...j, mao: novasMaos[i]! }));
 }

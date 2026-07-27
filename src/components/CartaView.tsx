@@ -3,12 +3,34 @@ import { Carta } from '@shared/types';
 import { PALETA_CORES } from '@shared/constants/cards';
 
 interface CartaViewProps {
-  carta: Carta;
+  carta?: Carta;
   onClick?: () => void;
   jogavel?: boolean;
   motivoBloqueio?: string;
   verso?: boolean;
   pequena?: boolean;
+  /** F8: aplica classe de shake (carta inválida) */
+  shaking?: boolean;
+}
+
+function getCartaLabel(carta: Carta): string {
+  if (carta.valor !== undefined) {
+    return `Carta ${carta.valor} ${carta.cor ?? ''}`.trim();
+  }
+
+  const labels: Record<string, string> = {
+    SKIP: 'Pula',
+    REVERSE: 'Inverte',
+    MAIS_DOIS: 'Mais dois',
+    MAIS_QUATRO: 'Mais quatro',
+    ZERO_MAIS: 'Zero Mais',
+    TROCA_MAO: 'Troca mão',
+    GIRA_MAO: 'Gira mão',
+    CORINGA_SIMPLES: 'Coringa',
+    SILENCIO: 'Silêncio',
+  };
+
+  return labels[carta.acao ?? ''] ?? 'Carta';
 }
 
 export const CartaView: React.FC<CartaViewProps> = ({
@@ -18,12 +40,23 @@ export const CartaView: React.FC<CartaViewProps> = ({
   motivoBloqueio,
   verso = false,
   pequena = false,
+  shaking = false,
 }) => {
   if (verso) {
     return (
       <div
-        className={`card-wrapper ${!jogavel ? 'disabled' : ''}`}
+        className={`card-wrapper card-back ${!jogavel ? 'disabled' : 'playable'}`}
         onClick={jogavel ? onClick : undefined}
+        onKeyDown={(event) => {
+          if (jogavel && (event.key === 'Enter' || event.key === ' ')) {
+            event.preventDefault();
+            onClick?.();
+          }
+        }}
+        role={onClick ? 'button' : undefined}
+        tabIndex={jogavel && onClick ? 0 : -1}
+        aria-disabled={!jogavel}
+        aria-label={jogavel ? 'Comprar carta' : (motivoBloqueio ?? 'Monte de compra bloqueado')}
         title={motivoBloqueio ?? 'Monte de compra'}
         style={{ width: pequena ? '80px' : '130px', height: pequena ? '115px' : '185px' }}
       >
@@ -40,6 +73,8 @@ export const CartaView: React.FC<CartaViewProps> = ({
       </div>
     );
   }
+
+  if (!carta) return null;
 
   const corKey = carta.cor || 'NEUTRO';
   const infoCor = PALETA_CORES[corKey] || PALETA_CORES.NEUTRO;
@@ -62,8 +97,20 @@ export const CartaView: React.FC<CartaViewProps> = ({
 
   return (
     <div
-      className={`card-wrapper ${jogavel ? 'playable' : 'disabled'}`}
+      className={`card-wrapper ${jogavel ? 'playable' : 'disabled'} ${
+        carta.acao === 'ZERO_MAIS' ? 'zeroplus-active' : ''
+      } ${shaking ? 'card-shake' : ''}`}
       onClick={jogavel ? onClick : undefined}
+      onKeyDown={(event) => {
+        if (jogavel && (event.key === 'Enter' || event.key === ' ')) {
+          event.preventDefault();
+          onClick?.();
+        }
+      }}
+      role={onClick ? 'button' : undefined}
+      tabIndex={jogavel && onClick ? 0 : -1}
+      aria-disabled={!jogavel}
+      aria-label={jogavel ? getCartaLabel(carta) : (motivoBloqueio ?? getCartaLabel(carta))}
       title={motivoBloqueio ?? carta.efeito_texto_longo}
       style={{
         width: pequena ? '85px' : '130px',

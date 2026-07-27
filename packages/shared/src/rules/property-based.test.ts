@@ -163,7 +163,7 @@ describe('INVARIANTE 1: Conservação de cartas', () => {
           return true;
         },
       ),
-      { numRuns: 100, endOnFailure: true },
+      { numRuns: 200, endOnFailure: true },
     );
   });
 });

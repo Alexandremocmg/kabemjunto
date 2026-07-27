@@ -6,9 +6,24 @@ import { CartaView } from './CartaView';
 interface MaoDoJogadorProps {
   estado: EstadoPartida;
   onJogarCarta: (index: number) => void;
+  /** F8: key da carta que deve tremer (clicou inválida). Se null, sem shake. */
+  shakeCartaKey?: string | null;
 }
 
-export const MaoDoJogador: React.FC<MaoDoJogadorProps> = ({ estado, onJogarCarta }) => {
+/**
+ * Componente que mostra a mão do jogador da vez.
+ *
+ * Features:
+ * - Marca cartas jogáveis (highlight laranja)
+ * - Mostra motivo de bloqueio em tooltip
+ * - F8: aplica `card-shake` à carta correspondente ao `shakeCartaKey` por 400ms
+ * - F7: animação de fly-to-discard é disparada pelo App.tsx (estado externo)
+ */
+export const MaoDoJogador: React.FC<MaoDoJogadorProps> = ({
+  estado,
+  onJogarCarta,
+  shakeCartaKey = null,
+}) => {
   const jogadorAtual = estado.jogadores.find((j) => j.id === estado.vezDe);
 
   if (!jogadorAtual) return null;
@@ -34,6 +49,8 @@ export const MaoDoJogador: React.FC<MaoDoJogadorProps> = ({ estado, onJogarCarta
         {jogadorAtual.mao.map((carta: Carta, index: number) => {
           const res = validarJogada(estado, carta, jogadorAtual.id);
           const jogavel = res.valida && !jogadorAtual.isBot;
+          // Match simples: se a key do shake começa com o id da carta, treme
+          const isShaking = shakeCartaKey !== null && shakeCartaKey.startsWith(`${carta.id}-`);
 
           return (
             <div key={`${carta.id}_${index}`} style={{ display: 'inline-block' }}>
@@ -42,6 +59,7 @@ export const MaoDoJogador: React.FC<MaoDoJogadorProps> = ({ estado, onJogarCarta
                 jogavel={jogavel}
                 motivoBloqueio={jogadorAtual.isBot ? 'Aguardando o bot jogar.' : res.motivo}
                 onClick={() => jogavel && onJogarCarta(index)}
+                shaking={isShaking}
               />
             </div>
           );

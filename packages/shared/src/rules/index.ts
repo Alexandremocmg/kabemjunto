@@ -28,3 +28,11 @@ export {
   type EventoTurno,
   type ResultadoTransicao,
 } from './state-machine.js';
+export {
+  snapshot,
+  restore,
+  snapshotToJSON,
+  snapshotFromJSON,
+  diff,
+  SnapshotStack,
+} from './snapshot.js';

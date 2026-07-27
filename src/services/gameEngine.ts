@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 /**
  * Wrapper FRONTEND do motor de regras.
  *
@@ -5,6 +6,7 @@
  * Sua única responsabilidade é:
  *   1. Encaminhar chamadas para o motor puro
  *   2. Despachar side effects (SFX) com base no que o motor retornou
+ *   3. Despachar telemetria (M13/ADR-006) com base nos eventos do motor
  *
  * TUDO que toca regra de jogo DEVE estar em `@kabemjunto/shared/rules`.
  * Se você está adicionando lógica de regra aqui, pare e mova para o shared.
@@ -17,12 +19,30 @@ import {
   executarJogada,
   comprarCartas,
   executarTurnoBot,
+  configureTelemetry,
+  logEvent,
+  logEvents,
+  makeContext,
+  consoleSink,
   type CriarPartidaOpcoes,
   type ModoJogo,
 } from '@shared';
 import { BARALHO_COMPLETO_108 } from '@shared/constants';
 import type { Carta, Cor, EstadoPartida } from '@shared';
 import { audioService } from './audioService';
+
+// ─────────────────────────────────────────────────────────────────────
+// Setup de telemetria (M13)
+// ─────────────────────────────────────────────────────────────────────
+
+// Por padrão, telemetria desliga em dev (LGPD-friendly).
+// Liga automaticamente em produção via env var.
+const TELEMETRY_ENABLED = import.meta.env.PROD === true;
+configureTelemetry({
+  enabled: TELEMETRY_ENABLED,
+  sampleRate: 1.0,
+  sink: consoleSink,
+});
 
 // ─────────────────────────────────────────────────────────────────────
 // Re-exports para o App.tsx e componentes
@@ -33,7 +53,7 @@ export { validarJogada };
 export type { EstadoPartida, Carta, Cor };
 
 // ─────────────────────────────────────────────────────────────────────
-// Wrappers que disparam áudio
+// Wrappers que disparam áudio + telemetria
 // ─────────────────────────────────────────────────────────────────────
 
 /**
@@ -52,6 +72,13 @@ export function criarPartida(
   };
   const estado = criarPartidaInicial(opcoes);
   audioService.play('descarte');
+  // Configura contexto de telemetria com IDs da partida
+  configureTelemetry({ context: makeContext(estado) });
+  logEvent({
+    tipo: 'PARTIDA_INICIADA',
+    timestamp: Date.now(),
+    jogadores: estado.jogadores.map((j) => j.id),
+  });
   return estado;
 }
 
@@ -66,6 +93,7 @@ export function jogarCarta(
 ): EstadoPartida {
   const resultado = executarJogada({ estado, cartaIndex, corEscolhida });
   tocarSFX(resultado.sfx);
+  logEvents(resultado.eventos);
   return resultado.novoEstado;
 }
 
@@ -75,6 +103,7 @@ export function jogarCarta(
 export function comprar(estado: EstadoPartida): EstadoPartida {
   const resultado = comprarCartas({ estado });
   tocarSFX(resultado.sfx);
+  logEvents(resultado.eventos);
   return resultado.novoEstado;
 }
 
@@ -84,6 +113,7 @@ export function comprar(estado: EstadoPartida): EstadoPartida {
 export function turnoBot(estado: EstadoPartida): EstadoPartida {
   const resultado = executarTurnoBot({ estado });
   tocarSFX(resultado.sfx);
+  logEvents(resultado.eventos);
   return resultado.novoEstado;
 }
 

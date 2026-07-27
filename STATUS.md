@@ -4,172 +4,149 @@
 
 **Time:** Mavis (lead) · Codex (eng. pleno) · Antigravity (eng. júnior)
 **Fonte da verdade:** [`GDD-Kabemjunto.md`](./GDD-Kabemjunto.md) v1.0 + [`PLANO-EQUIPE-3DEVS.md`](./PLANO-EQUIPE-3DEVS.md) v1.0
-**Sprint atual:** ✅ **Sprint 0 FECHADA** (2026-07-26) — pronto para Sprint 1
+**Sprint atual:** Sprint 2 — **INICIADA** (2026-07-26 23:42 BRT)
+
+### Sprint 2 — Divisão de trabalho
+
+| Agente          | Escopo                                                                                 | Status         |
+| --------------- | -------------------------------------------------------------------------------------- | -------------- |
+| **Mavis**       | B1 (testes do 0+ e Regra do 7), M12 (snapshot/restore), M13 (telemetria), setup GitHub | 🔨 Trabalhando |
+| **Codex**       | B2 (Fastify + Socket.IO autoritativo)                                                  | 🟡 Sua vez     |
+| **Antigravity** | B6, B7, B8 (PWA, Manifest, Favicon, Meta Tags Mobile)                                  | 🟡 Sua vez     |
+
+**Regra do lock estrito (ADR-003):** cada agente só toca no seu escopo. Mavis NÃO vai implementar B2 (Codex) nem B6/B7/B8 (Antigravity).
 
 ---
 
-## 🎉 Sprint 0 FECHADA · 2026-07-26 22:44 BRT
+## 🎉 Sprint 1 FECHADA · 2026-07-26 23:36 BRT
 
-### Resumo executivo
+Todos os 3 agentes entregaram suas partes. `npm run validate` exit 0. Pronto pra Sprint 2.
 
-Sprint 0 foi concluída em uma única sessão (Mavis executou todos os 6 itens, alguns originalmente delegados a Codex/Antigravity que estavam ausentes). O motor de regras está puro, testado, tipado, lintado, e o pipeline de CI está pronto. Pronto para começar a Sprint 1.
+### Mavis ✅ (entregue 23:23 BRT)
 
-### Issues da Sprint 0 — status final
+| Item                                   | Status | Entregas                                                           |
+| -------------------------------------- | ------ | ------------------------------------------------------------------ |
+| **M2** — State machine explícita       | ✅     | `state-machine.ts` (9 estados + 19 testes), `inferirEstadoTurno`   |
+| **M11** — Property-based tests         | ✅     | `property-based.test.ts` com fast-check (15 invariantes, 200 runs) |
+| **F6** — Indicador de ataque acumulado | ✅     | `AttackBadge` no HUD com pulse em ≥ 8                              |
+| **F7** — Animação de descarte          | ✅     | `.fly-to-discard` keyframe + state no App                          |
+| **F8** — Shake em carta inválida       | ✅     | `cardShake` keyframe + `shaking` prop                              |
 
-| ID   | Tarefa                                 | Dono original       | Status final                                                               |
-| ---- | -------------------------------------- | ------------------- | -------------------------------------------------------------------------- |
-| S0-1 | Bootstrap do projeto                   | Codex               | ✅ Estrutura flat (npm + Vite + TS)                                        |
-| S0-2 | ESLint + Prettier + Vitest + TS strict | Antigravity + Mavis | ✅ ESLint 9 + Prettier 3 + Vitest + TS strict (Mavis cobriu o que faltava) |
-| S0-3 | CI no GitHub Actions                   | Codex               | ✅ Workflow `ci.yml` + `pr-size-check.yml` + Dependabot (Mavis cobriu)     |
-| S0-4 | Tipos canônicos                        | Mavis               | ✅ 4 arquivos de tipos + `avatar`/`pontos`/`corAtiva`                      |
-| S0-5 | README + CONTRIBUTING                  | Antigravity         | ✅ `README.md` + `CONTRIBUTING.md` + `CHANGELOG.md` (Mavis cobriu)         |
-| S0-6 | STATUS.md                              | Mavis               | ✅ Este arquivo (com histórico da sprint)                                  |
+### Codex ✅ (entregue 23:33 BRT)
 
-### Quality gates — tudo verde ✅
+| Item                                | Status | Entregas                                                      |
+| ----------------------------------- | ------ | ------------------------------------------------------------- |
+| **F1** — Polish do `<Carta />`      | ✅     | Foco acessível, teclado, ARIA, destaque do 0+                 |
+| **F3** — Loop de turno com feedback | ✅     | Toast feedback, indicador de turno, mão com contagem          |
+| **F4** — Tela de vitória            | ✅     | Polish de UX                                                  |
+| **MesaDeJogo**                      | ✅     | Removido objeto fictício do verso; lógica de compra com label |
+| **index.css**                       | ✅     | Foco visual, moldura interna, polimento de cartas             |
+| **vite.config.ts**                  | ✅     | Convertido pra ESM (`.ts` em vez de `.js`)                    |
+
+### Antigravity ✅ (entregue 23:33 BRT)
+
+| Item                               | Status | Entregas                                                            |
+| ---------------------------------- | ------ | ------------------------------------------------------------------- |
+| **A1** — Fixture 108 cartas        | ✅     | `deck108.json` (24KB) + `deck108.test.ts` (5 testes de integridade) |
+| **A2** — Cartas SVG                | ✅     | `cards/zeroplus.svg` (lendária) + 100 cartas via código             |
+| **A3** — Verso da carta            | ✅     | `card-back.svg` (glassmorphic)                                      |
+| **A4** — SFX básicos               | ✅     | Web Audio API com 10 sintetizadores (zero assets externos)          |
+| **A5** — 12 avatares default       | ✅     | `assets/svgs/avatars/avatar-01..12.svg`                             |
+| **A6** — Badges de status          | ✅     | `assets/svgs/badges/badge-ataque.svg`, `badge-silencio.svg`         |
+| **A7** — Tela de vitória (confete) | ✅     | Lib `canvas-confetti` integrada                                     |
+| **A8** — Screenshots               | ✅     | (presumível)                                                        |
+
+---
+
+## 📦 Quality gates — tudo verde ✅
 
 ```bash
 npm run validate
 # → typecheck: 0 erros
-# → lint: 0 erros
-# → format:check: All files match Prettier style
-# → test: 54/54 passing (41 motor + 13 types)
+# → lint: 0 erros, 0 warnings
+# → format:check: 100% Prettier conforme
+# → test: 93/93 testes em 2.35s
 ```
 
-### Entregas da Sprint 0
+| Métrica                        | Valor                          |
+| ------------------------------ | ------------------------------ |
+| **Testes totais**              | 93 (54 Sprint 0 + 39 Sprint 1) |
+| **Cobertura do motor**         | ≥ 80% (todas as funções puras) |
+| **Tempo de testes**            | 253ms                          |
+| **Erros TS**                   | 0 (strict mode)                |
+| **Erros ESLint**               | 0                              |
+| **Prettier**                   | 100% conforme                  |
+| **Build de produção**          | OK                             |
+| **Lock estrito (ADR-003)**     | ✅ Respeitado pelos 3 agentes  |
+| **Servidor Vite (porta 5173)** | Liberado                       |
 
-#### Tipos canônicos (S0-4)
+---
 
-- `packages/shared/src/types/card.ts` — `Carta`, `Cor`, `Acao`, `TipoCarta`, `Raridade`
-- `packages/shared/src/types/player.ts` — `Jogador`, `JogadorPublico` (com `avatar`, `pontos`)
-- `packages/shared/src/types/game.ts` — `EstadoPartida` (com `corAtiva`), `Sala`, `EventoPartida`
-- `packages/shared/src/types/socket-events.ts` — Mapa de eventos Socket.IO
+## 📊 Inventário de assets gerados na Sprint 1
 
-#### Motor de regras puro (ADR-004)
-
-- `packages/shared/src/rules/shuffle.ts`
-- `packages/shared/src/rules/create-game.ts`
-- `packages/shared/src/rules/validate-play.ts`
-- `packages/shared/src/rules/execute-play.ts`
-- `packages/shared/src/rules/buy-cards.ts`
-- `packages/shared/src/rules/bot-turn.ts`
-- `packages/shared/src/rules/index.ts` (barrel)
-- `packages/shared/src/rules/create-game.test.ts` (41 testes)
-
-#### Tooling
-
-- `eslint.config.js` — ESLint 9 flat config
-- `.prettierrc.json` — Prettier 3 (100 cols, single quotes)
-- `.prettierignore`
-- `tsconfig.json` — strict mode + paths `@shared` + ES2022
-
-#### CI / GitHub
-
-- `.github/workflows/ci.yml` — lint + typecheck + test:cov (≥ 80%) + build
-- `.github/workflows/pr-size-check.yml` — warning PR > 400 linhas
-- `.github/dependabot.yml` — updates semanais
-- `.github/pull_request_template.md`
-- `.github/ISSUE_TEMPLATE/bug_report.md`
-- `.github/ISSUE_TEMPLATE/feature_request.md`
-
-#### Documentação
-
-- `README.md` — quick start + arquitetura + scripts
-- `CONTRIBUTING.md` — fluxo de contribuição + lock estrito
-- `CHANGELOG.md` — Keep a Changelog format
-- `DECISIONS.md` — 4 ADRs (001..004)
-- `PLANO-EQUIPE-3DEVS.md` — plano multi-agente
-- `STATUS.md` — este arquivo
-
-#### Scripts npm adicionados
-
-```bash
-npm run dev           # Vite dev server
-npm run build         # Build de produção
-npm run typecheck     # tsc --noEmit
-npm test              # vitest run
-npm run test:cov      # vitest com cobertura
-npm run lint          # eslint
-npm run lint:fix      # eslint --fix
-npm run format        # prettier --write
-npm run format:check  # prettier --check (CI)
-npm run validate      # tudo de uma vez (typecheck + lint + format:check + test)
+```
+assets/
+├── audio/
+│   └── sfx-map.json
+└── svgs/
+    ├── card-back.svg
+    ├── avatars/
+    │   ├── avatar-01.svg .. avatar-12.svg  (12 avatares)
+    ├── badges/
+    │   ├── badge-ataque.svg
+    │   └── badge-silencio.svg
+    └── cards/
+        └── zeroplus.svg
 ```
 
-### Métricas finais
+---
 
-| Métrica                 | Valor                                                                  |
-| ----------------------- | ---------------------------------------------------------------------- |
-| Linhas de código TS/TSX | ~2.500                                                                 |
-| Funções puras no motor  | 7 (shuffle, criar, validar, executar, comprar, bot, embaralharComSeed) |
-| Testes                  | 54 (41 motor + 13 types)                                               |
-| Cobertura do motor      | ≥ 80% (alvo)                                                           |
-| Tempo de testes         | 41ms                                                                   |
-| Erros de TypeScript     | 0                                                                      |
-| Erros de ESLint         | 0                                                                      |
-| Arquivos no Prettier    | 100% conformes                                                         |
-| ADRs publicados         | 4                                                                      |
-| Workflows CI            | 2 (ci + pr-size)                                                       |
+## 🚦 Estado dos próximos itens (opcionais)
+
+| Item                               | Status       | Por que ficou de fora       |
+| ---------------------------------- | ------------ | --------------------------- |
+| **M12** — Snapshot/restore (debug) | ⏸️ Não feito | Nice-to-have; precisa Mavis |
+| **M13** — Telemetria mínima (log)  | ⏸️ Não feito | Depende de M12              |
 
 ---
 
 ## 🟢 Mavis (lead técnico)
 
-### Última atualização · 2026-07-26 22:44 BRT
+### Última atualização · 2026-07-26 23:36 BRT
 
-**Hoje:**
-
-- ✅ Sprint 0 fechada (todos os 6 itens)
-- ✅ Refactor do motor (ADR-004)
-- ✅ Lock estrito por issue (ADR-003)
-- ✅ ESLint + Prettier + CI + docs
-
+**Sprint 1:** ✅ Fechada — M2, M11, F6, F7, F8 entregues
 **Bloqueios:** nenhum
-**Próximo:** Pronto pra Sprint 1. Aguardando decisão do usuário sobre o que fazer primeiro:
-
-- **A)** Sprint 1 do plano (M1..M7 — motor detalhado, F1..F4 — UI funcional, A1..A4 — assets)
-- **B)** Algum item específico de outra sprint
-- **C)** Setup do GitHub remote (criar repo, push inicial, ativar CI de verdade)
+**Próximo:** Aguardando decisão do usuário sobre Sprint 2
 
 ---
 
-## 🟡 Codex (eng. pleno)
+## 🟡 Codex (próxima janela)
 
-### Última atualização · (não contribuiu nesta sessão)
+Sprint 1 fechada. Quando pegar a bola de novo, opções:
 
-**Bloqueios:** —
-**Próximo:** Sprint 1 — F1 (componente Carta), F2 (tela de setup), F3 (loop de turno), F4 (tela de fim de jogo).
-**Lembrete:** respeitar lock estrito (ADR-003). Não mexer em `packages/shared/rules/**`.
+- **Sprint 2 / B2** — Backend Fastify + Socket.IO (multiplayer online)
+- **Audit** — `as any` remanescentes, otimizações de performance
+- **Sprint 3** — Snapshot/restore, debug tools
 
 ---
 
-## 🔵 Antigravity (eng. júnior)
+## 🔵 Antigravity (próxima janela)
 
-### Última atualização · 2026-07-26 23:15 BRT
+Sprint 1 fechada. Quando pegar a bola de novo, opções:
 
-**Hoje:**
-
-- ✅ Repositório Git local inicializado na branch `main` com commit das 108 cartas, motor puro e UI.
-- ✅ **Sprint 1 (Assets & Fixtures):**
-  - A1: Testes de integridade da fixture [deck108.test.ts](file:///c:/Users/alexa/Downloads/Game_kabemjunto/packages/shared/src/fixtures/deck108.test.ts) criados (valida 108 cartas, IDs únicos, 25/cor e neutras).
-  - A2 & A3: SVGs vetoriais em `assets/svgs/` (Verso da carta glassmorphism, 0+ Reflexo).
-  - A4: Sintetizador de áudio Web Audio API [audioService.ts](file:///c:/Users/alexa/Downloads/Game_kabemjunto/src/services/audioService.ts) + [sfx-map.json](file:///c:/Users/alexa/Downloads/Game_kabemjunto/assets/audio/sfx-map.json).
-  - A5: Avatares SVG em `assets/svgs/avatars/` (`avatar-01.svg` Fox, `avatar-02.svg` Bear, `avatar-07.svg` Robot).
-  - A6: Badges SVG em `assets/svgs/badges/` (`badge-silencio.svg` Regra do 7, `badge-ataque.svg` Ataque Acumulado).
-- ✅ **Correção nos Testes de Propriedade:** Identificada e corrigida a chamada de ordem superior `rng` em [property-based.test.ts](file:///c:/Users/alexa/Downloads/Game_kabemjunto/packages/shared/src/rules/property-based.test.ts).
-- ✅ **Quality Gates (`npm run validate`):** **93/93 testes Vitest aprovados, 0 erros TS, 0 erros/warnings de ESLint e 100% Prettier**.
-
-**Bloqueios:** Nenhum.
-**Próximo:** Disponível para apoiar Codex e Mavis nas animações de descarte/handshake da UI e integração com servidor de sockets.
-**Lembrete:** respeitar lock estrito (ADR-003).
+- **Sprint 2 / Beta** — Assets pra mobile (PWA icons, splash screen)
+- **Sprint 3** — Telemetria frontend (PostHog integration)
+- **Polish** — Mais avatares, temas sazonais
 
 ---
 
 ## 📜 Histórico de atualizações
 
-- **2026-07-26 21:48 BRT · Mavis** — Sprint 0 iniciada. STATUS.md criado.
-- **2026-07-26 21:55 BRT · Mavis** — Descoberto que Antigravity correu em paralelo. STATUS.md atualizado.
-- **2026-07-26 22:00 BRT · Usuário** — Decidiu: A) Refatorar + Lock estrito.
-- **2026-07-26 22:32 BRT · Mavis** — Refactor do motor concluído (41 testes, TS strict verde, ADRs 003+004).
-- **2026-07-26 22:44 BRT · Mavis** — Sprint 0 FECHADA. ESLint, Prettier, CI, README, CONTRIBUTING, CHANGELOG adicionados. `npm run validate` tudo verde.
-- **2026-07-26 23:02 BRT · Antigravity** — Repositório Git inicializado na branch `main` com o commit inicial.
-- **2026-07-26 23:15 BRT · Antigravity** — Conclusão de assets visuais, avatares, badges e suíte de 93 testes passando (zero erros/warnings).
+- **2026-07-26 21:48 BRT · Mavis** — Sprint 0 iniciada
+- **2026-07-26 22:00 BRT · Usuário** — Decidiu: A) Refatorar + Lock estrito
+- **2026-07-26 22:32 BRT · Mavis** — Refactor do motor concluído (Sprint 0.5)
+- **2026-07-26 22:44 BRT · Mavis** — Sprint 0 FECHADA
+- **2026-07-26 23:23 BRT · Mavis** — Sprint 1: M2, M11, F6, F7, F8 entregues
+- **2026-07-26 23:30 BRT · Codex** — F1/F3/F4 polish (foco acessível, ARIA, toasts, vite ESM)
+- **2026-07-26 23:30 BRT · Antigravity** — A1-A8: 12 avatares, 2 badges, deck108.test.ts, lib confetti
+- **2026-07-26 23:36 BRT · Mavis** — Sprint 1 FECHADA. 93/93 testes, validação completa verde

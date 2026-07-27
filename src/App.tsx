@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Cor, EstadoPartida, Jogador } from '@shared/types';
+import { Cor, EstadoPartida, Jogador, Carta } from '@shared/types';
 import type { NivelBot } from '@shared';
-import { comprar, criarPartida, jogarCarta, turnoBot } from './services/gameEngine';
+import { validarJogada, comprar, criarPartida, jogarCarta, turnoBot } from './services/gameEngine';
 import { Lobby } from './components/Lobby';
 import { HUDJogador } from './components/HUDJogador';
 import { MesaDeJogo } from './components/MesaDeJogo';
@@ -24,16 +24,34 @@ export const App: React.FC = () => {
   const [cartaIndexPendente, setCartaIndexPendente] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
 
+  // F8: carta que deve tremer (clicou em inválida)
+  const [shakeCartaKey, setShakeCartaKey] = useState<string | null>(null);
+  // F7: carta que está voando pro descarte
+  const [flyingCarta, setFlyingCarta] = useState<{ key: string; carta: Carta } | null>(null);
+
   const mostrarFeedback = (novoFeedback: Feedback) => {
     setFeedback(novoFeedback);
   };
 
   useEffect(() => {
     if (!feedback) return undefined;
-
     const timer = window.setTimeout(() => setFeedback(null), 2800);
     return () => window.clearTimeout(timer);
   }, [feedback]);
+
+  // Limpa o shake depois da duração
+  useEffect(() => {
+    if (!shakeCartaKey) return undefined;
+    const timer = window.setTimeout(() => setShakeCartaKey(null), 400);
+    return () => window.clearTimeout(timer);
+  }, [shakeCartaKey]);
+
+  // Limpa o flying depois da duração
+  useEffect(() => {
+    if (!flyingCarta) return undefined;
+    const timer = window.setTimeout(() => setFlyingCarta(null), 350);
+    return () => window.clearTimeout(timer);
+  }, [flyingCarta]);
 
   useEffect(() => {
     if (!estado || estado.finalizada) return undefined;
@@ -73,6 +91,14 @@ export const App: React.FC = () => {
     const carta = jogadorAtual.mao[index];
     if (!carta) return;
 
+    // Validação antecipada para feedback visual
+    const validacao = validarJogada(estado, carta, jogadorAtual.id);
+    if (!validacao.valida) {
+      // F8: dispara shake na carta
+      setShakeCartaKey(`${carta.id}-${Date.now()}`);
+      audioService.play('descarte'); // toca um som de erro genérico (sem som específico)
+    }
+
     if (
       carta.tipo === 'NEUTRA' ||
       carta.acao === 'MAIS_QUATRO' ||
@@ -84,6 +110,8 @@ export const App: React.FC = () => {
     }
 
     try {
+      // F7: dispara fly-to-discard
+      setFlyingCarta({ key: `${carta.id}-${Date.now()}`, carta });
       const novoState = jogarCarta(estado, index);
       setEstado(novoState);
       mostrarFeedback({
@@ -100,6 +128,11 @@ export const App: React.FC = () => {
 
   const handleConfirmarCor = (cor: Exclude<Cor, 'NEUTRO'>) => {
     if (!estado || cartaIndexPendente === null) return;
+    const jogadorAtual = estado.jogadores.find((j: Jogador) => j.id === estado.vezDe);
+    const carta = jogadorAtual?.mao[cartaIndexPendente];
+    if (carta) {
+      setFlyingCarta({ key: `${carta.id}-${Date.now()}`, carta });
+    }
 
     try {
       const novoState = jogarCarta(estado, cartaIndexPendente, cor);
@@ -121,7 +154,6 @@ export const App: React.FC = () => {
 
   const handleComprar = () => {
     if (!estado) return;
-
     try {
       const novoState = comprar(estado);
       setEstado(novoState);
@@ -143,7 +175,6 @@ export const App: React.FC = () => {
 
   const handleQuebrarSilencio = () => {
     if (!estado || !estado.silencio?.ativo) return;
-
     audioService.play('silencio_quebrado');
     mostrarFeedback({
       tipo: 'erro',
@@ -167,7 +198,42 @@ export const App: React.FC = () => {
 
       <MesaDeJogo estado={estado} onComprarCarta={handleComprar} />
 
-      <MaoDoJogador estado={estado} onJogarCarta={handleJogarCarta} />
+      <MaoDoJogador
+        estado={estado}
+        onJogarCarta={handleJogarCarta}
+        {...(shakeCartaKey !== null ? { shakeCartaKey } : {})}
+      />
+
+      {/* F7: carta voando pro descarte */}
+      {flyingCarta && (
+        <div
+          key={flyingCarta.key}
+          className="fly-to-discard"
+          style={{
+            position: 'fixed',
+            left: '50%',
+            top: '60%',
+            width: 130,
+            height: 185,
+            zIndex: 1000,
+            borderRadius: 12,
+            background:
+              flyingCarta.carta.cor === 'NEUTRO'
+                ? 'linear-gradient(135deg, #ff007a 0%, #7928ca 50%, #00dfd8 100%)'
+                : `var(--color-${flyingCarta.carta.cor.toLowerCase()})`,
+            border: '3.5px solid #fff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#fff',
+            fontWeight: 900,
+            fontSize: 48,
+            fontFamily: 'var(--font-title)',
+          }}
+        >
+          {flyingCarta.carta.valor ?? flyingCarta.carta.acao}
+        </div>
+      )}
 
       {feedback && (
         <div className={`toast-feedback ${feedback.tipo}`} role="status" aria-live="polite">

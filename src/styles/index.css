@@ -66,7 +66,10 @@ h5 {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 24px;
+  padding-top: max(12px, env(safe-area-inset-top));
+  padding-bottom: 12px;
+  padding-left: max(24px, env(safe-area-inset-left));
+  padding-right: max(24px, env(safe-area-inset-right));
   background: rgba(11, 14, 20, 0.6);
   backdrop-filter: blur(10px);
   z-index: 10;
@@ -89,6 +92,38 @@ h5 {
   gap: 40px;
   position: relative;
   z-index: 5;
+}
+
+.turn-summary {
+  position: absolute;
+  right: 24px;
+  bottom: 28px;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 16px;
+  background: rgba(11, 14, 20, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+}
+
+.turn-summary strong {
+  color: #f39c12;
+  font-family: var(--font-title);
+  font-size: 14px;
+}
+
+.turn-summary span {
+  color: #dbe7f3;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.turn-summary.danger {
+  border-color: rgba(231, 76, 60, 0.45);
+  box-shadow: 0 10px 28px rgba(231, 76, 60, 0.18);
 }
 
 /* Deck & Discard Cards */
@@ -116,6 +151,15 @@ h5 {
   box-shadow: 0 12px 25px rgba(0, 0, 0, 0.6);
 }
 
+.card-wrapper:focus-visible {
+  outline: 3px solid #f8c56b;
+  outline-offset: 5px;
+}
+
+.card-wrapper.card-back {
+  box-shadow: 0 5px 18px rgba(0, 0, 0, 0.5);
+}
+
 .card-wrapper.disabled {
   cursor: not-allowed;
   opacity: 0.6;
@@ -124,6 +168,21 @@ h5 {
 
 .card-wrapper.disabled:hover {
   transform: none;
+}
+
+.card-wrapper.playable::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border: 2px solid rgba(243, 156, 18, 0.55);
+  border-radius: 16px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.card-wrapper.playable:hover::after {
+  opacity: 1;
 }
 
 /* Card Visual Design */
@@ -139,6 +198,17 @@ h5 {
   position: relative;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
   background-size: cover;
+  overflow: hidden;
+}
+
+.card-face::before {
+  content: '';
+  position: absolute;
+  inset: 14% 9%;
+  border: 2px solid rgba(255, 255, 255, 0.78);
+  border-radius: 50%;
+  transform: rotate(-18deg);
+  pointer-events: none;
 }
 
 .card-face.LARANJA {
@@ -154,6 +224,9 @@ h5 {
   background: var(--color-preto);
 }
 .card-face.NEUTRA {
+  background: linear-gradient(135deg, #ff007a 0%, #7928ca 50%, #00dfd8 100%);
+}
+.card-face.NEUTRO {
   background: linear-gradient(135deg, #ff007a 0%, #7928ca 50%, #00dfd8 100%);
 }
 
@@ -221,16 +294,62 @@ h5 {
   box-shadow: 0 0 10px currentColor;
 }
 
+.draw-action {
+  position: absolute;
+  left: 50%;
+  bottom: -58px;
+  transform: translateX(-50%);
+  min-width: 126px;
+  padding: 8px 12px;
+  border: 1px solid rgba(243, 156, 18, 0.45);
+  border-radius: 10px;
+  background: rgba(243, 156, 18, 0.14);
+  color: #f8c56b;
+  cursor: pointer;
+  font-family: var(--font-title);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.draw-action:hover {
+  background: rgba(243, 156, 18, 0.24);
+}
+
 /* Player Hand Container */
 .hand-container {
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: flex-end;
-  padding: 10px;
+  padding-top: 10px;
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
+  padding-left: max(10px, env(safe-area-inset-left));
+  padding-right: max(10px, env(safe-area-inset-right));
   gap: -20px;
   min-height: 200px;
   position: relative;
   z-index: 10;
+}
+
+.hand-status {
+  align-self: center;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(11, 14, 20, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.hand-status strong {
+  color: #f39c12;
+  font-family: var(--font-title);
+}
+
+.hand-status span {
+  color: #c9d7e5;
+  font-size: 13px;
 }
 
 .hand-cards {
@@ -331,4 +450,204 @@ h5 {
   max-width: 480px;
   padding: 32px;
   text-align: center;
+}
+
+.players-strip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 52vw;
+  overflow-x: auto;
+  padding: 4px;
+}
+
+.current-turn-pill {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(39, 174, 96, 0.14);
+  border: 1px solid rgba(39, 174, 96, 0.36);
+  color: #7ee2a5;
+  font-family: var(--font-title);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.toast-feedback {
+  position: fixed;
+  left: 50%;
+  top: 82px;
+  z-index: 80;
+  transform: translateX(-50%);
+  max-width: min(520px, calc(100vw - 32px));
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: rgba(11, 14, 20, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.38);
+  color: #f0f6fc;
+  font-weight: 700;
+  text-align: center;
+  animation: toastIn 0.18s ease-out;
+}
+
+.toast-feedback.sucesso {
+  border-color: rgba(39, 174, 96, 0.5);
+}
+
+.toast-feedback.erro {
+  border-color: rgba(231, 76, 60, 0.58);
+}
+
+.toast-feedback.info {
+  border-color: rgba(52, 152, 219, 0.5);
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -8px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@media (max-width: 880px) {
+  .game-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px 14px;
+  }
+
+  .players-strip {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .table-area {
+    padding: 76px 12px 16px;
+  }
+
+  .table-center {
+    gap: 22px;
+  }
+
+  .turn-summary {
+    left: 12px;
+    right: 12px;
+    bottom: 210px;
+    max-width: none;
+  }
+
+  .hand-container {
+    min-height: 188px;
+  }
+
+  .card-wrapper {
+    width: 105px !important;
+    height: 150px !important;
+  }
+
+  .deck-slot,
+  .discard-slot {
+    width: 105px;
+    height: 150px;
+  }
+}
+
+/* F7: animação de descarte (carta vai da mão pro monte) */
+@keyframes flyToDiscard {
+  0% {
+    transform: translate(0, 0) scale(1) rotateY(0deg);
+    opacity: 1;
+  }
+  60% {
+    transform: translate(0, -120px) scale(0.8) rotateY(180deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(0, 0) scale(1) rotateY(360deg);
+    opacity: 1;
+  }
+}
+
+.fly-to-discard {
+  animation: flyToDiscard 350ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  pointer-events: none;
+  z-index: 50;
+}
+
+/* F8: shake em carta inválida (cor não combina) */
+@keyframes cardShake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  10% {
+    transform: translateX(-10px) rotate(-2deg);
+  }
+  20% {
+    transform: translateX(10px) rotate(2deg);
+  }
+  30% {
+    transform: translateX(-8px) rotate(-1.5deg);
+  }
+  40% {
+    transform: translateX(8px) rotate(1.5deg);
+  }
+  50% {
+    transform: translateX(-5px) rotate(-1deg);
+  }
+  60% {
+    transform: translateX(5px) rotate(1deg);
+  }
+  70% {
+    transform: translateX(-3px);
+  }
+  80% {
+    transform: translateX(3px);
+  }
+  90% {
+    transform: translateX(-1px);
+  }
+}
+
+.card-shake {
+  animation: cardShake 400ms ease-in-out;
+  box-shadow: 0 0 16px rgba(231, 76, 60, 0.6);
+  border-color: #e74c3c !important;
+}
+
+/* F6: pulse do attack badge (quando ≥ 8) */
+@keyframes attack-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+/* Glow do 0+ (carta lendária) */
+@keyframes zeroplusGlow {
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+  }
+  50% {
+    box-shadow:
+      0 0 40px rgba(255, 215, 0, 1),
+      0 0 60px rgba(142, 68, 173, 0.6);
+  }
+}
+
+.zeroplus-active {
+  animation: zeroplusGlow 1.5s ease-in-out infinite;
 }

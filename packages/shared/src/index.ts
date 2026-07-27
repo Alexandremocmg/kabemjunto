@@ -17,4 +17,5 @@
 
 export * from './types/index.js';
 export * from './rules/index.js';
+export * from './telemetry/index.js';
 export * as Constants from './constants/index.js';

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Cor, EstadoPartida, Carta } from '@shared/types';
+import { Cor, EstadoPartida } from '@shared/types';
 import { PALETA_CORES } from '@shared/constants/cards';
 import { CartaView } from './CartaView';
 
@@ -13,19 +13,20 @@ export const MesaDeJogo: React.FC<MesaDeJogoProps> = ({ estado, onComprarCarta }
   const corAtiva = (estado.corAtiva || 'LARANJA') as Cor;
   const infoCor = PALETA_CORES[corAtiva] || PALETA_CORES.NEUTRO;
   const jogadorAtual = estado.jogadores.find((j) => j.id === estado.vezDe);
-
-  const cartaVaziaPlaceHolder = {} as unknown as Carta;
+  const compraDisponivel = Boolean(jogadorAtual && !jogadorAtual.isBot && !estado.finalizada);
+  const compraLabel =
+    estado.ataqueAcumulado > 0 ? `Pagar +${estado.ataqueAcumulado}` : 'Comprar carta';
 
   return (
     <div className="table-area">
       {/* Monte de Compra e Monte de Descarte */}
       <div className="table-center">
         {/* Monte de Compra */}
-        <div className="deck-slot" title="Clique para comprar uma carta">
+        <div className="deck-slot" title={compraLabel}>
           <CartaView
-            carta={cartaVaziaPlaceHolder}
             verso={true}
-            jogavel={!jogadorAtual?.isBot}
+            jogavel={compraDisponivel}
+            motivoBloqueio={jogadorAtual?.isBot ? 'Aguardando o bot jogar.' : undefined}
             onClick={onComprarCarta}
           />
           <div
@@ -41,6 +42,11 @@ export const MesaDeJogo: React.FC<MesaDeJogoProps> = ({ estado, onComprarCarta }
           >
             {estado.monteCompra.length} no monte
           </div>
+          {compraDisponivel && (
+            <button className="draw-action" onClick={onComprarCarta}>
+              {compraLabel}
+            </button>
+          )}
         </div>
 
         {/* Monte de Descarte */}
@@ -67,6 +73,17 @@ export const MesaDeJogo: React.FC<MesaDeJogoProps> = ({ estado, onComprarCarta }
             Descarte ({estado.monteDescarte.length})
           </div>
         </div>
+      </div>
+
+      <div className={`turn-summary ${estado.ataqueAcumulado > 0 ? 'danger' : ''}`}>
+        <strong>{jogadorAtual?.nome ?? 'Jogador'}</strong>
+        <span>
+          {jogadorAtual?.isBot
+            ? 'Bot executando o turno.'
+            : estado.ataqueAcumulado > 0
+              ? `Ataque acumulado: +${estado.ataqueAcumulado}. Cubra com +2, +4 ou 0+.`
+              : 'Jogue uma carta valida ou compre do monte.'}
+        </span>
       </div>
 
       {/* Indicador de Cor Ativa & Sentido de Jogo */}
