@@ -1,0 +1,80 @@
+name: CI
+
+# CI do Kabemjunto
+# Roda em todo push e PR para main.
+# Falha se: lint quebrado, typecheck quebrado, testes falhando, build quebrado.
+#
+# Fonte: PLANO-EQUIPE-3DEVS.md §7 (Quality Gates)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancela runs anteriores da mesma branch/PR pra economizar minutos
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality-gate:
+    name: Lint + Typecheck + Test + Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # 1. Lint (ESLint + Prettier)
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
+      # 2. Typecheck
+      - name: Typecheck
+        run: npm run typecheck
+
+      # 3. Testes (com cobertura pra detectar regressão)
+      - name: Test with coverage
+        run: npm run test:cov
+
+      # 4. Build de produção (Vite + tsc)
+      - name: Build
+        run: npm run build
+
+      # 5. Cobertura: falha se o motor de regras cair abaixo de 80%
+      # (regra do PLANO §10.3 DoD Hard)
+      - name: Verify motor coverage ≥ 80%
+        run: |
+          if [ ! -f coverage/coverage-summary.json ]; then
+            echo "::error::coverage-summary.json não encontrado"
+            exit 1
+          fi
+          LINES=$(node -e "const c=require('./coverage/coverage-summary.json'); console.log(c.total.lines.pct)")
+          echo "Cobertura total de linhas: ${LINES}%"
+          if (( $(echo "$LINES < 80" | bc -l) )); then
+            echo "::error::Cobertura de linhas do motor abaixo de 80% (atual: ${LINES}%)"
+            exit 1
+          fi
+
+      # 6. Upload da cobertura pro Codecov (opcional, configurável depois)
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 7

@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 340" width="240" height="340">
+  <defs>
+    <linearGradient id="zeroPlusBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8E44AD"/>
+      <stop offset="50%" stop-color="#2980B9"/>
+      <stop offset="100%" stop-color="#E74C3C"/>
+    </linearGradient>
+    <linearGradient id="thunderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F1C40F"/>
+      <stop offset="100%" stop-color="#F39C12"/>
+    </linearGradient>
+    <filter id="neonGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- Fundo da carta neutra -->
+  <rect x="2" y="2" width="236" height="336" rx="20" fill="url(#zeroPlusBg)" stroke="#FFFFFF" stroke-width="4"/>
+  <rect x="12" y="12" width="216" height="316" rx="14" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="2" stroke-dasharray="4,4"/>
+
+  <!-- Número no Canto Superior Esquerdo -->
+  <text x="26" y="50" font-family="'Outfit', sans-serif" font-weight="900" font-size="34" fill="#FFFFFF" filter="url(#neonGlow)">0+</text>
+  
+  <!-- Número Invertido Canto Inferior Direito -->
+  <g transform="rotate(180 120 170)">
+    <text x="26" y="50" font-family="'Outfit', sans-serif" font-weight="900" font-size="34" fill="#FFFFFF">0+</text>
+  </g>
+
+  <!-- Elemento Central: Raio + Reflexo de Escudo -->
+  <g transform="translate(120, 165)">
+    <!-- Escudo de Reflexo -->
+    <path d="M -50 -40 Q 0 -60 50 -40 Q 60 20 0 70 Q -60 20 -50 -40 Z" fill="rgba(0,0,0,0.4)" stroke="#F1C40F" stroke-width="4" filter="url(#neonGlow)"/>
+    
+    <!-- Texto 0+ Gigante -->
+    <text x="0" y="8" text-anchor="middle" font-family="'Outfit', sans-serif" font-weight="900" font-size="52" fill="#FFFFFF">0+</text>
+    <text x="0" y="32" text-anchor="middle" font-family="'Inter', sans-serif" font-weight="700" font-size="12" fill="#F1C40F" letter-spacing="3">REFLEXO</text>
+
+    <!-- Raio de Reflexo -->
+    <path d="M -15 -45 L 10 -15 L -2 -15 L 15 25 L -8 0 L 2 0 Z" fill="url(#thunderGrad)" filter="url(#neonGlow)"/>
+  </g>
+</svg>

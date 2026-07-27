@@ -1,0 +1,40 @@
+{
+  "name": "@kabemjunto/shared",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tipos canônicos e regras puras do Kabemjunto. Fonte única de verdade compartilhada por front e back.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./types": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/types/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:cov": "vitest run --coverage",
+    "lint": "echo 'lint: shared usa tsc estrito' && tsc --noEmit",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@vitest/coverage-v8": "^1.6.0",
+    "fast-check": "^3.20.0",
+    "rimraf": "^5.0.5",
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0"
+  }
+}

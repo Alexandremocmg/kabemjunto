@@ -1,0 +1,31 @@
+version: 2
+updates:
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+    open-pull-requests-limit: 5
+    reviewers:
+      # Mavis revisa PRs de Dependabot (Mavis é o lead técnico)
+      # Substitua pelo seu username do GitHub quando subir
+      - 'Mavis'
+    labels:
+      - 'dependencies'
+      - 'automated'
+    groups:
+      # Agrupa patch updates em um único PR
+      patch-and-minor:
+        patterns:
+          - '*'
+        update-types:
+          - 'minor'
+          - 'patch'
+
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    labels:
+      - 'dependencies'
+      - 'ci'

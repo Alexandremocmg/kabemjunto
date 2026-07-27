@@ -1,0 +1,334 @@
+/* System Design System - Kabemjunto */
+
+:root {
+  --bg-dark: #0b0e14;
+  --bg-card: rgba(22, 27, 34, 0.85);
+  --bg-table: radial-gradient(circle at center, #1b382b 0%, #0d1c15 80%, #050b08 100%);
+
+  --color-laranja: #f39c12;
+  --color-azul: #3498db;
+  --color-verde: #27ae60;
+  --color-preto: #2c3e50;
+  --color-neutra: #8e44ad;
+
+  --font-title: 'Outfit', -apple-system, sans-serif;
+  --font-body: 'Inter', -apple-system, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background-color: var(--bg-dark);
+  color: #f0f6fc;
+  font-family: var(--font-body);
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5 {
+  font-family: var(--font-title);
+  font-weight: 800;
+}
+
+/* Glassmorphism Container */
+.glass-panel {
+  background: var(--bg-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+/* Game Table Layout */
+.game-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  background: var(--bg-table);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Header HUD */
+.game-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 24px;
+  background: rgba(11, 14, 20, 0.6);
+  backdrop-filter: blur(10px);
+  z-index: 10;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Virtual Table Area */
+.table-area {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  padding: 20px;
+}
+
+.table-center {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+  position: relative;
+  z-index: 5;
+}
+
+/* Deck & Discard Cards */
+.deck-slot,
+.discard-slot {
+  width: 130px;
+  height: 185px;
+  position: relative;
+  perspective: 1000px;
+}
+
+.card-wrapper {
+  width: 130px;
+  height: 185px;
+  border-radius: 12px;
+  transition:
+    transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+    box-shadow 0.25s ease;
+  cursor: pointer;
+  position: relative;
+}
+
+.card-wrapper:hover {
+  transform: translateY(-10px) scale(1.05);
+  box-shadow: 0 12px 25px rgba(0, 0, 0, 0.6);
+}
+
+.card-wrapper.disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  filter: grayscale(40%);
+}
+
+.card-wrapper.disabled:hover {
+  transform: none;
+}
+
+/* Card Visual Design */
+.card-face {
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  border: 3.5px solid #ffffff;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 10px;
+  position: relative;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+  background-size: cover;
+}
+
+.card-face.LARANJA {
+  background: var(--color-laranja);
+}
+.card-face.AZUL {
+  background: var(--color-azul);
+}
+.card-face.VERDE {
+  background: var(--color-verde);
+}
+.card-face.PRETO {
+  background: var(--color-preto);
+}
+.card-face.NEUTRA {
+  background: linear-gradient(135deg, #ff007a 0%, #7928ca 50%, #00dfd8 100%);
+}
+
+.card-corner {
+  font-family: var(--font-title);
+  font-weight: 900;
+  font-size: 20px;
+  color: #ffffff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.card-center-val {
+  font-family: var(--font-title);
+  font-size: 48px;
+  font-weight: 900;
+  color: #ffffff;
+  text-align: center;
+  line-height: 1;
+  text-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+}
+
+/* Attack Badge Animation */
+.attack-badge {
+  position: absolute;
+  top: -20px;
+  right: -20px;
+  background: #e74c3c;
+  color: #ffffff;
+  font-family: var(--font-title);
+  font-weight: 900;
+  font-size: 22px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  box-shadow: 0 0 20px #e74c3c;
+  animation: pulseAttack 1s infinite alternate;
+  z-index: 20;
+}
+
+@keyframes pulseAttack {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 10px #e74c3c;
+  }
+  100% {
+    transform: scale(1.15);
+    box-shadow: 0 0 25px #ff0000;
+  }
+}
+
+/* Active Color Sphere */
+.color-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 8px 16px;
+  border-radius: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.color-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  box-shadow: 0 0 10px currentColor;
+}
+
+/* Player Hand Container */
+.hand-container {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  padding: 10px;
+  gap: -20px;
+  min-height: 200px;
+  position: relative;
+  z-index: 10;
+}
+
+.hand-cards {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  max-width: 95vw;
+  overflow-x: auto;
+  padding: 15px 10px;
+}
+
+/* Silence Rule Banner */
+.silence-banner {
+  position: absolute;
+  top: 75px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(142, 68, 173, 0.95);
+  color: #ffffff;
+  padding: 12px 28px;
+  border-radius: 30px;
+  font-family: var(--font-title);
+  font-weight: 800;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 0 25px rgba(142, 68, 173, 0.8);
+  animation: bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  z-index: 15;
+}
+
+@keyframes bounceIn {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+/* Buttons */
+.btn-primary {
+  background: linear-gradient(135deg, #f39c12 0%, #d35400 100%);
+  color: #ffffff;
+  border: none;
+  font-family: var(--font-title);
+  font-weight: 800;
+  font-size: 16px;
+  padding: 12px 24px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 15px rgba(243, 156, 18, 0.4);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(243, 156, 18, 0.6);
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: #f0f6fc;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  font-family: var(--font-title);
+  font-weight: 700;
+  padding: 10px 20px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Modal Overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+}
+
+.modal-content {
+  width: 90%;
+  max-width: 480px;
+  padding: 32px;
+  text-align: center;
+}

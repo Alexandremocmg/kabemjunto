@@ -1,0 +1,44 @@
+name: PR Size Check
+
+# Verifica que PRs não passam de 400 linhas de diff (excluindo lock files e assets).
+# Regra do PLANO-EQUIPE-3DEVS.md §6.
+# Falha com warning (não bloqueia) se exceder — autor deve quebrar em PRs menores.
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  pr-size:
+    name: PR size under 400 lines
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check PR size
+        run: |
+          # Pega o diff contra main
+          CHANGED=$(git diff --numstat origin/main...HEAD 2>/dev/null || git diff --numstat main...HEAD)
+          if [ -z "$CHANGED" ]; then
+            echo "Não foi possível calcular o diff (PR sem commits além de main?)"
+            exit 0
+          fi
+
+          # Soma adições (coluna 1 do numstat), excluindo lock files e assets
+          TOTAL=$(echo "$CHANGED" | \
+            awk '$3 !~ /(pnpm-lock\.yaml|package-lock\.yarn\.lock)$/ && $3 !~ /\.(svg|png|jpg|jpeg|gif|webp|mp3|mp4|woff2?)$/ {sum += $1} END {print sum+0}')
+
+          echo "Linhas adicionadas (excluindo lock files e assets): $TOTAL"
+
+          if [ "$TOTAL" -gt 400 ]; then
+            echo "::warning::PR com $TOTAL linhas (> 400). Considere quebrar em PRs menores (PLANO §6)."
+            exit 1
+          fi
+
+          if [ "$TOTAL" -gt 200 ]; then
+            echo "::notice::PR com $TOTAL linhas. Lembre-se de revisar com cuidado."
+          fi
+
+          echo "✅ PR dentro do limite (≤ 400 linhas)."

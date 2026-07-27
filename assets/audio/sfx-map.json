@@ -1,0 +1,70 @@
+{
+  "compra": {
+    "tipo": "synth",
+    "frequenciaInicio": 220,
+    "frequenciaFim": 440,
+    "duracao": 0.12,
+    "waveform": "sine"
+  },
+  "descarte": {
+    "tipo": "synth",
+    "frequenciaInicio": 520,
+    "frequenciaFim": 260,
+    "duracao": 0.15,
+    "waveform": "triangle"
+  },
+  "skip": {
+    "tipo": "synth",
+    "frequenciaInicio": 600,
+    "frequenciaFim": 150,
+    "duracao": 0.2,
+    "waveform": "sawtooth"
+  },
+  "reverse": {
+    "tipo": "synth",
+    "frequenciaInicio": 300,
+    "frequenciaFim": 600,
+    "duracao": 0.22,
+    "waveform": "sine"
+  },
+  "plus2": {
+    "tipo": "synth",
+    "frequenciaInicio": 400,
+    "frequenciaFim": 800,
+    "duracao": 0.25,
+    "waveform": "square"
+  },
+  "plus4": {
+    "tipo": "synth",
+    "frequenciaInicio": 300,
+    "frequenciaFim": 900,
+    "duracao": 0.35,
+    "waveform": "square"
+  },
+  "zeroplus": {
+    "tipo": "synth",
+    "frequenciaInicio": 1200,
+    "frequenciaFim": 300,
+    "duracao": 0.45,
+    "waveform": "sawtooth"
+  },
+  "silencio_ativado": {
+    "tipo": "synth",
+    "frequenciaInicio": 880,
+    "frequenciaFim": 440,
+    "duracao": 0.3,
+    "waveform": "sine"
+  },
+  "silencio_quebrado": {
+    "tipo": "synth",
+    "frequenciaInicio": 150,
+    "frequenciaFim": 75,
+    "duracao": 0.4,
+    "waveform": "sawtooth"
+  },
+  "vitoria": {
+    "tipo": "synth_fanfare",
+    "notas": [523.25, 659.25, 783.99, 1046.5],
+    "duracao": 0.8
+  }
+}

@@ -1,0 +1,26 @@
+# Build outputs
+dist/
+build/
+.cache/
+.vite/
+
+# Deps
+node_modules/
+
+# Lock files
+package-lock.json
+pnpm-lock.yaml
+
+# Coverage
+coverage/
+
+# GDD documentation (Antigravity mantém)
+kabemjunto-gdd/
+
+# Imagens
+*.png
+*.jpg
+*.svg
+
+# Logs
+*.log

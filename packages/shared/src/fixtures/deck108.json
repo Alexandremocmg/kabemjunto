@@ -1,0 +1,1087 @@
+[
+  {
+    "id": "LARANJA_NUM_0_1",
+    "cor": "LARANJA",
+    "tipo": "NUMERO",
+    "valor": 0,
+    "label": "0 Laranja",
+    "descricao": "Carta número 0 da cor Laranja.",
+    "icone": "0",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "LARANJA_NUM_1_1",
+    "cor": "LARANJA",
+    "tipo": "NUMERO",
+    "valor": 1,
+    "label": "1 Laranja",
+    "descricao": "Carta número 1 da cor Laranja.",
+    "icone": "1",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "LARANJA_NUM_1_2",
+    "cor": "LARANJA",
+    "tipo": "NUMERO",
+    "valor": 1,
+    "label": "1 Laranja",
+    "descricao": "Carta número 1 da cor Laranja.",
+    "icone": "1",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "LARANJA_NUM_2_1",
+    "cor": "LARANJA",
+    "tipo": "NUMERO",
+    "valor": 2,
+    "label": "2 Laranja",
+    "descricao": "Carta número 2 da cor Laranja.",
+    "icone": "2",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "LARANJA_NUM_2_2",
+    "cor": "LARANJA",
+    "tipo": "NUMERO",
+    "valor": 2,
+    "label": "2 Laranja",
+    "descricao": "Carta número 2 da cor Laranja.",
+    "icone": "2",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "LARANJA_NUM_3_1",
+    "cor": "LARANJA",
+    "tipo": "NUMERO",
+    "valor": 3,
+    "label": "3 Laranja",
+    "descricao": "Carta número 3 da cor Laranja.",
+    "icone": "3",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "LARANJA_NUM_3_2",
+    "cor": "LARANJA",
+    "tipo": "NUMERO",
+    "valor": 3,
+    "label": "3 Laranja",
+    "descricao": "Carta número 3 da cor Laranja.",
+    "icone": "3",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "LARANJA_NUM_4_1",
+    "cor": "LARANJA",
+    "tipo": "NUMERO",
+    "valor": 4,
+    "label": "4 Laranja",
+    "descricao": "Carta número 4 da cor Laranja.",
+    "icone": "4",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "LARANJA_NUM_4_2",
+    "cor": "LARANJA",
+    "tipo": "NUMERO",
+    "valor": 4,
+    "label": "4 Laranja",
+    "descricao": "Carta número 4 da cor Laranja.",
+    "icone": "4",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "LARANJA_NUM_5_1",
+    "cor": "LARANJA",
+    "tipo": "NUMERO",
+    "valor": 5,
+    "label": "5 Laranja",
+    "descricao": "Carta número 5 da cor Laranja.",
+    "icone": "5",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "LARANJA_NUM_5_2",
+    "cor": "LARANJA",
+    "tipo": "NUMERO",
+    "valor": 5,
+    "label": "5 Laranja",
+    "descricao": "Carta número 5 da cor Laranja.",
+    "icone": "5",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "LARANJA_NUM_6_1",
+    "cor": "LARANJA",
+    "tipo": "NUMERO",
+    "valor": 6,
+    "label": "6 Laranja",
+    "descricao": "Carta número 6 da cor Laranja.",
+    "icone": "6",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "LARANJA_NUM_6_2",
+    "cor": "LARANJA",
+    "tipo": "NUMERO",
+    "valor": 6,
+    "label": "6 Laranja",
+    "descricao": "Carta número 6 da cor Laranja.",
+    "icone": "6",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "LARANJA_NUM_8_1",
+    "cor": "LARANJA",
+    "tipo": "NUMERO",
+    "valor": 8,
+    "label": "8 Laranja",
+    "descricao": "Carta número 8 da cor Laranja.",
+    "icone": "8",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "LARANJA_NUM_8_2",
+    "cor": "LARANJA",
+    "tipo": "NUMERO",
+    "valor": 8,
+    "label": "8 Laranja",
+    "descricao": "Carta número 8 da cor Laranja.",
+    "icone": "8",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "LARANJA_NUM_9_1",
+    "cor": "LARANJA",
+    "tipo": "NUMERO",
+    "valor": 9,
+    "label": "9 Laranja",
+    "descricao": "Carta número 9 da cor Laranja.",
+    "icone": "9",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "LARANJA_NUM_9_2",
+    "cor": "LARANJA",
+    "tipo": "NUMERO",
+    "valor": 9,
+    "label": "9 Laranja",
+    "descricao": "Carta número 9 da cor Laranja.",
+    "icone": "9",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "LARANJA_7_1",
+    "cor": "LARANJA",
+    "tipo": "ACAO",
+    "valor": 7,
+    "label": "7 Laranja (Silêncio)",
+    "descricao": "Ativa a Regra do Silêncio! Todos em silêncio até a próxima carta não-7. Quem falar compra +2!",
+    "icone": "🤫",
+    "raridade": "INCOMUM"
+  },
+  {
+    "id": "LARANJA_7_2",
+    "cor": "LARANJA",
+    "tipo": "ACAO",
+    "valor": 7,
+    "label": "7 Laranja (Silêncio)",
+    "descricao": "Ativa a Regra do Silêncio! Todos em silêncio até a próxima carta não-7. Quem falar compra +2!",
+    "icone": "🤫",
+    "raridade": "INCOMUM"
+  },
+  {
+    "id": "LARANJA_SKIP_1",
+    "cor": "LARANJA",
+    "tipo": "ACAO",
+    "valor": "SKIP",
+    "label": "Pula Laranja",
+    "descricao": "Pula a vez do próximo jogador.",
+    "icone": "🚫",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "LARANJA_SKIP_2",
+    "cor": "LARANJA",
+    "tipo": "ACAO",
+    "valor": "SKIP",
+    "label": "Pula Laranja",
+    "descricao": "Pula a vez do próximo jogador.",
+    "icone": "🚫",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "LARANJA_REV_1",
+    "cor": "LARANJA",
+    "tipo": "ACAO",
+    "valor": "REV",
+    "label": "Inverte Laranja",
+    "descricao": "Inverte a ordem dos turnos.",
+    "icone": "🔄",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "LARANJA_REV_2",
+    "cor": "LARANJA",
+    "tipo": "ACAO",
+    "valor": "REV",
+    "label": "Inverte Laranja",
+    "descricao": "Inverte a ordem dos turnos.",
+    "icone": "🔄",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "LARANJA_PLUS2_1",
+    "cor": "LARANJA",
+    "tipo": "ACAO",
+    "valor": "PLUS2",
+    "label": "+2 Laranja",
+    "descricao": "Próximo jogador compra 2 cartas e perde o turno. Empilhável!",
+    "icone": "+2",
+    "raridade": "INCOMUM"
+  },
+  {
+    "id": "LARANJA_PLUS2_2",
+    "cor": "LARANJA",
+    "tipo": "ACAO",
+    "valor": "PLUS2",
+    "label": "+2 Laranja",
+    "descricao": "Próximo jogador compra 2 cartas e perde o turno. Empilhável!",
+    "icone": "+2",
+    "raridade": "INCOMUM"
+  },
+
+  {
+    "id": "AZUL_NUM_0_1",
+    "cor": "AZUL",
+    "tipo": "NUMERO",
+    "valor": 0,
+    "label": "0 Azul",
+    "descricao": "Carta número 0 da cor Azul.",
+    "icone": "0",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "AZUL_NUM_1_1",
+    "cor": "AZUL",
+    "tipo": "NUMERO",
+    "valor": 1,
+    "label": "1 Azul",
+    "descricao": "Carta número 1 da cor Azul.",
+    "icone": "1",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "AZUL_NUM_1_2",
+    "cor": "AZUL",
+    "tipo": "NUMERO",
+    "valor": 1,
+    "label": "1 Azul",
+    "descricao": "Carta número 1 da cor Azul.",
+    "icone": "1",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "AZUL_NUM_2_1",
+    "cor": "AZUL",
+    "tipo": "NUMERO",
+    "valor": 2,
+    "label": "2 Azul",
+    "descricao": "Carta número 2 da cor Azul.",
+    "icone": "2",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "AZUL_NUM_2_2",
+    "cor": "AZUL",
+    "tipo": "NUMERO",
+    "valor": 2,
+    "label": "2 Azul",
+    "descricao": "Carta número 2 da cor Azul.",
+    "icone": "2",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "AZUL_NUM_3_1",
+    "cor": "AZUL",
+    "tipo": "NUMERO",
+    "valor": 3,
+    "label": "3 Azul",
+    "descricao": "Carta número 3 da cor Azul.",
+    "icone": "3",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "AZUL_NUM_3_2",
+    "cor": "AZUL",
+    "tipo": "NUMERO",
+    "valor": 3,
+    "label": "3 Azul",
+    "descricao": "Carta número 3 da cor Azul.",
+    "icone": "3",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "AZUL_NUM_4_1",
+    "cor": "AZUL",
+    "tipo": "NUMERO",
+    "valor": 4,
+    "label": "4 Azul",
+    "descricao": "Carta número 4 da cor Azul.",
+    "icone": "4",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "AZUL_NUM_4_2",
+    "cor": "AZUL",
+    "tipo": "NUMERO",
+    "valor": 4,
+    "label": "4 Azul",
+    "descricao": "Carta número 4 da cor Azul.",
+    "icone": "4",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "AZUL_NUM_5_1",
+    "cor": "AZUL",
+    "tipo": "NUMERO",
+    "valor": 5,
+    "label": "5 Azul",
+    "descricao": "Carta número 5 da cor Azul.",
+    "icone": "5",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "AZUL_NUM_5_2",
+    "cor": "AZUL",
+    "tipo": "NUMERO",
+    "valor": 5,
+    "label": "5 Azul",
+    "descricao": "Carta número 5 da cor Azul.",
+    "icone": "5",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "AZUL_NUM_6_1",
+    "cor": "AZUL",
+    "tipo": "NUMERO",
+    "valor": 6,
+    "label": "6 Azul",
+    "descricao": "Carta número 6 da cor Azul.",
+    "icone": "6",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "AZUL_NUM_6_2",
+    "cor": "AZUL",
+    "tipo": "NUMERO",
+    "valor": 6,
+    "label": "6 Azul",
+    "descricao": "Carta número 6 da cor Azul.",
+    "icone": "6",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "AZUL_NUM_8_1",
+    "cor": "AZUL",
+    "tipo": "NUMERO",
+    "valor": 8,
+    "label": "8 Azul",
+    "descricao": "Carta número 8 da cor Azul.",
+    "icone": "8",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "AZUL_NUM_8_2",
+    "cor": "AZUL",
+    "tipo": "NUMERO",
+    "valor": 8,
+    "label": "8 Azul",
+    "descricao": "Carta número 8 da cor Azul.",
+    "icone": "8",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "AZUL_NUM_9_1",
+    "cor": "AZUL",
+    "tipo": "NUMERO",
+    "valor": 9,
+    "label": "9 Azul",
+    "descricao": "Carta número 9 da cor Azul.",
+    "icone": "9",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "AZUL_NUM_9_2",
+    "cor": "AZUL",
+    "tipo": "NUMERO",
+    "valor": 9,
+    "label": "9 Azul",
+    "descricao": "Carta número 9 da cor Azul.",
+    "icone": "9",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "AZUL_7_1",
+    "cor": "AZUL",
+    "tipo": "ACAO",
+    "valor": 7,
+    "label": "7 Azul (Silêncio)",
+    "descricao": "Ativa a Regra do Silêncio! Todos em silêncio até a próxima carta não-7. Quem falar compra +2!",
+    "icone": "🤫",
+    "raridade": "INCOMUM"
+  },
+  {
+    "id": "AZUL_7_2",
+    "cor": "AZUL",
+    "tipo": "ACAO",
+    "valor": 7,
+    "label": "7 Azul (Silêncio)",
+    "descricao": "Ativa a Regra do Silêncio! Todos em silêncio até a próxima carta não-7. Quem falar compra +2!",
+    "icone": "🤫",
+    "raridade": "INCOMUM"
+  },
+  {
+    "id": "AZUL_SKIP_1",
+    "cor": "AZUL",
+    "tipo": "ACAO",
+    "valor": "SKIP",
+    "label": "Pula Azul",
+    "descricao": "Pula a vez do próximo jogador.",
+    "icone": "🚫",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "AZUL_SKIP_2",
+    "cor": "AZUL",
+    "tipo": "ACAO",
+    "valor": "SKIP",
+    "label": "Pula Azul",
+    "descricao": "Pula a vez do próximo jogador.",
+    "icone": "🚫",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "AZUL_REV_1",
+    "cor": "AZUL",
+    "tipo": "ACAO",
+    "valor": "REV",
+    "label": "Inverte Azul",
+    "descricao": "Inverte a ordem dos turnos.",
+    "icone": "🔄",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "AZUL_REV_2",
+    "cor": "AZUL",
+    "tipo": "ACAO",
+    "valor": "REV",
+    "label": "Inverte Azul",
+    "descricao": "Inverte a ordem dos turnos.",
+    "icone": "🔄",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "AZUL_PLUS2_1",
+    "cor": "AZUL",
+    "tipo": "ACAO",
+    "valor": "PLUS2",
+    "label": "+2 Azul",
+    "descricao": "Próximo jogador compra 2 cartas e perde o turno. Empilhável!",
+    "icone": "+2",
+    "raridade": "INCOMUM"
+  },
+  {
+    "id": "AZUL_PLUS2_2",
+    "cor": "AZUL",
+    "tipo": "ACAO",
+    "valor": "PLUS2",
+    "label": "+2 Azul",
+    "descricao": "Próximo jogador compra 2 cartas e perde o turno. Empilhável!",
+    "icone": "+2",
+    "raridade": "INCOMUM"
+  },
+
+  {
+    "id": "VERDE_NUM_0_1",
+    "cor": "VERDE",
+    "tipo": "NUMERO",
+    "valor": 0,
+    "label": "0 Verde",
+    "descricao": "Carta número 0 da cor Verde.",
+    "icone": "0",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "VERDE_NUM_1_1",
+    "cor": "VERDE",
+    "tipo": "NUMERO",
+    "valor": 1,
+    "label": "1 Verde",
+    "descricao": "Carta número 1 da cor Verde.",
+    "icone": "1",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "VERDE_NUM_1_2",
+    "cor": "VERDE",
+    "tipo": "NUMERO",
+    "valor": 1,
+    "label": "1 Verde",
+    "descricao": "Carta número 1 da cor Verde.",
+    "icone": "1",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "VERDE_NUM_2_1",
+    "cor": "VERDE",
+    "tipo": "NUMERO",
+    "valor": 2,
+    "label": "2 Verde",
+    "descricao": "Carta número 2 da cor Verde.",
+    "icone": "2",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "VERDE_NUM_2_2",
+    "cor": "VERDE",
+    "tipo": "NUMERO",
+    "valor": 2,
+    "label": "2 Verde",
+    "descricao": "Carta número 2 da cor Verde.",
+    "icone": "2",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "VERDE_NUM_3_1",
+    "cor": "VERDE",
+    "tipo": "NUMERO",
+    "valor": 3,
+    "label": "3 Verde",
+    "descricao": "Carta número 3 da cor Verde.",
+    "icone": "3",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "VERDE_NUM_3_2",
+    "cor": "VERDE",
+    "tipo": "NUMERO",
+    "valor": 3,
+    "label": "3 Verde",
+    "descricao": "Carta número 3 da cor Verde.",
+    "icone": "3",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "VERDE_NUM_4_1",
+    "cor": "VERDE",
+    "tipo": "NUMERO",
+    "valor": 4,
+    "label": "4 Verde",
+    "descricao": "Carta número 4 da cor Verde.",
+    "icone": "4",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "VERDE_NUM_4_2",
+    "cor": "VERDE",
+    "tipo": "NUMERO",
+    "valor": 4,
+    "label": "4 Verde",
+    "descricao": "Carta número 4 da cor Verde.",
+    "icone": "4",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "VERDE_NUM_5_1",
+    "cor": "VERDE",
+    "tipo": "NUMERO",
+    "valor": 5,
+    "label": "5 Verde",
+    "descricao": "Carta número 5 da cor Verde.",
+    "icone": "5",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "VERDE_NUM_5_2",
+    "cor": "VERDE",
+    "tipo": "NUMERO",
+    "valor": 5,
+    "label": "5 Verde",
+    "descricao": "Carta número 5 da cor Verde.",
+    "icone": "5",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "VERDE_NUM_6_1",
+    "cor": "VERDE",
+    "tipo": "NUMERO",
+    "valor": 6,
+    "label": "6 Verde",
+    "descricao": "Carta número 6 da cor Verde.",
+    "icone": "6",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "VERDE_NUM_6_2",
+    "cor": "VERDE",
+    "tipo": "NUMERO",
+    "valor": 6,
+    "label": "6 Verde",
+    "descricao": "Carta número 6 da cor Verde.",
+    "icone": "6",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "VERDE_NUM_8_1",
+    "cor": "VERDE",
+    "tipo": "NUMERO",
+    "valor": 8,
+    "label": "8 Verde",
+    "descricao": "Carta número 8 da cor Verde.",
+    "icone": "8",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "VERDE_NUM_8_2",
+    "cor": "VERDE",
+    "tipo": "NUMERO",
+    "valor": 8,
+    "label": "8 Verde",
+    "descricao": "Carta número 8 da cor Verde.",
+    "icone": "8",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "VERDE_NUM_9_1",
+    "cor": "VERDE",
+    "tipo": "NUMERO",
+    "valor": 9,
+    "label": "9 Verde",
+    "descricao": "Carta número 9 da cor Verde.",
+    "icone": "9",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "VERDE_NUM_9_2",
+    "cor": "VERDE",
+    "tipo": "NUMERO",
+    "valor": 9,
+    "label": "9 Verde",
+    "descricao": "Carta número 9 da cor Verde.",
+    "icone": "9",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "VERDE_7_1",
+    "cor": "VERDE",
+    "tipo": "ACAO",
+    "valor": 7,
+    "label": "7 Verde (Silêncio)",
+    "descricao": "Ativa a Regra do Silêncio! Todos em silêncio até a próxima carta não-7. Quem falar compra +2!",
+    "icone": "🤫",
+    "raridade": "INCOMUM"
+  },
+  {
+    "id": "VERDE_7_2",
+    "cor": "VERDE",
+    "tipo": "ACAO",
+    "valor": 7,
+    "label": "7 Verde (Silêncio)",
+    "descricao": "Ativa a Regra do Silêncio! Todos em silêncio até a próxima carta não-7. Quem falar compra +2!",
+    "icone": "🤫",
+    "raridade": "INCOMUM"
+  },
+  {
+    "id": "VERDE_SKIP_1",
+    "cor": "VERDE",
+    "tipo": "ACAO",
+    "valor": "SKIP",
+    "label": "Pula Verde",
+    "descricao": "Pula a vez do próximo jogador.",
+    "icone": "🚫",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "VERDE_SKIP_2",
+    "cor": "VERDE",
+    "tipo": "ACAO",
+    "valor": "SKIP",
+    "label": "Pula Verde",
+    "descricao": "Pula a vez do próximo jogador.",
+    "icone": "🚫",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "VERDE_REV_1",
+    "cor": "VERDE",
+    "tipo": "ACAO",
+    "valor": "REV",
+    "label": "Inverte Verde",
+    "descricao": "Inverte a ordem dos turnos.",
+    "icone": "🔄",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "VERDE_REV_2",
+    "cor": "VERDE",
+    "tipo": "ACAO",
+    "valor": "REV",
+    "label": "Inverte Verde",
+    "descricao": "Inverte a ordem dos turnos.",
+    "icone": "🔄",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "VERDE_PLUS2_1",
+    "cor": "VERDE",
+    "tipo": "ACAO",
+    "valor": "PLUS2",
+    "label": "+2 Verde",
+    "descricao": "Próximo jogador compra 2 cartas e perde o turno. Empilhável!",
+    "icone": "+2",
+    "raridade": "INCOMUM"
+  },
+  {
+    "id": "VERDE_PLUS2_2",
+    "cor": "VERDE",
+    "tipo": "ACAO",
+    "valor": "PLUS2",
+    "label": "+2 Verde",
+    "descricao": "Próximo jogador compra 2 cartas e perde o turno. Empilhável!",
+    "icone": "+2",
+    "raridade": "INCOMUM"
+  },
+
+  {
+    "id": "PRETO_NUM_0_1",
+    "cor": "PRETO",
+    "tipo": "NUMERO",
+    "valor": 0,
+    "label": "0 Preto",
+    "descricao": "Carta número 0 da cor Preto.",
+    "icone": "0",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "PRETO_NUM_1_1",
+    "cor": "PRETO",
+    "tipo": "NUMERO",
+    "valor": 1,
+    "label": "1 Preto",
+    "descricao": "Carta número 1 da cor Preto.",
+    "icone": "1",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "PRETO_NUM_1_2",
+    "cor": "PRETO",
+    "tipo": "NUMERO",
+    "valor": 1,
+    "label": "1 Preto",
+    "descricao": "Carta número 1 da cor Preto.",
+    "icone": "1",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "PRETO_NUM_2_1",
+    "cor": "PRETO",
+    "tipo": "NUMERO",
+    "valor": 2,
+    "label": "2 Preto",
+    "descricao": "Carta número 2 da cor Preto.",
+    "icone": "2",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "PRETO_NUM_2_2",
+    "cor": "PRETO",
+    "tipo": "NUMERO",
+    "valor": 2,
+    "label": "2 Preto",
+    "descricao": "Carta número 2 da cor Preto.",
+    "icone": "2",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "PRETO_NUM_3_1",
+    "cor": "PRETO",
+    "tipo": "NUMERO",
+    "valor": 3,
+    "label": "3 Preto",
+    "descricao": "Carta número 3 da cor Preto.",
+    "icone": "3",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "PRETO_NUM_3_2",
+    "cor": "PRETO",
+    "tipo": "NUMERO",
+    "valor": 3,
+    "label": "3 Preto",
+    "descricao": "Carta número 3 da cor Preto.",
+    "icone": "3",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "PRETO_NUM_4_1",
+    "cor": "PRETO",
+    "tipo": "NUMERO",
+    "valor": 4,
+    "label": "4 Preto",
+    "descricao": "Carta número 4 da cor Preto.",
+    "icone": "4",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "PRETO_NUM_4_2",
+    "cor": "PRETO",
+    "tipo": "NUMERO",
+    "valor": 4,
+    "label": "4 Preto",
+    "descricao": "Carta número 4 da cor Preto.",
+    "icone": "4",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "PRETO_NUM_5_1",
+    "cor": "PRETO",
+    "tipo": "NUMERO",
+    "valor": 5,
+    "label": "5 Preto",
+    "descricao": "Carta número 5 da cor Preto.",
+    "icone": "5",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "PRETO_NUM_5_2",
+    "cor": "PRETO",
+    "tipo": "NUMERO",
+    "valor": 5,
+    "label": "5 Preto",
+    "descricao": "Carta número 5 da cor Preto.",
+    "icone": "5",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "PRETO_NUM_6_1",
+    "cor": "PRETO",
+    "tipo": "NUMERO",
+    "valor": 6,
+    "label": "6 Preto",
+    "descricao": "Carta número 6 da cor Preto.",
+    "icone": "6",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "PRETO_NUM_6_2",
+    "cor": "PRETO",
+    "tipo": "NUMERO",
+    "valor": 6,
+    "label": "6 Preto",
+    "descricao": "Carta número 6 da cor Preto.",
+    "icone": "6",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "PRETO_NUM_8_1",
+    "cor": "PRETO",
+    "tipo": "NUMERO",
+    "valor": 8,
+    "label": "8 Preto",
+    "descricao": "Carta número 8 da cor Preto.",
+    "icone": "8",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "PRETO_NUM_8_2",
+    "cor": "PRETO",
+    "tipo": "NUMERO",
+    "valor": 8,
+    "label": "8 Preto",
+    "descricao": "Carta número 8 da cor Preto.",
+    "icone": "8",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "PRETO_NUM_9_1",
+    "cor": "PRETO",
+    "tipo": "NUMERO",
+    "valor": 9,
+    "label": "9 Preto",
+    "descricao": "Carta número 9 da cor Preto.",
+    "icone": "9",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "PRETO_NUM_9_2",
+    "cor": "PRETO",
+    "tipo": "NUMERO",
+    "valor": 9,
+    "label": "9 Preto",
+    "descricao": "Carta número 9 da cor Preto.",
+    "icone": "9",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "PRETO_7_1",
+    "cor": "PRETO",
+    "tipo": "ACAO",
+    "valor": 7,
+    "label": "7 Preto (Silêncio)",
+    "descricao": "Ativa a Regra do Silêncio! Todos em silêncio até a próxima carta não-7. Quem falar compra +2!",
+    "icone": "🤫",
+    "raridade": "INCOMUM"
+  },
+  {
+    "id": "PRETO_7_2",
+    "cor": "PRETO",
+    "tipo": "ACAO",
+    "valor": 7,
+    "label": "7 Preto (Silêncio)",
+    "descricao": "Ativa a Regra do Silêncio! Todos em silêncio até a próxima carta não-7. Quem falar compra +2!",
+    "icone": "🤫",
+    "raridade": "INCOMUM"
+  },
+  {
+    "id": "PRETO_SKIP_1",
+    "cor": "PRETO",
+    "tipo": "ACAO",
+    "valor": "SKIP",
+    "label": "Pula Preto",
+    "descricao": "Pula a vez do próximo jogador.",
+    "icone": "🚫",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "PRETO_SKIP_2",
+    "cor": "PRETO",
+    "tipo": "ACAO",
+    "valor": "SKIP",
+    "label": "Pula Preto",
+    "descricao": "Pula a vez do próximo jogador.",
+    "icone": "🚫",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "PRETO_REV_1",
+    "cor": "PRETO",
+    "tipo": "ACAO",
+    "valor": "REV",
+    "label": "Inverte Preto",
+    "descricao": "Inverte a ordem dos turnos.",
+    "icone": "🔄",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "PRETO_REV_2",
+    "cor": "PRETO",
+    "tipo": "ACAO",
+    "valor": "REV",
+    "label": "Inverte Preto",
+    "descricao": "Inverte a ordem dos turnos.",
+    "icone": "🔄",
+    "raridade": "COMUM"
+  },
+  {
+    "id": "PRETO_PLUS2_1",
+    "cor": "PRETO",
+    "tipo": "ACAO",
+    "valor": "PLUS2",
+    "label": "+2 Preto",
+    "descricao": "Próximo jogador compra 2 cartas e perde o turno. Empilhável!",
+    "icone": "+2",
+    "raridade": "INCOMUM"
+  },
+  {
+    "id": "PRETO_PLUS2_2",
+    "cor": "PRETO",
+    "tipo": "ACAO",
+    "valor": "PRETO",
+    "valor": "PLUS2",
+    "label": "+2 Preto",
+    "descricao": "Próximo jogador compra 2 cartas e perde o turno. Empilhável!",
+    "icone": "+2",
+    "raridade": "INCOMUM"
+  },
+
+  {
+    "id": "NEUTRA_WILD4_1",
+    "cor": null,
+    "tipo": "NEUTRA",
+    "valor": "WILD4",
+    "label": "+4 Coringa",
+    "descricao": "Próximo jogador compra 4 cartas e perde a vez. Você escolhe a nova cor ativada. Empilhável!",
+    "icone": "+4",
+    "raridade": "RARA"
+  },
+  {
+    "id": "NEUTRA_WILD4_2",
+    "cor": null,
+    "tipo": "NEUTRA",
+    "valor": "WILD4",
+    "label": "+4 Coringa",
+    "descricao": "Próximo jogador compra 4 cartas e perde a vez. Você escolhe a nova cor ativada. Empilhável!",
+    "icone": "+4",
+    "raridade": "RARA"
+  },
+  {
+    "id": "NEUTRA_WILD4_3",
+    "cor": null,
+    "tipo": "NEUTRA",
+    "valor": "WILD4",
+    "label": "+4 Coringa",
+    "descricao": "Próximo jogador compra 4 cartas e perde a vez. Você escolhe a nova cor ativada. Empilhável!",
+    "icone": "+4",
+    "raridade": "RARA"
+  },
+  {
+    "id": "NEUTRA_WILD4_4",
+    "cor": null,
+    "tipo": "NEUTRA",
+    "valor": "WILD4",
+    "label": "+4 Coringa",
+    "descricao": "Próximo jogador compra 4 cartas e perde a vez. Você escolhe a nova cor ativada. Empilhável!",
+    "icone": "+4",
+    "raridade": "RARA"
+  },
+  {
+    "id": "NEUTRA_SWAPHAND_1",
+    "cor": null,
+    "tipo": "NEUTRA",
+    "valor": "SWAPHAND",
+    "label": "Troca Mão",
+    "descricao": "Escolha um jogador e troque toda a sua mão com a dele!",
+    "icone": "🤝",
+    "raridade": "RARA"
+  },
+  {
+    "id": "NEUTRA_HANDSPIN_1",
+    "cor": null,
+    "tipo": "NEUTRA",
+    "valor": "HANDSPIN",
+    "label": "Gira Mão",
+    "descricao": "Todos os jogadores passam suas mãos para o vizinho na direção do jogo.",
+    "icone": "🌀",
+    "raridade": "RARA"
+  },
+  {
+    "id": "NEUTRA_ZEROPLUS_1",
+    "cor": null,
+    "tipo": "NEUTRA",
+    "valor": "ZEROPLUS",
+    "label": "0+ (Zero Mais)",
+    "descricao": "MOMENTO VIRAL! Reflete todo o ataque acumulado de volta ao último atacante e encerra a pilha!",
+    "icone": "⚡",
+    "raridade": "UNICA"
+  },
+  {
+    "id": "NEUTRA_WILD_1",
+    "cor": null,
+    "tipo": "NEUTRA",
+    "valor": "WILD",
+    "label": "Coringa Simples",
+    "descricao": "Altera a cor ativa do jogo para a cor de sua escolha.",
+    "icone": "🎨",
+    "raridade": "INCOMUM"
+  }
+]
