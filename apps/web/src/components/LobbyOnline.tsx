@@ -7,7 +7,7 @@
  * Recebe callbacks `onEntrar(credentials)` para não acoplar ao hook de socket.
  */
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 
 export interface LobbyOnlineCredentials {
   salaId: string;
@@ -30,10 +30,22 @@ function gerarCodigo(): string {
 export const LobbyOnline: React.FC<LobbyOnlineProps> = ({ onEntrar, erro, desabilitado }) => {
   const [salaInput, setSalaInput] = useState('');
   const [nomeInput, setNomeInput] = useState('');
+  const [validationError, setValidationError] = useState<string | undefined>();
+  const nomeInputRef = useRef<HTMLInputElement>(null);
+  const errorId = useId();
+  const errorMessage = validationError ?? erro;
+
+  useEffect(() => {
+    nomeInputRef.current?.focus();
+  }, []);
 
   function entrar(criar: boolean): void {
     const salaId = criar ? gerarCodigo() : salaInput;
-    if (!salaId.trim() || !nomeInput.trim()) return;
+    if (!salaId.trim() || !nomeInput.trim()) {
+      setValidationError('Informe seu nome e o codigo da sala para continuar.');
+      return;
+    }
+    setValidationError(undefined);
     setSalaInput(salaId);
     onEntrar({ salaId, nome: nomeInput, criar });
   }
@@ -48,25 +60,36 @@ export const LobbyOnline: React.FC<LobbyOnlineProps> = ({ onEntrar, erro, desabi
       <p className="eyebrow">SALA ONLINE</p>
       <h2 id="lobby-title">Entre na mesa</h2>
       <p className="muted">Crie uma sala ou use o código que seu grupo compartilhou.</p>
-      <form className="lobby-form" onSubmit={entrarExistente}>
+      <form className="lobby-form" onSubmit={entrarExistente} noValidate>
         <label>
           Seu nome
           <input
+            ref={nomeInputRef}
+            name="nome"
+            autoComplete="nickname"
+            spellCheck={false}
             value={nomeInput}
             onChange={(event) => setNomeInput(event.target.value)}
             maxLength={24}
             required
             disabled={desabilitado}
+            aria-describedby={errorMessage ? errorId : undefined}
+            aria-invalid={Boolean(errorMessage)}
           />
         </label>
         <label>
           Código da sala
           <input
+            name="codigo-sala"
+            autoComplete="off"
+            spellCheck={false}
             value={salaInput}
             onChange={(event) => setSalaInput(event.target.value.toUpperCase())}
             maxLength={6}
             placeholder="K4B3MJ"
             disabled={desabilitado}
+            aria-describedby={errorMessage ? errorId : undefined}
+            aria-invalid={Boolean(errorMessage)}
           />
         </label>
         <div className="form-actions">
@@ -83,7 +106,11 @@ export const LobbyOnline: React.FC<LobbyOnlineProps> = ({ onEntrar, erro, desabi
           </button>
         </div>
       </form>
-      {erro && <p className="error-message">{erro}</p>}
+      {errorMessage && (
+        <p id={errorId} className="error-message" aria-live="polite">
+          {errorMessage}
+        </p>
+      )}
     </section>
   );
 };

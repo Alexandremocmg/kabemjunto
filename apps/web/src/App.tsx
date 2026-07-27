@@ -1,19 +1,100 @@
 import { useState, type FormEvent } from 'react';
 import { useGameSocket } from './services/socketClient';
-import { AvatarComStatus } from '../../src/components/AvatarComStatus';
-import { WifiStatus } from '../../src/components/WifiStatus';
-import { Reconectando } from '../../src/components/Reconectando';
+import { AvatarComStatus } from './components/AvatarComStatus';
+import { WifiStatus } from './components/WifiStatus';
+import { Reconectando } from './components/Reconectando';
 import { LobbyOnline } from './components/LobbyOnline';
+import { VitoriaAnimada } from './components/VitoriaAnimada';
+import { NotFound } from './components/NotFound';
+import AppSingleplayer from './AppSingleplayer';
 
 /**
- * App principal do Kabemjunto multiplayer (B10 + Sprint 4 polish).
+ * App principal do Kabemjunto (M16 — Sprint 5).
  *
- * - Lobby: extraído para `LobbyOnline.tsx` (B12)
- * - Status de conexão: usa `WifiStatus` (B15 do Antigravity)
- * - Reconexão: mostra `Reconectando` overlay + `logCustom('RECONECTADO')` no hook
- * - Lista de jogadores: usa `AvatarComStatus` (B11 do Antigravity)
+ * Suporta 2 modos:
+ * - **Online** (multiplayer via Socket.IO) — código B10 + Sprint 4 polish
+ * - **Local** (single-player/hotseat/bots) — código legacy do `src/`, agora `AppSingleplayer.tsx`
+ *
+ * Toggle no header (botão "Local" / "Online"). Estado em React state (não persiste).
  */
+
+type Modo = 'local' | 'online';
+
 export default function App() {
+  const [modo, setModo] = useState<Modo>('online');
+
+  // Single-player: renderiza o App legacy (independente)
+  if (modo === 'local') {
+    return (
+      <div>
+        <ToggleModo modo={modo} onChange={setModo} />
+        <AppSingleplayer />
+      </div>
+    );
+  }
+
+  return (
+    <main className="app-shell">
+      <OnlineApp onMudarModo={() => setModo('local')} />
+    </main>
+  );
+}
+
+function ToggleModo({ modo, onChange }: { modo: Modo; onChange: (m: Modo) => void }) {
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        top: 12,
+        right: 12,
+        zIndex: 10000,
+        display: 'flex',
+        gap: 4,
+        background: 'rgba(15, 23, 42, 0.9)',
+        padding: 4,
+        borderRadius: 999,
+        border: '1px solid #334155',
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => onChange('local')}
+        aria-pressed={modo === 'local'}
+        style={{
+          padding: '6px 14px',
+          borderRadius: 999,
+          border: 'none',
+          background: modo === 'local' ? '#F39C12' : 'transparent',
+          color: modo === 'local' ? '#0F172A' : '#94A3B8',
+          fontWeight: 700,
+          fontSize: 12,
+          cursor: 'pointer',
+        }}
+      >
+        🏠 Local
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange('online')}
+        aria-pressed={modo === 'online'}
+        style={{
+          padding: '6px 14px',
+          borderRadius: 999,
+          border: 'none',
+          background: modo === 'online' ? '#F39C12' : 'transparent',
+          color: modo === 'online' ? '#0F172A' : '#94A3B8',
+          fontWeight: 700,
+          fontSize: 12,
+          cursor: 'pointer',
+        }}
+      >
+        🌐 Online
+      </button>
+    </div>
+  );
+}
+
+function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
   const online = useGameSocket();
   const [chatInput, setChatInput] = useState('');
   const [cartaInput, setCartaInput] = useState('');
@@ -29,7 +110,8 @@ export default function App() {
   }
 
   return (
-    <main className="app-shell">
+    <>
+      <ToggleModo modo="online" onChange={(m) => m === 'local' && onMudarModo()} />
       <header className="app-header">
         <div>
           <p className="eyebrow">KABEMJUNTO</p>
@@ -49,7 +131,9 @@ export default function App() {
         </div>
       </header>
 
-      {!entrouNaSala ? (
+      {online.state.erro?.includes('404') || online.state.erro === 'SALA_NAO_ENCONTRADA' ? (
+        <NotFound onVoltar={online.sair} mensagem={online.state.erro} />
+      ) : !entrouNaSala ? (
         <LobbyOnline
           onEntrar={({ salaId, nome }) => online.entrarSala({ salaId, nome })}
           erro={online.state.erro}
@@ -190,13 +274,23 @@ export default function App() {
         </section>
       )}
 
-      {/* Overlay de reconexão (Sprint 4 polish — B13) */}
       {online.state.status === 'reconnecting' && (
         <Reconectando
           tentativa={online.tentativaReconexao}
           mensagem="Conexão perdida, tentando reconectar..."
         />
       )}
-    </main>
+
+      {online.state.estado?.vencedor && (
+        <VitoriaAnimada
+          vencedorNome={
+            online.state.jogadores.find((j) => j.id === online.state.estado?.vencedor)?.nome ||
+            online.state.estado.vencedor
+          }
+          isVoce={online.jogadorId === online.state.estado?.vencedor}
+          onJogarNovamente={online.sair}
+        />
+      )}
+    </>
   );
 }

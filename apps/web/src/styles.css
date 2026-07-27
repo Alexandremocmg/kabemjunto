@@ -115,7 +115,8 @@ input {
   background: #111827;
   outline: none;
 }
-input:focus {
+button:focus-visible,
+input:focus-visible {
   border-color: #f59e0b;
   box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18);
 }

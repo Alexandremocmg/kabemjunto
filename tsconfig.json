@@ -25,6 +25,6 @@
       "@shared/*": ["packages/shared/src/*"]
     }
   },
-  "include": ["src", "packages/shared/src"],
+  "include": ["apps/web/src", "packages/shared/src"],
   "exclude": ["**/*.test.ts", "**/*.spec.ts", "packages/shared/vitest.config.ts"]
 }
