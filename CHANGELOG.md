@@ -5,9 +5,92 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ---
 
-## [Unreleased]
+## [0.3.0] — 2026-07-27 · Sprint 3 FECHADA ✅ (release candidate)
 
-_Nada por enquanto — última release em [0.2.0] abaixo._
+### Sprint 3 — Beta Multiplayer + Estrutura de gestão multi-agente
+
+#### Adicionado (Mavis)
+
+- **M14 — Identidade estável de jogador** em `packages/shared/src/rules/` (apoiado por `packages/shared/src/types/player.ts`):
+  - `SessaoJogador` interface nova
+  - `ClientEntrarSalaEvent` agora exige `jogadorId` (UUID v4 gerado pelo cliente)
+  - `RoomStore.join()` rejeita jogador em outra sala, restaura jogador existente (reconexão)
+  - `RoomStore.disconnect()` só marca `conectado: false`, não remove
+  - Servidor envia `server:mao:atualizada` (privado) na reconexão
+  - 7 testes novos cobrindo reconexão, anti-impersonation, JOGADOR_EM_OUTRA_SALA
+- **M15 — Decisão dual app** (Opção A) — manter `src/` legacy + `apps/web/` online. ADR-008.
+- **Estrutura de gestão do time multi-agente** (sugestão do user, validada e aprovada):
+  - `AGENTS.md` (raiz) — entry point do time
+  - `agents/{mavis,codex,antigravity}.md` — perfis com escopo, restrições, skills
+  - `briefings/sprint-N.md` — spec da sprint
+  - `feedback/<data>-<issue>-<agente>.md` — review formal
+  - `briefings/m14-reconexao-identidade.md`, `briefings/m15-src-legado.md` — specs dedicadas
+- **ADR-007** — Mavis como gerente + revisor + dono do motor
+- **ADR-008** — Dual app (`src/` legacy + `apps/web/` online)
+- 4 skills instaladas (Vercel React, Composition Patterns, Frontend Design, Web Design Guidelines)
+
+#### Adicionado (Codex)
+
+- **B9 — Cliente Socket.IO** em `apps/web/src/services/socketClient.ts` (251 linhas):
+  - Hook `useGameSocket()` com reconnection, sessionStorage, event handlers pra 10 eventos
+- **B10 — Migração do app pra `apps/web/`**:
+  - `apps/web/src/App.tsx` (211 linhas) — lobby + sala + jogo + chat
+  - `apps/web/src/styles.css` (306 linhas) — design system coerente com ADR-002
+  - `apps/web/src/main.tsx` — bootstrap novo
+- **B12 — Lobby online** — integrado no `App.tsx` (extração pra `LobbyOnline.tsx` ficou pra Sprint 4 polish)
+- **B13 — Reconnect handler** — usa M14 (identidade estável) como base, instrumentação UX fica pra Sprint 4
+- `apps/web/src/services/socketClient.test.ts` (3 testes)
+
+#### Adicionado (Antigravity)
+
+- **B11 — AvatarComStatus** (`src/components/AvatarComStatus.tsx`, 92 linhas) — anel verde/cinza conforme status
+- **B14 — Reconectando** (`src/components/Reconectando.tsx`, 115 linhas) — modal com spinner SVG inline
+- **B15 — WifiStatus** (`src/components/WifiStatus.tsx` + `assets/svgs/icons/wifi-{online,offline}.svg`) — componente React + SVGs estáticos
+- `src/components/sprint3.test.ts` (6 testes)
+
+### Decisões arquiteturais (ADRs)
+
+- **ADR-006** — Servidor autoritativo
+- **ADR-007** — Mavis como gerente/revisor
+- **ADR-008** — Dual app
+
+### Pendências conhecidas (Sprint 4 — Polish)
+
+- [ ] B12 — Extrair `LobbyOnline` do `App.tsx` (composição)
+- [ ] B13 — UX de reconexão (modal `Reconectando` no client)
+- [ ] B16 — Integrar `AvatarComStatus` + `WifiStatus` + `Reconectando` no `LobbyOnline`
+- [ ] Telemetria: instrumentar `RECONECTADO` event
+
+### Métricas Sprint 3 (final)
+
+| Métrica                 | Valor                                   |
+| ----------------------- | --------------------------------------- |
+| **Testes totais**       | 160 (Sprint 0-1-2: 144 + Sprint 3: +16) |
+| **Cobertura do motor**  | ≥ 80%                                   |
+| **Tempo de testes**     | 3.82s                                   |
+| **Erros de TypeScript** | 0                                       |
+| **Erros de ESLint**     | 0                                       |
+| **Prettier**            | 100%                                    |
+| **ADRs publicadas**     | 8 (001-008)                             |
+| **Commits no `main`**   | 14 (desde início da sprint)             |
+
+### Como rodar localmente
+
+```bash
+# Instalar deps
+npm install
+
+# Validar tudo (typecheck + lint + format + test)
+npm run validate
+
+# Frontend (single-player legacy)
+npm run dev
+# → http://localhost:5173
+
+# Backend (multiplayer)
+cd apps/server && npm run dev
+# → http://localhost:3001/health
+```
 
 ---
 

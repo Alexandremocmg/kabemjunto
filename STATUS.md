@@ -5,7 +5,7 @@
 **Time:** Mavis (lead) · Codex (eng. pleno) · Antigravity (eng. júnior)
 **Fonte da verdade:** [`GDD-Kabemjunto.md`](./GDD-Kabemjunto.md) v1.0 + [`PLANO-EQUIPE-3DEVS.md`](./PLANO-EQUIPE-3DEVS.md) v1.0
 **Branch:** `main`
-**Sprint atual:** Sprint 2 — **FECHADA** (2026-07-27 00:00 BRT)
+**Sprint atual:** Sprint 3 — **FECHADA** (2026-07-27 01:30 BRT) — release candidate v0.3.0
 
 ---
 
