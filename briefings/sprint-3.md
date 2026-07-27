@@ -6,6 +6,7 @@
 **Período:** 2026-07-27 → 2026-07-29 (estimativa)
 **Tema:** Beta multiplayer funcional — 2+ clientes reais jogando online do início ao fim.
 **Pré-requisito:** Sprint 2 fechada (✅ B2 backend, M12 snapshot, M13 telemetria, B6/B7/B8 PWA, B1 testes 0+/7).
+**Status:** ✅ FECHADA + v0.3.1 released 2026-07-27 01:46 BRT. **Próxima sprint:** [Sprint 5 — Release](./sprint-5.md).
 
 ---
 
