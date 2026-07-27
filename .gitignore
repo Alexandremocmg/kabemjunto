@@ -31,3 +31,11 @@ coverage
 
 # Temporary / Binary dumps
 *.zip
+
+# TypeScript build cache
+*.tsbuildinfo
+
+# Lockfiles locais de sub-projetos (workspace usa o do root)
+apps/**/package-lock.json
+apps/**/pnpm-lock.yaml
+apps/**/yarn.lock

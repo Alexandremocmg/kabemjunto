@@ -103,6 +103,20 @@ export interface ServerChatEvent {
   timestamp: number;
 }
 
+/**
+ * Servidor envia a mão PRIVADA de um jogador para o socket dele.
+ *
+ * Importante: este evento NUNCA é broadcast. Vai apenas pro socket do
+ * próprio jogador, porque revelar a mão de outros jogadores é trapaça.
+ *
+ * Ganhamos um canal de mão privada em cima do broadcast público
+ * (`server:estado:atualizado`) — o cliente usa o estado público pra
+ * UI e este evento pra renderizar a mão dele.
+ */
+export interface ServerMaoAtualizadaEvent {
+  mao: ReadonlyArray<Carta>;
+}
+
 /** Jogador entrou/saiu da sala. */
 export interface ServerSalaAtualizadaEvent {
   jogadores: ReadonlyArray<JogadorPublico>;
@@ -139,6 +153,7 @@ export interface SocketEventMap {
   'server:silencio:quebrado': ServerSilencioQuebradoEvent;
   'server:chat:msg': ServerChatEvent;
   'server:sala:atualizada': ServerSalaAtualizadaEvent;
+  'server:mao:atualizada': ServerMaoAtualizadaEvent;
   'server:erro': ServerErroEvent;
 }
 
