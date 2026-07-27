@@ -2,12 +2,14 @@
 
 > **O jogo de cartas que te denuncia.** · 2 a 10 jogadores · 8 a 15 minutos por partida.
 
-Kabemjunto é um jogo de cartas digital inspirado no UNO, mas com três camadas estratégicas próprias: a **regra do 7** (silêncio social), o **acúmulo assimétrico de ataques** (+2 sobre +4 é proibido) e a carta **0+ (Zero Mais)** que reflete ataques para o último atacante. Tematização brasileira, party game com 108 cartas, hot-seat local e multiplayer online (em breve).
+Kabemjunto é um jogo de cartas digital inspirado no UNO, mas com três camadas estratégicas próprias: a **regra do 7** (silêncio social), o **acúmulo assimétrico de ataques** (+2 sobre +4 é proibido) e a carta **0+ (Zero Mais)** que reflete ataques para o último atacante. Tematização brasileira, party game com 108 cartas, hot-seat local e multiplayer online.
 
-![Status: Sprint 0 ✅ fechado](https://img.shields.io/badge/Sprint-0%20fechado-success)
-![Tests: 41/41](https://img.shields.io/badge/tests-41%2F41-success)
+[![CI](https://github.com/Alexandremocmg/kabemjunto/actions/workflows/ci.yml/badge.svg)](https://github.com/Alexandremocmg/kabemjunto/actions/workflows/ci.yml)
+[![Release v0.3.1](https://img.shields.io/badge/release-v0.3.1-success)](https://github.com/Alexandremocmg/kabemjunto/releases/tag/v0.3.1)
+![Tests: 165/165](https://img.shields.io/badge/tests-165%2F165-success)
 ![TS: strict](https://img.shields.io/badge/TypeScript-strict-blue)
 ![Lint: clean](https://img.shields.io/badge/lint-clean-success)
+![Coverage: ≥80%](https://img.shields.io/badge/coverage-%E2%89%A580%25-success)
 
 ---
 
