@@ -129,6 +129,8 @@ export interface ServerMaoAtualizadaEvent {
 
 /** Jogador entrou/saiu da sala. */
 export interface ServerSalaAtualizadaEvent {
+  /** Identidade estável do jogador que criou a sala. */
+  hostId: JogadorId;
   jogadores: ReadonlyArray<JogadorPublico>;
 }
 

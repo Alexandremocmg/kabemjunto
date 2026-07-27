@@ -92,6 +92,7 @@ export function registerSocketHandlers(io: GameServer, store: RoomStore): void {
 
         // Broadcast: sala atualizada (incluindo `conectado: true` no reconectado).
         io.to(joined.session.sala.id).emit('server:sala:atualizada', {
+          hostId: joined.session.sala.hostId,
           jogadores: joined.session.sala.jogadores,
         });
 
@@ -188,6 +189,7 @@ export function registerSocketHandlers(io: GameServer, store: RoomStore): void {
       const session = store.disconnect(socket.id);
       if (session) {
         io.to(session.sala.id).emit('server:sala:atualizada', {
+          hostId: session.sala.hostId,
           jogadores: session.sala.jogadores,
         });
       }

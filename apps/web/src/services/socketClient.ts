@@ -185,8 +185,10 @@ export function useGameSocket(): {
       setState((current) => ({ ...current, status: 'offline', erro: error.message }));
     const onState = ({ estado }: ServerEstadoAtualizadoEvent) =>
       setState((current) => ({ ...current, estado, erro: undefined }));
-    const onRoom = ({ jogadores }: ServerSalaAtualizadaEvent) =>
+    const onRoom = ({ hostId: nextHostId, jogadores }: ServerSalaAtualizadaEvent) => {
+      setHostId(nextHostId);
       setState((current) => ({ ...current, jogadores }));
+    };
     const onChat = (message: ServerChatEvent) =>
       setState((current) => ({
         ...current,
@@ -246,9 +248,8 @@ export function useGameSocket(): {
       } else {
         socket.emit('client:entrar:sala', normalized);
       }
-      if (!hostId) setHostId(socket.id);
     },
-    [hostId, socket],
+    [socket],
   );
 
   const iniciarPartida = useCallback(() => socket.emit('client:iniciar:partida', {}), [socket]);
@@ -293,7 +294,7 @@ export function useGameSocket(): {
       socketId: socket.id,
       jogadorId: credentials?.jogadorId,
       salaId: credentials?.salaId,
-      isHost: Boolean(hostId && socket.id === hostId),
+      isHost: Boolean(hostId && credentials?.jogadorId === hostId),
       tentativaReconexao,
       entrarSala,
       iniciarPartida,
