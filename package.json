@@ -3,6 +3,10 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "description": "Kabemjunto — o jogo de cartas que te denuncia. 2-10 jogadores, 8-15 min por partida.",
   "scripts": {
     "dev": "node scripts/dev-all.mjs",
