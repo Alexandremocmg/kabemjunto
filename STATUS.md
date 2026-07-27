@@ -14,6 +14,12 @@
 - ✅ UI de `Troca Mão`: dialog no desktop, bottom sheet no mobile e seleção acessível por teclado.
 - ✅ Testes: 170/170; cobertura do motor: 89,16%; build e 3 E2E verdes.
 
+### PostHog Cloud — configuração local
+
+- ✅ `apps/web/.env.local` foi configurado localmente com o project token do PostHog US Cloud.
+- 🔒 O token permanece fora do Git (`.env.local` é ignorado); nenhuma chave foi incluída na documentação ou no código versionado.
+- ⏳ B21 continua pendente apenas da evidência operacional: build de produção, reconexão real e confirmação de `RECONECTADO` no dashboard.
+
 ---
 
 ## 🎉 Sprint 2 FECHADA · 2026-07-27 00:00 BRT
