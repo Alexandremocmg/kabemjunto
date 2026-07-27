@@ -246,3 +246,43 @@ Para navegação rápida, cada seção tem um verbete com os pontos-chave que el
 > 6. Cronograma detalhado: ver seção 03.6 (Roadmap) e 04.7 (Lista de assets)
 
 **Fim do GDD — Kabemjunto v1.0**
+
+---
+
+## Addendum UI/UX 2026-07-27 — Redesign da Mesa Fase 1
+
+A partir das referências visuais fornecidas pelo produto — imagem da tela
+atual, proposta visual da mesa e especificação técnica das cartas especiais — a
+Fase 1 da interface passa a seguir estes princípios:
+
+- mobile-first em portrait, com mesa de feltro verde e núcleo central;
+- Monte de Compra à esquerda e Monte de Descarte à direita;
+- Monte de Compra clicável, com contador incorporado na arte;
+- mão do jogador em leque, com seleção em dois toques;
+- cartas inválidas reduzidas visualmente, mas ainda legíveis;
+- quatro assentos espaciais para a composição de 2–4 jogadores;
+- cor ativa, sentido, vez e ataque acumulado em status explícito;
+- eventos sociais em fila visual: Silêncio, ataque e reflexo do 0+;
+- banner compacto persistente enquanto o silêncio estiver ativo.
+
+### Decisão específica da Carta 7
+
+A Carta 7 será **visualmente secreta**. Sua face será idêntica à de uma carta
+numérica comum da cor correspondente: número 7 central e índices nos cantos,
+sem `🤫`, boca, faixa ou ilustração especial. O efeito do silêncio será
+comunicado após o descarte pelo banner, modal e feed de eventos.
+
+Esta decisão substitui a recomendação visual anterior de ícone explícito para o
+7; a regra mecânica não foi alterada.
+
+### Escopo de partida do MVP visual
+
+- Uma partida termina quando há vencedor.
+- Número de rodadas e pontuação cumulativa ficam fora do MVP.
+- A vitória exibirá ordem e estatísticas reais, sem pontuação inventada.
+- Tempo por turno fica desligado por padrão e só será implementado com controle
+  autoritativo do servidor.
+- `+4 sobre +4` permanece regra canônica; não será toggle no MVP.
+
+A especificação operacional está em [`docs/UI-REDESIGN-FASE-1.md`](docs/UI-REDESIGN-FASE-1.md)
+e a decisão arquitetural em ADR-010 de `DECISIONS.md`.

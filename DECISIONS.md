@@ -247,3 +247,39 @@ Este arquivo registra as Decisões de Arquitetura (ADRs) do projeto Kabemjunto.
   - ✅ Zero risco de regressão no jogo single-player offline durante a Sprint 3.
   - ✅ Ritmo acelerado no desenvolvimento das issues multiplayer (B13, B16).
   - ❌ Manutenção temporária de 2 entrypoints por 1 sprint adicional.
+
+---
+
+### ADR-010: Redesign da Mesa Mobile e Carta 7 Visualmente Secreta
+
+- **Status:** Proposta aprovada para implementação · 2026-07-27 · @User / @Mavis
+- **Contexto:** A inspeção visual da mesa mostrou sobreposição de textos,
+  cartas sem hierarquia, compra isolada e ausência de uma narrativa visual para
+  eventos especiais. O produto forneceu referências visuais da tela atual,
+  proposta de mesa e especificação técnica das cartas neutras.
+- **Decisões:**
+  1. A mesa será mobile-first, com feltro verde, núcleo central, monte de
+     compra à esquerda, descarte à direita e mão em leque no rodapé.
+  2. O Monte de Compra será o controle de compra; não haverá botão separado
+     `Comprar` na mesa.
+  3. A carta 7 será visualmente secreta: face idêntica à carta numérica da cor,
+     sem ícone ou ilustração de silêncio. O estado será comunicado pelo banner,
+     modal e feed de eventos.
+  4. A mão usará seleção em dois toques: primeiro toque seleciona, segundo
+     confirma. O servidor/motor continua responsável pela validação final.
+  5. A Fase 1 suporta a composição espacial de 2–4 jogadores. A expansão para
+     5–10 jogadores terá uma decisão visual própria.
+  6. Eventos de silêncio, ataque e reflexo do `0+` usarão uma fila serializada,
+     com fallback textual e suporte a `prefers-reduced-motion`.
+  7. O MVP não terá número de rodadas, pontuação cumulativa ou temporizador
+     obrigatório. Uma eventual configuração de tempo será autoritativa no
+     servidor; ranking numérico depende de regra de pontuação futura.
+  8. `+4 sobre +4` permanece regra canônica no MVP; não será exposto como toggle
+     antes de existir variante formal no motor, servidor e contratos de sala.
+- **Referência detalhada:** `docs/UI-REDESIGN-FASE-1.md`.
+- **Consequências:**
+  - ✅ A tela prioriza entendimento da jogada e dos clímax sociais.
+  - ✅ A surpresa da carta 7 é preservada sem esconder o estado ativo.
+  - ✅ Compra, seleção e eventos têm affordance mobile e acessível.
+  - ❌ O modo de 5–10 jogadores e partidas em rodadas ficam para decisões
+    posteriores.

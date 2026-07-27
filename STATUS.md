@@ -194,3 +194,26 @@ docs/
 - B10: lobby online em `apps/web/src/App.tsx` com criar/entrar por codigo, lista de jogadores, inicio pelo host e chat.
 - B12 cliente: sessao persistida, reconexao automatica e indicador `Reconectando...`.
 - Dependencia: restauracao server-side com identidade estavel ainda aguarda M14; o backend atual usa `socket.id` como identidade de jogador.
+
+---
+
+## 🎨 UI/UX — Fase 1 do redesign da mesa · 2026-07-27
+
+Referências incorporadas:
+
+- imagem da tela atual, usada para identificar overflow e sobreposição;
+- imagem proposta da mesa mobile-first;
+- especificação visual das cartas especiais e do verso do baralho;
+- documento técnico `docs/UI-REDESIGN-FASE-1.md`.
+
+Decisões registradas:
+
+- carta 7 visualmente secreta, sem ícone de silêncio na face;
+- monte de compra clicável com contador incorporado;
+- mão em leque com seleção em dois toques;
+- quatro assentos espaciais para 2–4 jogadores na primeira versão;
+- banner/fila de eventos para silêncio, ataques e reflexo do 0+;
+- sem rodadas, pontuação cumulativa ou temporizador obrigatório no MVP;
+- `+4 sobre +4` permanece regra canônica e não vira toggle no MVP.
+
+Estado: documentação atualizada e Fase 1 autorizada para implementação.

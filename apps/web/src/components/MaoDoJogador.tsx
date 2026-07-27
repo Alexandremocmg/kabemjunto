@@ -5,23 +5,20 @@ import { CartaView } from './CartaView';
 
 interface MaoDoJogadorProps {
   estado: EstadoPartida;
-  onJogarCarta: (index: number) => void;
+  onSelecionarCarta: (index: number) => void;
+  selectedIndex?: number | null;
   /** F8: key da carta que deve tremer (clicou inválida). Se null, sem shake. */
   shakeCartaKey?: string | null;
 }
 
 /**
- * Componente que mostra a mão do jogador da vez.
- *
- * Features:
- * - Marca cartas jogáveis (highlight laranja)
- * - Mostra motivo de bloqueio em tooltip
- * - F8: aplica `card-shake` à carta correspondente ao `shakeCartaKey` por 400ms
- * - F7: animação de fly-to-discard é disparada pelo App.tsx (estado externo)
+ * Mão do jogador em leque.
+ * O primeiro toque seleciona a carta; o segundo toque é resolvido pelo App.
  */
 export const MaoDoJogador: React.FC<MaoDoJogadorProps> = ({
   estado,
-  onJogarCarta,
+  onSelecionarCarta,
+  selectedIndex = null,
   shakeCartaKey = null,
 }) => {
   const jogadorAtual = estado.jogadores.find((j) => j.id === estado.vezDe);
@@ -31,38 +28,49 @@ export const MaoDoJogador: React.FC<MaoDoJogadorProps> = ({
   const cartasJogaveis = jogadorAtual.mao.filter(
     (carta: Carta) => validarJogada(estado, carta, jogadorAtual.id).valida,
   ).length;
+  const total = jogadorAtual.mao.length;
 
   return (
     <div className="hand-container">
-      <div className="hand-status">
-        <strong>{jogadorAtual.nome}</strong>
+      <div className="hand-status" role="status" aria-live="polite">
+        <strong>
+          {jogadorAtual.id === estado.vezDe && !jogadorAtual.isBot ? 'SUA VEZ' : jogadorAtual.nome}
+        </strong>
         <span>
           {jogadorAtual.isBot
-            ? 'Bot em turno automatico'
-            : `${cartasJogaveis} carta${cartasJogaveis === 1 ? '' : 's'} disponivel${
-                cartasJogaveis === 1 ? '' : 's'
+            ? 'Bot em turno automático'
+            : `${cartasJogaveis} carta${cartasJogaveis === 1 ? '' : 's'} disponível${
+                cartasJogaveis === 1 ? '' : 'is'
               }`}
         </span>
       </div>
 
-      <div className="hand-cards">
+      <div className="hand-cards hand-fan" aria-label={`Sua mão: ${total} cartas`} role="list">
         {jogadorAtual.mao.map((carta: Carta, index: number) => {
           const res = validarJogada(estado, carta, jogadorAtual.id);
           const jogavel = res.valida && !jogadorAtual.isBot;
-          // Match simples: se a key do shake começa com o id da carta, treme
+          const isSelected = selectedIndex === index;
           const isShaking = shakeCartaKey !== null && shakeCartaKey.startsWith(`${carta.id}-`);
+          const center = (total - 1) / 2;
+          const angle = Math.max(-12, Math.min(12, (index - center) * 4));
 
           return (
-            <div key={`${carta.id}_${index}`} style={{ display: 'inline-block' }}>
+            <div
+              key={`${carta.id}_${index}`}
+              className={`hand-card-slot ${isSelected ? 'selected-slot' : ''}`}
+              role="listitem"
+              style={{ transform: `rotate(${angle}deg)` }}
+            >
               <CartaView
                 carta={carta}
                 jogavel={jogavel}
+                selecionada={isSelected}
                 {...(jogadorAtual.isBot
                   ? { motivoBloqueio: 'Aguardando o bot jogar.' }
                   : res.motivo
                     ? { motivoBloqueio: res.motivo }
                     : {})}
-                onClick={() => jogavel && onJogarCarta(index)}
+                onClick={() => jogavel && onSelecionarCarta(index)}
                 shaking={isShaking}
               />
             </div>

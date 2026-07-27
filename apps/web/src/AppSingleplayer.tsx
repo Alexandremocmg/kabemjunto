@@ -11,10 +11,18 @@ import { RegraDoSilencioBanner } from './components/RegraDoSilencioBanner';
 import { PainelVitoria } from './components/PainelVitoria';
 import { TutorialModal } from './components/TutorialModal';
 import { audioService } from './services/audioService';
+import { EventoPartidaOverlay } from './components/EventoPartidaOverlay';
 
 type Feedback = {
   tipo: 'info' | 'erro' | 'sucesso';
   texto: string;
+};
+
+type EventoVisual = {
+  id: string;
+  tipo: 'SILENCIO' | 'ATAQUE' | 'ZERO_MAIS';
+  titulo: string;
+  detalhe: string;
 };
 
 export const App: React.FC = () => {
@@ -23,6 +31,9 @@ export const App: React.FC = () => {
   const [modalCorOpen, setModalCorOpen] = useState<boolean>(false);
   const [cartaIndexPendente, setCartaIndexPendente] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
+  const [selectedCardIndex, setSelectedCardIndex] = useState<number | null>(null);
+  const [eventQueue, setEventQueue] = useState<EventoVisual[]>([]);
+  const [activeEvent, setActiveEvent] = useState<EventoVisual | null>(null);
 
   // F8: carta que deve tremer (clicou em inválida)
   const [shakeCartaKey, setShakeCartaKey] = useState<string | null>(null);
@@ -38,6 +49,16 @@ export const App: React.FC = () => {
     const timer = window.setTimeout(() => setFeedback(null), 2800);
     return () => window.clearTimeout(timer);
   }, [feedback]);
+
+  useEffect(() => {
+    if (activeEvent || eventQueue.length === 0) return undefined;
+    const [nextEvent, ...remaining] = eventQueue;
+    if (!nextEvent) return undefined;
+    setEventQueue(remaining);
+    setActiveEvent(nextEvent);
+    const timer = window.setTimeout(() => setActiveEvent(null), 1800);
+    return () => window.clearTimeout(timer);
+  }, [activeEvent, eventQueue]);
 
   // Limpa o shake depois da duração
   useEffect(() => {
@@ -76,13 +97,53 @@ export const App: React.FC = () => {
   ) => {
     const novaPartida = criarPartida(modo, totalJogadores, nomes);
     setEstado(novaPartida);
-    mostrarFeedback({
-      tipo: 'sucesso',
-      texto: `Mesa iniciada com ${totalJogadores} jogadores.`,
-    });
+  };
+
+  const registrarTransicao = (
+    antes: EstadoPartida,
+    depois: EstadoPartida,
+    carta: Carta,
+    nome: string,
+  ) => {
+    const eventos: EventoVisual[] = [];
+    const id = `${Date.now()}-${carta.id}`;
+    if (carta.acao === 'SILENCIO') {
+      eventos.push({
+        id: `${id}-silencio`,
+        tipo: 'SILENCIO',
+        titulo: '🤫 SILÊNCIO!',
+        detalhe: 'Ninguém pode falar até a próxima carta.',
+      });
+    }
+    if (carta.acao === 'ZERO_MAIS' && antes.ataqueAcumulado > 0) {
+      eventos.push({
+        id: `${id}-zero`,
+        tipo: 'ZERO_MAIS',
+        titulo: '0+! Ataque refletido!',
+        detalhe: `${nome} devolveu o ataque para o último atacante.`,
+      });
+    }
+    if (depois.ataqueAcumulado > antes.ataqueAcumulado) {
+      eventos.push({
+        id: `${id}-ataque`,
+        tipo: 'ATAQUE',
+        titulo: `+${depois.ataqueAcumulado}! Ataque acumulado`,
+        detalhe: `${nome} colocou uma carta de ataque na mesa.`,
+      });
+    }
+    if (eventos.length > 0) setEventQueue((atual) => [...atual, ...eventos]);
+  };
+
+  const handleSelecionarCarta = (index: number) => {
+    if (selectedCardIndex === index) {
+      handleJogarCarta(index);
+      return;
+    }
+    setSelectedCardIndex(index);
   };
 
   const handleJogarCarta = (index: number) => {
+    setSelectedCardIndex(null);
     if (!estado) return;
 
     const jogadorAtual = estado.jogadores.find((j: Jogador) => j.id === estado.vezDe);
@@ -113,6 +174,7 @@ export const App: React.FC = () => {
       // F7: dispara fly-to-discard
       setFlyingCarta({ key: `${carta.id}-${Date.now()}`, carta });
       const novoState = jogarCarta(estado, index);
+      registrarTransicao(estado, novoState, carta, jogadorAtual.nome);
       setEstado(novoState);
       mostrarFeedback({
         tipo: 'sucesso',
@@ -136,6 +198,7 @@ export const App: React.FC = () => {
 
     try {
       const novoState = jogarCarta(estado, cartaIndexPendente, cor);
+      if (carta) registrarTransicao(estado, novoState, carta, jogadorAtual?.nome ?? 'Jogador');
       setEstado(novoState);
       mostrarFeedback({
         tipo: 'sucesso',
@@ -200,9 +263,12 @@ export const App: React.FC = () => {
 
       <MaoDoJogador
         estado={estado}
-        onJogarCarta={handleJogarCarta}
+        onSelecionarCarta={handleSelecionarCarta}
+        selectedIndex={selectedCardIndex}
         {...(shakeCartaKey !== null ? { shakeCartaKey } : {})}
       />
+
+      <EventoPartidaOverlay evento={activeEvent} />
 
       {/* F7: carta voando pro descarte */}
       {flyingCarta && (

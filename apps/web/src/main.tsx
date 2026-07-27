@@ -4,6 +4,7 @@ import { configureTelemetry } from '@kabemjunto/shared';
 import App from './App';
 import { posthogSink } from './services/posthogSink';
 import './styles.css';
+import './styles/index.css';
 
 // Telemetria (Sprint 5 — B17): PostHog Cloud em prod.
 // Em DEV, fica off (LGPD-friendly + zero overhead). Configurar

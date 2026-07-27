@@ -1,5 +1,5 @@
 import React from 'react';
-import { EstadoPartida, Jogador } from '@kabemjunto/shared/types';
+import { EstadoPartida } from '@kabemjunto/shared/types';
 import { Volume2, VolumeX, ShieldAlert, HelpCircle, Zap } from 'lucide-react';
 import { audioService } from '../services/audioService';
 
@@ -63,7 +63,7 @@ export const HUDJogador: React.FC<HUDJogadorProps> = ({
   return (
     <header className="game-header">
       {/* Nome do Jogo & Status */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <div className="game-header-brand">
         <h1
           style={{
             fontSize: '20px',
@@ -77,46 +77,10 @@ export const HUDJogador: React.FC<HUDJogadorProps> = ({
         </h1>
       </div>
 
-      {/* Lista de Jogadores & Vez Atual */}
-      <div className="players-strip">
-        {estado.jogadores.map((j: Jogador) => {
-          const isVez = j.id === estado.vezDe;
-          return (
-            <div
-              key={j.id}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '6px 12px',
-                borderRadius: '20px',
-                background: isVez ? 'rgba(243, 156, 18, 0.25)' : 'rgba(255,255,255,0.05)',
-                border: isVez ? '2px solid #F39C12' : '1px solid transparent',
-                transition: 'all 0.25s ease',
-              }}
-            >
-              <span style={{ fontSize: '20px' }}>{j.avatar || '👤'}</span>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span
-                  style={{
-                    fontSize: '13px',
-                    fontWeight: isVez ? '800' : '600',
-                    color: isVez ? '#F39C12' : '#F0F6FC',
-                  }}
-                >
-                  {j.nome} {j.isBot && '🤖'}
-                </span>
-                <span style={{ fontSize: '11px', color: '#8B949E' }}>
-                  {j.mao.length} {j.mao.length === 1 ? 'carta' : 'cartas'}
-                </span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      {/* Jogadores ficam posicionados espacialmente dentro da mesa. */}
 
       {/* Ações: Tutorial, Som, Punição do Silêncio */}
-      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+      <div className="game-header-actions">
         <div className="current-turn-pill">
           {jogadorAtual?.isBot ? 'Bot pensando' : `Vez de ${jogadorAtual?.nome ?? 'jogador'}`}
         </div>

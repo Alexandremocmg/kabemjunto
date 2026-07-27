@@ -1,11 +1,42 @@
 import React from 'react';
-import { Cor, EstadoPartida } from '@kabemjunto/shared/types';
+import { Cor, EstadoPartida, Jogador } from '@kabemjunto/shared/types';
 import { PALETA_CORES } from '@kabemjunto/shared/constants/cards';
 import { CartaView } from './CartaView';
 
 interface MesaDeJogoProps {
   estado: EstadoPartida;
   onComprarCarta: () => void;
+}
+
+function PlayerSeat({
+  jogador,
+  index,
+  active,
+}: {
+  jogador: Jogador;
+  index: number;
+  active: boolean;
+}) {
+  const previewCards = Math.min(jogador.mao.length, 4);
+  return (
+    <div className={`player-seat player-seat-${index + 1} ${active ? 'active' : ''}`}>
+      <div className="player-seat-avatar" aria-hidden="true">
+        {jogador.avatar || '👤'}
+      </div>
+      <div className="player-seat-copy">
+        <strong>{jogador.nome}</strong>
+        <span>{jogador.isBot ? 'Bot' : 'Você'}</span>
+      </div>
+      <div className="player-seat-count" aria-label={`${jogador.mao.length} cartas`}>
+        {jogador.mao.length}
+      </div>
+      <div className="mini-card-fan" aria-hidden="true">
+        {Array.from({ length: previewCards }, (_, cardIndex) => (
+          <span key={cardIndex} style={{ transform: `rotate(${(cardIndex - 1.5) * 8}deg)` }} />
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export const MesaDeJogo: React.FC<MesaDeJogoProps> = ({ estado, onComprarCarta }) => {
@@ -19,59 +50,36 @@ export const MesaDeJogo: React.FC<MesaDeJogoProps> = ({ estado, onComprarCarta }
 
   return (
     <div className="table-area">
-      {/* Monte de Compra e Monte de Descarte */}
-      <div className="table-center">
-        {/* Monte de Compra */}
+      <div className="player-table" aria-label="Jogadores na mesa">
+        {estado.jogadores.slice(0, 4).map((jogador, index) => (
+          <PlayerSeat
+            key={jogador.id}
+            jogador={jogador}
+            index={index}
+            active={jogador.id === estado.vezDe}
+          />
+        ))}
+      </div>
+
+      <div className="table-center" aria-label="Núcleo da mesa">
         <div className="deck-slot" title={compraLabel}>
           <CartaView
             verso={true}
+            contador={`MONTE ${estado.monteCompra.length}`}
             jogavel={compraDisponivel}
             {...(jogadorAtual?.isBot ? { motivoBloqueio: 'Aguardando o bot jogar.' } : {})}
             onClick={onComprarCarta}
           />
-          <div
-            style={{
-              position: 'absolute',
-              bottom: '-24px',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              fontSize: '12px',
-              fontWeight: '700',
-              color: '#8B949E',
-            }}
-          >
-            {estado.monteCompra.length} no monte
-          </div>
-          {compraDisponivel && (
-            <button className="draw-action" onClick={onComprarCarta}>
-              {compraLabel}
-            </button>
-          )}
         </div>
 
-        {/* Monte de Descarte */}
-        <div className="discard-slot" style={{ position: 'relative' }}>
-          {/* Badge de Ataque Acumulado (+2 / +4 / +6 / +8) */}
+        <div className="discard-slot">
           {estado.ataqueAcumulado > 0 && (
-            <div className="attack-badge">+{estado.ataqueAcumulado}</div>
+            <div className="attack-badge" role="status">
+              +{estado.ataqueAcumulado}
+            </div>
           )}
-
           {topo && <CartaView carta={topo} jogavel={false} />}
-
-          <div
-            style={{
-              position: 'absolute',
-              bottom: '-24px',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              fontSize: '12px',
-              fontWeight: '700',
-              color: '#8B949E',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            Descarte ({estado.monteDescarte.length})
-          </div>
+          <span className="pile-label">DESCARTE {estado.monteDescarte.length}</span>
         </div>
       </div>
 
@@ -81,35 +89,28 @@ export const MesaDeJogo: React.FC<MesaDeJogoProps> = ({ estado, onComprarCarta }
           {jogadorAtual?.isBot
             ? 'Bot executando o turno.'
             : estado.ataqueAcumulado > 0
-              ? `Ataque acumulado: +${estado.ataqueAcumulado}. Cubra com +2, +4 ou 0+.`
-              : 'Jogue uma carta valida ou compre do monte.'}
+              ? `Ataque ativo: +${estado.ataqueAcumulado}. Cubra com a mesma defesa ou compre.`
+              : 'Toque em uma carta para jogar ou no monte para comprar.'}
         </span>
       </div>
 
-      {/* Indicador de Cor Ativa & Sentido de Jogo */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '20px',
-          display: 'flex',
-          gap: '16px',
-          alignItems: 'center',
-        }}
-      >
+      <div className="table-status-bar" aria-label="Status da mesa">
         <div className="color-indicator">
-          <span style={{ fontSize: '13px', color: '#8B949E' }}>Cor Ativa:</span>
+          <span className="status-label">Cor ativa</span>
           <div className="color-dot" style={{ backgroundColor: infoCor.hex, color: infoCor.hex }} />
           <span style={{ fontWeight: '800', color: infoCor.hex }}>
             {infoCor.nomePt} {infoCor.simboloAcessivel}
           </span>
         </div>
-
         <div className="color-indicator">
-          <span style={{ fontSize: '13px', color: '#8B949E' }}>Sentido:</span>
+          <span className="status-label">Sentido</span>
           <span style={{ fontWeight: '800', color: '#F0F6FC' }}>
-            {estado.sentido === 1 ? '🔄 Horário' : '🔁 Anti-Horário'}
+            {estado.sentido === 1 ? '↻ Horário' : '↺ Anti-horário'}
           </span>
         </div>
+        {estado.ataqueAcumulado > 0 && (
+          <div className="color-indicator attack-indicator">Ataque +{estado.ataqueAcumulado}</div>
+        )}
       </div>
     </div>
   );

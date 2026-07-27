@@ -9,8 +9,10 @@ interface CartaViewProps {
   motivoBloqueio?: string;
   verso?: boolean;
   pequena?: boolean;
-  /** F8: aplica classe de shake (carta inválida) */
+  /** F8: aplica classe de shake (clicou em carta inválida). */
   shaking?: boolean;
+  selecionada?: boolean;
+  contador?: string;
 }
 
 function getCartaLabel(carta: Carta): string {
@@ -33,6 +35,21 @@ function getCartaLabel(carta: Carta): string {
   return labels[carta.acao ?? ''] ?? 'Carta';
 }
 
+function getIcone(carta: Carta): string {
+  if (carta.valor !== undefined) return `${carta.valor}`;
+  if (carta.acao === 'SKIP') return '🚫';
+  if (carta.acao === 'REVERSE') return '🔄';
+  if (carta.acao === 'MAIS_DOIS') return '+2';
+  if (carta.acao === 'MAIS_QUATRO') return '+4';
+  if (carta.acao === 'ZERO_MAIS') return '0+';
+  if (carta.acao === 'TROCA_MAO') return '🤝';
+  if (carta.acao === 'GIRA_MAO') return '🌀';
+  if (carta.acao === 'CORINGA_SIMPLES') return '🎨';
+  // A carta 7 é deliberadamente secreta: seu valor numérico já foi retornado acima.
+  if (carta.acao === 'SILENCIO') return '7';
+  return '?';
+}
+
 export const CartaView: React.FC<CartaViewProps> = ({
   carta,
   onClick,
@@ -41,6 +58,8 @@ export const CartaView: React.FC<CartaViewProps> = ({
   verso = false,
   pequena = false,
   shaking = false,
+  selecionada = false,
+  contador,
 }) => {
   if (verso) {
     return (
@@ -70,6 +89,7 @@ export const CartaView: React.FC<CartaViewProps> = ({
             boxShadow: '0 4px 15px rgba(0,0,0,0.5)',
           }}
         />
+        {contador && <span className="card-back-count">{contador}</span>}
       </div>
     );
   }
@@ -78,28 +98,20 @@ export const CartaView: React.FC<CartaViewProps> = ({
 
   const corKey = carta.cor || 'NEUTRO';
   const infoCor = PALETA_CORES[corKey] || PALETA_CORES.NEUTRO;
-
-  const getIcone = () => {
-    if (carta.valor !== undefined) return `${carta.valor}`;
-    if (carta.acao === 'SKIP') return '🚫';
-    if (carta.acao === 'REVERSE') return '🔄';
-    if (carta.acao === 'MAIS_DOIS') return '+2';
-    if (carta.acao === 'MAIS_QUATRO') return '+4';
-    if (carta.acao === 'ZERO_MAIS') return '0+';
-    if (carta.acao === 'TROCA_MAO') return '🤝';
-    if (carta.acao === 'GIRA_MAO') return '🌀';
-    if (carta.acao === 'CORINGA_SIMPLES') return '🎨';
-    if (carta.acao === 'SILENCIO') return '🤫';
-    return '?';
-  };
-
-  const icone = getIcone();
+  const icone = getIcone(carta);
+  const classes = [
+    'card-wrapper',
+    jogavel ? 'playable' : 'disabled',
+    carta.acao === 'ZERO_MAIS' ? 'zeroplus-active' : '',
+    shaking ? 'card-shake' : '',
+    selecionada ? 'selected' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
     <div
-      className={`card-wrapper ${jogavel ? 'playable' : 'disabled'} ${
-        carta.acao === 'ZERO_MAIS' ? 'zeroplus-active' : ''
-      } ${shaking ? 'card-shake' : ''}`}
+      className={classes}
       onClick={jogavel ? onClick : undefined}
       onKeyDown={(event) => {
         if (jogavel && (event.key === 'Enter' || event.key === ' ')) {
@@ -110,24 +122,25 @@ export const CartaView: React.FC<CartaViewProps> = ({
       role={onClick ? 'button' : undefined}
       tabIndex={jogavel && onClick ? 0 : -1}
       aria-disabled={!jogavel}
+      aria-pressed={selecionada}
       aria-label={jogavel ? getCartaLabel(carta) : (motivoBloqueio ?? getCartaLabel(carta))}
       title={motivoBloqueio ?? carta.efeito_texto_longo}
       style={{
         width: pequena ? '85px' : '130px',
         height: pequena ? '120px' : '185px',
-        transform: jogavel ? undefined : 'scale(0.96)',
       }}
     >
       <div className={`card-face ${corKey}`}>
-        {/* Canto Superior: Valor + Símbolo de Acessibilidade */}
-        <div className="card-corner" style={{ fontSize: pequena ? '14px' : '20px' }}>
+        <div
+          className="card-corner card-corner-top"
+          style={{ fontSize: pequena ? '14px' : '20px' }}
+        >
           <span>{icone}</span>
           <span style={{ marginLeft: '4px', fontSize: '0.8em', opacity: 0.8 }}>
             {infoCor.simboloAcessivel}
           </span>
         </div>
 
-        {/* Centro da Carta */}
         <div className="card-center-val" style={{ fontSize: pequena ? '26px' : '48px' }}>
           {carta.acao === 'ZERO_MAIS' ? (
             <span style={{ color: '#F1C40F', textShadow: '0 0 10px #F39C12' }}>0+</span>
@@ -136,14 +149,9 @@ export const CartaView: React.FC<CartaViewProps> = ({
           )}
         </div>
 
-        {/* Canto Inferior Invertido */}
         <div
-          className="card-corner"
-          style={{
-            fontSize: pequena ? '14px' : '20px',
-            alignSelf: 'flex-end',
-            transform: 'rotate(180deg)',
-          }}
+          className="card-corner card-corner-bottom"
+          style={{ fontSize: pequena ? '14px' : '20px' }}
         >
           <span>{icone}</span>
         </div>
