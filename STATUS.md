@@ -139,9 +139,21 @@ docs/
 
 ---
 
-## 🔵 Antigravity (próxima janela)
+## 🔵 Antigravity ✅ (Sprint 3 — Assets Multiplayer Entregues)
 
-**Sprint 2:** ✅ B6/B7/B8 entregues. **Tá livre** — PWA está pronto.
+### Última atualização · 2026-07-27 00:31 BRT
+
+**Hoje (Sprint 3 — Beta Multiplayer Assets):**
+
+- ✅ **[B11] AvatarComStatus ([AvatarComStatus.tsx](file:///c:/Users/alexa/Downloads/Game_kabemjunto/src/components/AvatarComStatus.tsx)):**
+  - Componente React que renderiza o avatar do jogador com anel e badge reluzente de conexão (`#22C55E` conectado / `#6B7280` desconectado).
+- ✅ **[B13] Tela/spinner Reconectando ([Reconectando.tsx](file:///c:/Users/alexa/Downloads/Game_kabemjunto/src/components/Reconectando.tsx)):**
+  - Modal overlay com spinner SVG em rotação contínua (Laranja `#F39C12`), mensagem pt-BR e indicador opcional de tentativas (`Tentativa 2/3...`).
+- ✅ **[B14] Ícones Wifi / Socket Status ([WifiStatus.tsx](file:///c:/Users/alexa/Downloads/Game_kabemjunto/src/components/WifiStatus.tsx)):**
+  - SVGs vetoriais 24x24 em `assets/svgs/icons/` (`wifi-online.svg`, `wifi-offline.svg`) com wrapper React `<WifiStatus status="online"|"offline" />`.
+- ✅ **Suíte de Testes ([sprint3.test.ts](file:///c:/Users/alexa/Downloads/Game_kabemjunto/src/components/sprint3.test.ts)):**
+  - 6 testes unitários criados cobrindo renderização estática e variações de estado de B11, B13 e B14.
+- ✅ **Quality Gates (`npm run validate`):** **150/150 testes Vitest passando em 10 arquivos, 0 erros TS, 0 erros/warnings ESLint e 100% Prettier**.
 
 ---
 
@@ -153,6 +165,8 @@ docs/
 - **2026-07-26 23:42 BRT · Mavis** — Sprint 2 kickoff
 - **2026-07-26 23:56 BRT · Mavis** — M12/M13/B1 entregues (fix do `girarMaos`)
 - **2026-07-27 00:00 BRT · Codex** — B2 entregue: Fastify + Socket.IO autoritativo
+- **2026-07-27 00:15 BRT · Antigravity** — B6/B7/B8 entregues: PWA manifest, ícones SVG e Safe Area CSS
+- **2026-07-27 00:31 BRT · Antigravity** — Sprint 3: [B11] AvatarComStatus, [B13] Reconectando modal, [B14] WifiStatus icons. 150/150 testes verdes!
 - **2026-07-27 00:00 BRT · Antigravity** — B6/B7/B8 entregues: PWA + ícones + mobile meta tags
 - **2026-07-27 00:08 BRT · Mavis** — Sprint 2 FECHADA. 144/144 testes em 3.85s. 0 erros TS/ESLint. 100% Prettier.
 
