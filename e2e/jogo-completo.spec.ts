@@ -33,8 +33,8 @@ async function abrirPartida(browser: Browser): Promise<{ host: Page; convidado: 
 test('dois clientes entram na mesma sala e iniciam uma partida', async ({ browser }) => {
   const { host, convidado } = await abrirPartida(browser);
 
-  await expect(host.getByText('Host E2E')).toBeVisible();
-  await expect(convidado.getByText('Convidado E2E')).toBeVisible();
+  await expect(host.locator('.online-table-area').getByText('Host E2E')).toBeVisible();
+  await expect(convidado.locator('.online-table-area').getByText('Convidado E2E')).toBeVisible();
 
   await host.context().close();
   await convidado.context().close();
@@ -46,7 +46,7 @@ test('cliente recarrega e recupera a sessao da partida', async ({ browser }) => 
   await convidado.reload();
   await expect(convidado.locator('.connection')).toContainText('Online');
   await expect(convidado.getByText('SUA MÃO')).toBeVisible();
-  await expect(host.getByText('Convidado E2E')).toBeVisible();
+  await expect(host.locator('.online-table-area').getByText('Convidado E2E')).toBeVisible();
 
   await host.context().close();
   await convidado.context().close();

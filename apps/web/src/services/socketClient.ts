@@ -175,14 +175,23 @@ export function useGameSocket(): {
       if (saved) socket.emit('client:entrar:sala', saved);
     };
     const onDisconnect = () => {
-      setState((current) => ({ ...current, status: 'reconnecting' }));
+      setState((current) => ({ ...current, status: 'reconnecting', erro: undefined }));
       if (disconnectAtRef.current === undefined) {
         disconnectAtRef.current = Date.now();
       }
       setTentativaReconexao((n) => n + 1);
     };
-    const onConnectError = (error: Error) =>
-      setState((current) => ({ ...current, status: 'offline', erro: error.message }));
+    const onConnectError = (error: Error) => {
+      setState((current) => ({ ...current, status: 'reconnecting', erro: error.message }));
+      setTentativaReconexao((n) => n + 1);
+    };
+    const onReconnectAttempt = (attempt: number) => {
+      setState((current) => ({ ...current, status: 'reconnecting' }));
+      setTentativaReconexao(attempt);
+    };
+    const onReconnectFailed = () => {
+      setState((current) => ({ ...current, status: 'offline' }));
+    };
     const onState = ({ estado }: ServerEstadoAtualizadoEvent) =>
       setState((current) => ({ ...current, estado, erro: undefined }));
     const onRoom = ({ hostId: nextHostId, jogadores }: ServerSalaAtualizadaEvent) => {
@@ -196,16 +205,31 @@ export function useGameSocket(): {
       }));
     const onError = ({ mensagem }: ServerErroEvent) =>
       setState((current) => ({ ...current, erro: mensagem }));
-    const onAccepted = ({ cartaId }: ServerJogadaAceitaEvent) =>
+    const onAccepted = ({ cartaId }: ServerJogadaAceitaEvent) => {
       setState((current) => ({ ...current, cartaAceita: cartaId, cartaRejeitada: undefined }));
-    const onRejected = ({ cartaId, motivo }: ServerJogadaRejeitadaEvent) =>
-      setState((current) => ({ ...current, cartaRejeitada: `${cartaId}: ${motivo}` }));
+      window.setTimeout(() => {
+        setState((current) =>
+          current.cartaAceita === cartaId ? { ...current, cartaAceita: undefined } : current,
+        );
+      }, 1800);
+    };
+    const onRejected = ({ cartaId, motivo }: ServerJogadaRejeitadaEvent) => {
+      const mensagem = `${cartaId}: ${motivo}`;
+      setState((current) => ({ ...current, cartaRejeitada: mensagem }));
+      window.setTimeout(() => {
+        setState((current) =>
+          current.cartaRejeitada === mensagem ? { ...current, cartaRejeitada: undefined } : current,
+        );
+      }, 2500);
+    };
     const onHand = ({ mao }: ServerMaoAtualizadaEvent) =>
       setState((current) => ({ ...current, mao }));
 
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
     socket.on('connect_error', onConnectError);
+    socket.io.on('reconnect_attempt', onReconnectAttempt);
+    socket.io.on('reconnect_failed', onReconnectFailed);
     socket.on('server:estado:atualizado', onState);
     socket.on('server:sala:atualizada', onRoom);
     socket.on('server:chat:msg', onChat);
@@ -223,6 +247,8 @@ export function useGameSocket(): {
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
       socket.off('connect_error', onConnectError);
+      socket.io.off('reconnect_attempt', onReconnectAttempt);
+      socket.io.off('reconnect_failed', onReconnectFailed);
       socket.off('server:estado:atualizado', onState);
       socket.off('server:sala:atualizada', onRoom);
       socket.off('server:chat:msg', onChat);

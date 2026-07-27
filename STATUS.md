@@ -255,3 +255,16 @@ Estado: documentação atualizada e Fase 1 autorizada para implementação.
 - Modo Local e `EstadoPartida` persistidos em `sessionStorage` para recuperação após reload durante a sessão.
 - Validação confirmou mesa preservada após recarregar, sem retorno ao Lobby e sem erros de console.
 - `Troca Mão` no modo Local abre seleção de alvo, exclui o próprio jogador e encaminha `alvoTrocaId` ao motor autoritativo.
+
+---
+
+## ⚡ UI/UX — Fase 5: paridade Online e estabilização mobile · 2026-07-27
+
+- Mesa Online migrada para a hierarquia mobile-first: assentos, núcleo, monte, descarte, status, mão e indicação de turno.
+- Jogador local fica associado visualmente à mão e a mão permanece acessível em `390x844`, sem overflow horizontal.
+- Cartas Online usam seleção em dois toques; `Troca Mão` abre seleção de alvo e cartas neutras abrem escolha de cor.
+- Compra, jogada autoritativa, cartas especiais e estado de ataque continuam sincronizados pelo servidor.
+- Feedback de jogada aceita/rejeitada usa `role=status`/`role=alert` e expira automaticamente.
+- Reconexão inicial e tentativas automáticas exibem `Reconectando...`; falha definitiva retorna a `Offline`.
+- E2E com dois clientes confirmou entrada na mesma sala, início da partida, mesa nos dois clientes e recuperação após reload.
+- Validação visual mobile confirmou `scrollWidth=390`, mesa sem overflow, descarte livre e mão visível no rodapé.

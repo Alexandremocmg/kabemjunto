@@ -7,6 +7,8 @@ import { LobbyOnline } from './components/LobbyOnline';
 import { VitoriaAnimada } from './components/VitoriaAnimada';
 import { NotFound } from './components/NotFound';
 import { SelecionarAlvoTrocaMao } from './components/SelecionarAlvoTrocaMao';
+import { ModalEscolhaCor } from './components/ModalEscolhaCor';
+import { MesaOnline } from './components/MesaOnline';
 import AppSingleplayer from './AppSingleplayer';
 
 /**
@@ -104,8 +106,9 @@ function ToggleModo({ modo, onChange }: { modo: Modo; onChange: (m: Modo) => voi
 function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
   const online = useGameSocket();
   const [chatInput, setChatInput] = useState('');
-  const [cartaInput, setCartaInput] = useState('');
   const [cartaTrocaPendente, setCartaTrocaPendente] = useState<string>();
+  const [cartaCorPendente, setCartaCorPendente] = useState<string>();
+  const [cartaSelecionada, setCartaSelecionada] = useState<string>();
   const entrouNaSala = Boolean(online.salaId);
   const partidaIniciada = Boolean(online.state.estado);
   const wifiOn = online.state.status === 'connected';
@@ -117,13 +120,26 @@ function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
     setChatInput('');
   }
 
-  function selecionarCarta(cartaId: string): void {
-    const carta = online.state.mao.find((item) => item.id === cartaId);
-    if (carta?.acao === 'TROCA_MAO') {
-      setCartaTrocaPendente(cartaId);
+  function selecionarCarta(carta: import('@kabemjunto/shared').Carta): void {
+    if (cartaSelecionada !== carta.id) {
+      setCartaSelecionada(carta.id);
       return;
     }
-    online.jogarCarta(cartaId);
+
+    setCartaSelecionada(undefined);
+    if (carta.acao === 'TROCA_MAO') {
+      setCartaTrocaPendente(carta.id);
+      return;
+    }
+    if (
+      carta.tipo === 'NEUTRA' ||
+      carta.acao === 'MAIS_QUATRO' ||
+      carta.acao === 'CORINGA_SIMPLES'
+    ) {
+      setCartaCorPendente(carta.id);
+      return;
+    }
+    online.jogarCarta(carta.id);
   }
 
   return (
@@ -185,60 +201,25 @@ function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
                 )}
                 {!online.isHost && <p className="muted">O host inicia a partida.</p>}
               </div>
-            ) : (
-              <div className="game-state">
-                <div className="game-topline">
-                  <span>
-                    Vez de <strong>{online.state.estado?.vezDe}</strong>
-                  </span>
-                  <span>
-                    Cor ativa: <strong>{online.state.estado?.corAtiva}</strong>
-                  </span>
-                  <span>
-                    Descarte: <strong>{online.state.estado?.topo.efeito_texto_curto}</strong>
-                  </span>
-                </div>
-                <div>
-                  <p className="eyebrow">SUA MÃO</p>
-                  <div className="hand-grid">
-                    {online.state.mao.map((carta) => (
-                      <button
-                        key={carta.id}
-                        className="card-button"
-                        disabled={online.jogadorId !== online.state.estado?.vezDe}
-                        onClick={() => selecionarCarta(carta.id)}
-                      >
-                        <strong>{carta.efeito_texto_curto}</strong>
-                        <small>{carta.id}</small>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <label className="play-input">
-                  Carta ID
-                  <input
-                    value={cartaInput}
-                    onChange={(event) => setCartaInput(event.target.value)}
-                    placeholder="LARANJA_NUM_7_1"
-                  />
-                </label>
-                <button
-                  className="button button-primary"
-                  disabled={!cartaInput.trim()}
-                  onClick={() => online.jogarCarta(cartaInput.trim())}
-                >
-                  Jogar carta pelo servidor
-                </button>
-                <button className="button button-secondary" onClick={online.comprarCarta}>
-                  Comprar carta
-                </button>
-                {online.state.cartaAceita && (
-                  <p className="success-message">Jogada aceita: {online.state.cartaAceita}</p>
-                )}
-                {online.state.cartaRejeitada && (
-                  <p className="error-message">{online.state.cartaRejeitada}</p>
-                )}
-              </div>
+            ) : online.state.estado ? (
+              <MesaOnline
+                estado={online.state.estado}
+                mao={online.state.mao}
+                jogadorId={online.jogadorId}
+                selectedCardId={cartaSelecionada}
+                onSelecionarCarta={selecionarCarta}
+                onComprarCarta={online.comprarCarta}
+              />
+            ) : null}
+            {online.state.cartaAceita && (
+              <p className="toast-feedback sucesso" role="status">
+                Jogada aceita: {online.state.cartaAceita}
+              </p>
+            )}
+            {online.state.cartaRejeitada && (
+              <p className="toast-feedback erro" role="alert">
+                {online.state.cartaRejeitada}
+              </p>
             )}
             {online.state.erro && <p className="error-message">{online.state.erro}</p>}
           </div>
@@ -299,6 +280,15 @@ function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
           onConfirm={(alvoId) => {
             online.jogarCarta(cartaTrocaPendente, undefined, alvoId);
             setCartaTrocaPendente(undefined);
+          }}
+        />
+      )}
+
+      {cartaCorPendente && (
+        <ModalEscolhaCor
+          onEscolherCor={(cor) => {
+            online.jogarCarta(cartaCorPendente, cor);
+            setCartaCorPendente(undefined);
           }}
         />
       )}

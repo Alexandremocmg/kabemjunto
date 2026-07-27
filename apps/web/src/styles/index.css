@@ -1855,3 +1855,137 @@ h5 {
     transform: translateX(-50%);
   }
 }
+
+/* Fase 5 — mesa Online com a mesma hierarquia mobile-first da mesa Local. */
+.online-table-area {
+  width: 100%;
+  min-height: clamp(620px, 78dvh, 820px);
+  border-radius: 24px;
+  background: var(--bg-table);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.2);
+}
+
+.online-hand-container {
+  position: absolute;
+  right: 10px;
+  bottom: 0;
+  left: 10px;
+  z-index: 10;
+  display: flex;
+  min-height: 180px;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+}
+
+.online-hand-container .hand-cards {
+  justify-content: center;
+  align-items: flex-end;
+  overflow-x: auto;
+  padding: 12px 10px 4px;
+}
+
+.online-hand-container .hand-card-slot {
+  flex: 0 0 auto;
+  transform-origin: bottom center;
+}
+
+.online-hand-container .hand-card-slot.selected-slot {
+  z-index: 2;
+  transform: translateY(-18px) !important;
+}
+
+.online-hand-container .card-wrapper {
+  width: 92px !important;
+  height: 132px !important;
+}
+
+.online-table-area .player-table {
+  inset: 28px 16px 188px;
+}
+
+.online-table-area .player-seat-you {
+  bottom: 10px;
+}
+
+.online-table-area .turn-summary {
+  right: 50%;
+  bottom: 174px;
+  transform: translateX(50%);
+}
+
+.online-table-area .table-center {
+  margin-top: -56px;
+}
+
+@media (max-width: 480px) {
+  .online-table-area {
+    min-height: 560px;
+    padding: 70px 8px 174px;
+    border-radius: 18px;
+  }
+
+  .online-table-area .player-table {
+    inset: 20px 8px 178px;
+  }
+
+  .online-table-area .player-seat {
+    width: 122px;
+    grid-template-columns: 34px minmax(0, 1fr) 24px;
+    padding: 5px;
+  }
+
+  .online-table-area .player-seat-avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 18px;
+  }
+
+  .online-table-area .player-seat-you {
+    bottom: 104px;
+  }
+
+  .online-table-area .turn-summary {
+    right: 8px;
+    bottom: 190px;
+    left: 8px;
+    width: auto;
+    margin: 0;
+    transform: none;
+    padding: 8px 10px;
+  }
+
+  .online-table-area .turn-summary span {
+    font-size: 11px;
+  }
+
+  .online-table-area .table-center {
+    gap: 12px;
+    margin-top: -90px;
+  }
+
+  .online-table-area .deck-slot,
+  .online-table-area .discard-slot {
+    width: 94px;
+    height: 134px;
+  }
+
+  .online-table-area .deck-slot .card-wrapper,
+  .online-table-area .discard-slot .card-wrapper {
+    width: 94px !important;
+    height: 134px !important;
+  }
+
+  .online-hand-container .card-wrapper {
+    width: 76px !important;
+    height: 110px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .online-table-area .player-seat.active,
+  .online-table-area .attack-badge {
+    animation: none;
+  }
+}
