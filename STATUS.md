@@ -144,11 +144,17 @@ npm run validate      # tudo de uma vez (typecheck + lint + format:check + test)
 
 ## 🔵 Antigravity (eng. júnior)
 
-### Última atualização · 2026-07-26 (Sprint 0 — entrega extrapolada + fechada por Mavis)
+### Última atualização · 2026-07-26 23:02 BRT
 
-**Hoje:** MVP funcional entregue na 1ª iteração. Mavis fechou Sprint 0 fazendo o que faltava.
-**Bloqueios:** nenhum
-**Próximo:** Sprint 1 — A1 (fixture de cartas), A2 (cartas placeholder), A3 (verso), A4 (SFX básicos).
+**Hoje:**
+
+- ✅ Repositório Git local inicializado na branch `main`.
+- ✅ Arquivo `.gitignore` configurado.
+- ✅ Commit inicial realizado: `feat: initial commit - Kabemjunto v1.0 (motor puro, 108 cartas, testes e UI)` (87 arquivos).
+- ✅ Todos os 4 quality gates (`npm run validate`) validados com **zero erros, zero warnings e 54/54 testes no Vitest**.
+
+**Bloqueios:** Nenhum.
+**Próximo:** Aguardando comando para publicar remote origin ou iniciar tarefas visuais/UI da Sprint 1 (A1..A4).
 **Lembrete:** respeitar lock estrito (ADR-003). **NÃO mexer em `packages/shared/rules/**` novamente.** É Mavis only.
 
 ---
@@ -160,3 +166,4 @@ npm run validate      # tudo de uma vez (typecheck + lint + format:check + test)
 - **2026-07-26 22:00 BRT · Usuário** — Decidiu: A) Refatorar + Lock estrito.
 - **2026-07-26 22:32 BRT · Mavis** — Refactor do motor concluído (41 testes, TS strict verde, ADRs 003+004).
 - **2026-07-26 22:44 BRT · Mavis** — Sprint 0 FECHADA. ESLint, Prettier, CI, README, CONTRIBUTING, CHANGELOG adicionados. `npm run validate` tudo verde.
+- **2026-07-26 23:02 BRT · Antigravity** — Repositório Git inicializado na branch `main` com o commit inicial das 108 cartas, motor puro e UI. `STATUS.md` atualizado para repasse ao Mavis.
