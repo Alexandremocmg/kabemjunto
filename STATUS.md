@@ -273,3 +273,6 @@ Estado: documentação atualizada e Fase 1 autorizada para implementação.
 - O modo Local passou a renderizar todos os jogadores permitidos (2–10), removendo o limite acidental de quatro assentos.
 - E2E específico com 10 jogadores confirmou os dez assentos, índices `0..9` e ausência de overflow em `390x844`.
 - Lobby Online diferencia explicitamente criação e entrada: código inexistente não cria sala silenciosamente e exibe o estado `NotFound` documentado.
+- O frontend agora usa a mesma origem para Socket.IO por padrão e o Vite encaminha `/socket.io` para o backend local, permitindo uso por túnel público sem apontar para `127.0.0.1` do dispositivo cliente.
+- `VITE_SOCKET_URL` continua disponível para deployments com frontend e backend em origens separadas.
+- Investigação reproduzida: frontend em `5173` e Socket.IO em `3001`; o bundle antigo usava fallback local direto, causando `conexão perdida` no acesso externo.

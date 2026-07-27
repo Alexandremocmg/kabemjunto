@@ -82,3 +82,19 @@ test('entrada em sala inexistente mostra estado de sala não encontrada', async 
   await expect(page.getByText('Sala não encontrada.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Voltar ao Lobby' })).toBeVisible();
 });
+
+test('cliente usa o mesmo host da aplicação para o transporte Socket.IO', async ({ page }) => {
+  const socketRequests: string[] = [];
+  page.on('request', (request) => {
+    if (request.url().includes('/socket.io/')) socketRequests.push(request.url());
+  });
+
+  await page.goto('/');
+  await page.getByLabel('Seu nome').fill('Proxy E2E');
+  await page.getByRole('button', { name: 'Criar sala' }).click();
+  await expect(page.getByText('Aguardando o grupo')).toBeVisible();
+
+  expect(socketRequests.length).toBeGreaterThan(0);
+  const socketOrigin = new URL(socketRequests[0]).origin;
+  expect([new URL(page.url()).origin, 'http://127.0.0.1:3101']).toContain(socketOrigin);
+});

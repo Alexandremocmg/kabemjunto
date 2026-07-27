@@ -61,6 +61,18 @@ npm run dev
 # → abre em http://localhost:5173
 ```
 
+### Exposição pública / túnel
+
+O frontend usa o mesmo host da aplicação como endpoint padrão do Socket.IO. O Vite encaminha `/socket.io` para `http://127.0.0.1:3001`, incluindo WebSocket.
+
+Para publicar frontend e backend em origens separadas, defina `VITE_SOCKET_URL` **antes do build**:
+
+```bash
+VITE_SOCKET_URL=https://seu-backend.example.com npm run build
+```
+
+Não use `127.0.0.1` ou `localhost` como `VITE_SOCKET_URL` em um link acessado por outro dispositivo: esses endereços apontam para o dispositivo do jogador.
+
 ### Validação completa (CI local)
 
 ```bash

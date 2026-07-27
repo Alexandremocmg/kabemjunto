@@ -14,7 +14,24 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: false,
+    proxy: {
+      '/socket.io': {
+        target: 'http://127.0.0.1:3001',
+        changeOrigin: true,
+        ws: true,
+      },
+    },
     ...(tunnelHost ? { allowedHosts: [tunnelHost] } : {}),
+  },
+  preview: {
+    port: 5173,
+    proxy: {
+      '/socket.io': {
+        target: 'http://127.0.0.1:3001',
+        changeOrigin: true,
+        ws: true,
+      },
+    },
   },
   build: {
     outDir: 'dist',

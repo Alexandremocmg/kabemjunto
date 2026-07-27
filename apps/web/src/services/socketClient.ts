@@ -55,7 +55,10 @@ export interface SocketGameState {
   mao: ReadonlyArray<Carta>;
 }
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL ?? 'http://127.0.0.1:3001';
+const configuredSocketUrl = import.meta.env.VITE_SOCKET_URL?.trim();
+const SOCKET_URL =
+  configuredSocketUrl ||
+  (typeof window !== 'undefined' ? window.location.origin : 'http://127.0.0.1:3001');
 const SESSION_KEY = 'kabemjunto-online-session';
 
 export interface SessionCredentials {
