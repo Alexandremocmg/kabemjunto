@@ -1,31 +1,25 @@
-import type { FormEvent } from 'react';
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useGameSocket } from './services/socketClient';
+import { AvatarComStatus } from '../../src/components/AvatarComStatus';
+import { WifiStatus } from '../../src/components/WifiStatus';
+import { Reconectando } from '../../src/components/Reconectando';
+import { LobbyOnline } from './components/LobbyOnline';
 
-function gerarCodigo(): string {
-  return Math.random().toString(36).slice(2, 8).toUpperCase();
-}
-
+/**
+ * App principal do Kabemjunto multiplayer (B10 + Sprint 4 polish).
+ *
+ * - Lobby: extraído para `LobbyOnline.tsx` (B12)
+ * - Status de conexão: usa `WifiStatus` (B15 do Antigravity)
+ * - Reconexão: mostra `Reconectando` overlay + `logCustom('RECONECTADO')` no hook
+ * - Lista de jogadores: usa `AvatarComStatus` (B11 do Antigravity)
+ */
 export default function App() {
   const online = useGameSocket();
-  const [salaInput, setSalaInput] = useState('');
-  const [nomeInput, setNomeInput] = useState('');
   const [chatInput, setChatInput] = useState('');
   const [cartaInput, setCartaInput] = useState('');
   const entrouNaSala = Boolean(online.salaId);
   const partidaIniciada = Boolean(online.state.estado);
-
-  function entrar(criar: boolean): void {
-    const salaId = criar ? gerarCodigo() : salaInput;
-    if (!salaId.trim() || !nomeInput.trim()) return;
-    setSalaInput(salaId);
-    online.entrarSala({ salaId, nome: nomeInput });
-  }
-
-  function entrarExistente(event: FormEvent<HTMLFormElement>): void {
-    event.preventDefault();
-    entrar(false);
-  }
+  const wifiOn = online.state.status === 'connected';
 
   function enviarChat(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
@@ -41,46 +35,26 @@ export default function App() {
           <p className="eyebrow">KABEMJUNTO</p>
           <h1>Jogue junto, mesmo longe.</h1>
         </div>
-        <span className={`connection connection-${online.state.status}`}>
-          {online.state.status === 'reconnecting' ? 'Reconectando...' : online.state.status}
-        </span>
+        <div className="connection" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <WifiStatus status={wifiOn ? 'online' : 'offline'} size={20} />
+          <span>
+            {online.state.status === 'reconnecting'
+              ? 'Reconectando...'
+              : online.state.status === 'connecting'
+                ? 'Conectando...'
+                : online.state.status === 'connected'
+                  ? 'Online'
+                  : 'Offline'}
+          </span>
+        </div>
       </header>
 
       {!entrouNaSala ? (
-        <section className="lobby-panel" aria-labelledby="lobby-title">
-          <p className="eyebrow">SALA ONLINE</p>
-          <h2 id="lobby-title">Entre na mesa</h2>
-          <p className="muted">Crie uma sala ou use o código que seu grupo compartilhou.</p>
-          <form className="lobby-form" onSubmit={entrarExistente}>
-            <label>
-              Seu nome
-              <input
-                value={nomeInput}
-                onChange={(event) => setNomeInput(event.target.value)}
-                maxLength={24}
-                required
-              />
-            </label>
-            <label>
-              Código da sala
-              <input
-                value={salaInput}
-                onChange={(event) => setSalaInput(event.target.value.toUpperCase())}
-                maxLength={6}
-                placeholder="K4B3MJ"
-              />
-            </label>
-            <div className="form-actions">
-              <button type="submit" className="button button-secondary">
-                Entrar em sala
-              </button>
-              <button type="button" className="button button-primary" onClick={() => entrar(true)}>
-                Criar sala
-              </button>
-            </div>
-          </form>
-          {online.state.erro && <p className="error-message">{online.state.erro}</p>}
-        </section>
+        <LobbyOnline
+          onEntrar={({ salaId, nome }) => online.entrarSala({ salaId, nome })}
+          erro={online.state.erro}
+          desabilitado={online.state.status === 'connecting'}
+        />
       ) : (
         <section className="room-layout">
           <div className="room-main">
@@ -173,9 +147,18 @@ export default function App() {
               <h2>Jogadores</h2>
               <ul className="player-list">
                 {online.state.jogadores.map((jogador) => (
-                  <li key={jogador.id}>
-                    <span>
-                      {jogador.avatar} {jogador.nome}
+                  <li
+                    key={jogador.id}
+                    style={{ display: 'flex', alignItems: 'center', gap: '12px' }}
+                  >
+                    <AvatarComStatus
+                      avatarId={jogador.avatar}
+                      conectado={jogador.conectado}
+                      nome={jogador.nome}
+                      size={36}
+                    />
+                    <span style={{ flex: 1 }}>
+                      <strong>{jogador.nome}</strong>
                     </span>
                     <small>{jogador.quantidadeCartas} cartas</small>
                   </li>
@@ -205,6 +188,14 @@ export default function App() {
             </section>
           </aside>
         </section>
+      )}
+
+      {/* Overlay de reconexão (Sprint 4 polish — B13) */}
+      {online.state.status === 'reconnecting' && (
+        <Reconectando
+          tentativa={online.tentativaReconexao}
+          mensagem="Conexão perdida, tentando reconectar..."
+        />
       )}
     </main>
   );

@@ -1,21 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
-import type {
-  ClientChatEvent,
-  ClientComprarEvent,
-  ClientEntrarSalaEvent,
-  ClientIniciarPartidaEvent,
-  ClientJogarEvent,
-  Carta,
-  EstadoPartidaPublico,
-  JogadorPublico,
-  ServerChatEvent,
-  ServerErroEvent,
-  ServerEstadoAtualizadoEvent,
-  ServerJogadaAceitaEvent,
-  ServerJogadaRejeitadaEvent,
-  ServerMaoAtualizadaEvent,
-  ServerSalaAtualizadaEvent,
+import {
+  logCustom,
+  type Carta,
+  type ClientChatEvent,
+  type ClientComprarEvent,
+  type ClientEntrarSalaEvent,
+  type ClientIniciarPartidaEvent,
+  type ClientJogarEvent,
+  type EstadoPartidaPublico,
+  type JogadorPublico,
+  type ServerChatEvent,
+  type ServerErroEvent,
+  type ServerEstadoAtualizadoEvent,
+  type ServerJogadaAceitaEvent,
+  type ServerJogadaRejeitadaEvent,
+  type ServerMaoAtualizadaEvent,
+  type ServerSalaAtualizadaEvent,
 } from '@kabemjunto/shared';
 
 type ClientEvents = {
@@ -120,6 +121,8 @@ export function useGameSocket(): {
   jogadorId: string | undefined;
   salaId: string | undefined;
   isHost: boolean;
+  /** Número da tentativa de reconexão atual (0 = conectado). */
+  tentativaReconexao: number;
   entrarSala: (credentials: Omit<SessionCredentials, 'jogadorId'> & { jogadorId?: string }) => void;
   iniciarPartida: () => void;
   jogarCarta: (cartaId: string, corEscolhida?: ClientJogarEvent['corEscolhida']) => void;
@@ -141,15 +144,39 @@ export function useGameSocket(): {
   });
   const [credentials, setCredentials] = useState<SessionCredentials | undefined>(readSession);
   const [hostId, setHostId] = useState<string | undefined>();
+  /** Timestamp do último `disconnect` (pra telemetria de duração da queda). */
+  const disconnectAtRef = useRef<number | undefined>(undefined);
+  /** Tentativa atual de reconexão (1, 2, 3, ...). Reseta ao conectar. */
+  const [tentativaReconexao, setTentativaReconexao] = useState(0);
 
   useEffect(() => {
     const onConnect = () => {
       setState((current) => ({ ...current, status: 'connected', erro: undefined }));
       setHostId((current) => current ?? socket.id);
+
+      // Telemetria: log de reconexão (se houve queda anterior).
+      if (disconnectAtRef.current !== undefined) {
+        const duracaoMs = Date.now() - disconnectAtRef.current;
+        logCustom('RECONECTADO', {
+          salaId: credentials?.salaId,
+          jogadorId: credentials?.jogadorId,
+          duracaoMs,
+          tentativa: tentativaReconexao,
+        });
+        disconnectAtRef.current = undefined;
+        setTentativaReconexao(0);
+      }
+
       const saved = credentials ?? readSession();
       if (saved) socket.emit('client:entrar:sala', saved);
     };
-    const onDisconnect = () => setState((current) => ({ ...current, status: 'reconnecting' }));
+    const onDisconnect = () => {
+      setState((current) => ({ ...current, status: 'reconnecting' }));
+      if (disconnectAtRef.current === undefined) {
+        disconnectAtRef.current = Date.now();
+      }
+      setTentativaReconexao((n) => n + 1);
+    };
     const onConnectError = (error: Error) =>
       setState((current) => ({ ...current, status: 'offline', erro: error.message }));
     const onState = ({ estado }: ServerEstadoAtualizadoEvent) =>
@@ -255,6 +282,7 @@ export function useGameSocket(): {
       jogadorId: credentials?.jogadorId,
       salaId: credentials?.salaId,
       isHost: Boolean(hostId && socket.id === hostId),
+      tentativaReconexao,
       entrarSala,
       iniciarPartida,
       jogarCarta,
@@ -264,8 +292,8 @@ export function useGameSocket(): {
     }),
     [
       comprarCarta,
-      credentials?.salaId,
       credentials?.jogadorId,
+      credentials?.salaId,
       entrarSala,
       enviarChat,
       hostId,
@@ -274,6 +302,7 @@ export function useGameSocket(): {
       sair,
       socket,
       state,
+      tentativaReconexao,
     ],
   );
 }
