@@ -1,17 +1,19 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { configureTelemetry, consoleSink } from '@kabemjunto/shared';
+import { configureTelemetry } from '@kabemjunto/shared';
 import App from './App';
+import { posthogSink } from './services/posthogSink';
 import './styles.css';
 
-// Telemetria (Sprint 4 polish): liga em produção com sample rate conservador.
-// Em DEV, fica off (LGPD-friendly + zero overhead no console).
+// Telemetria (Sprint 5 — B17): PostHog Cloud em prod.
+// Em DEV, fica off (LGPD-friendly + zero overhead). Configurar
+// VITE_POSTHOG_API_KEY em apps/web/.env (ver apps/web/.env.example).
 // ADR-005: telemetria é opcional e off-by-default.
 if (import.meta.env.PROD) {
   configureTelemetry({
     enabled: true,
     sampleRate: 0.1, // 10% das sessões
-    sink: consoleSink, // placeholder até PostHog/Sentry ser integrado (Sprint 4+)
+    sink: posthogSink,
     context: { modo: 'ONLINE' },
   });
 }
