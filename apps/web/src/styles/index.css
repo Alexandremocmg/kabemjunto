@@ -2281,3 +2281,417 @@ h5 {
   font-weight: 900;
   letter-spacing: 0.08em;
 }
+
+/* Mesa Online fullscreen: o lobby usa room-layout; a partida não. */
+.online-match-layout {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: 100%;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bg-table);
+}
+
+.online-match-hud {
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 58px;
+  padding: max(8px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) 8px
+    max(14px, env(safe-area-inset-left));
+  background: rgba(5, 12, 8, 0.9);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.online-match-logo {
+  display: block;
+  width: auto;
+  height: 34px;
+  object-fit: contain;
+}
+
+.online-match-room {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  padding: 5px 8px;
+  color: #d9ebe0;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  font-size: 11px;
+}
+
+.online-match-room-label {
+  color: #8fa899;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.online-match-room strong {
+  overflow: hidden;
+  color: #f8c56b;
+  font-family: var(--font-title);
+  letter-spacing: 0.09em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.online-match-room button,
+.online-utility-trigger,
+.online-exit-trigger,
+.online-utility-close {
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.online-match-room button {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  color: #f8c56b;
+  background: transparent;
+  border-radius: 50%;
+}
+
+.online-match-hud .connection {
+  margin-left: auto;
+  padding: 5px 8px;
+  font-size: 10px;
+}
+
+.online-utility-trigger,
+.online-exit-trigger {
+  min-height: 32px;
+  padding: 6px 9px;
+  color: #d9ebe0;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 9px;
+  font-family: var(--font-title);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.online-exit-trigger {
+  color: #ffd6d0;
+  border-color: rgba(231, 76, 60, 0.42);
+}
+
+.online-match-layout .online-table-area {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  align-items: stretch;
+  justify-items: stretch;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 8px max(12px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom))
+    max(12px, env(safe-area-inset-left));
+  overflow: hidden;
+  background: var(--bg-table);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.online-match-layout .table-status-bar {
+  position: static;
+  z-index: 4;
+  width: auto;
+  max-width: none;
+  min-height: 32px;
+  margin: 0 auto 4px;
+  transform: none;
+}
+
+.online-play-stage {
+  position: relative;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-height: 0;
+  padding: 10px 12px 6px;
+  overflow: hidden;
+}
+
+.online-play-stage .player-table {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.online-play-stage .player-seat.player-seat-ring {
+  top: 50%;
+  left: 50%;
+  width: min(132px, 34vw);
+  transform: translate(-50%, -50%) rotate(var(--seat-angle))
+    translateY(calc(-1 * var(--seat-radius, min(18vw, 126px)))) rotate(calc(-1 * var(--seat-angle)));
+}
+
+.online-play-stage .player-table.player-count-1 .player-seat.player-seat-ring {
+  top: 10px;
+  transform: translateX(-50%);
+}
+
+.online-play-stage .table-center {
+  position: relative;
+  z-index: 2;
+  grid-row: 1;
+  align-self: center;
+  justify-self: center;
+  margin: 0;
+  transform: none;
+}
+
+.online-play-stage .turn-summary {
+  position: static;
+  z-index: 3;
+  grid-row: 2;
+  width: min(520px, 100%);
+  margin: 32px auto 0;
+  transform: none;
+  text-align: center;
+}
+
+.online-match-layout .online-hand-container {
+  position: static;
+  z-index: 5;
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 4px;
+  padding: 5px 0 0;
+  background: linear-gradient(180deg, rgba(5, 12, 8, 0.18), rgba(5, 12, 8, 0.94) 24%);
+}
+
+.online-match-layout .online-hand-container .hand-status {
+  width: min(520px, calc(100% - 24px));
+  min-height: 32px;
+  margin: 0 auto;
+}
+
+.online-match-layout .hand-local-player {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  color: #d9ebe0;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.online-match-layout .hand-local-player i {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  flex: 0 0 auto;
+  background: #17251d;
+  border: 1px solid #6f9b7f;
+  border-radius: 50%;
+  font-size: 14px;
+  font-style: normal;
+}
+
+.online-match-layout .hand-local-player em {
+  overflow: hidden;
+  max-width: 84px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-style: normal;
+}
+
+.online-match-layout .online-hand-container .hand-cards {
+  min-height: 0;
+  padding: 10px max(24px, env(safe-area-inset-left)) 4px max(24px, env(safe-area-inset-right));
+  overflow-x: auto;
+  overflow-y: visible;
+  scroll-padding-inline: 24px;
+}
+
+.online-match-layout .online-hand-container .hand-card-slot:first-child {
+  margin-left: 8px;
+}
+
+.online-match-layout .online-hand-container .hand-card-slot:last-child {
+  margin-right: 8px;
+}
+
+.online-match-layout .online-hand-container .card-wrapper {
+  width: 82px !important;
+  height: 118px !important;
+}
+
+.online-utility-backdrop {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(1, 7, 4, 0.62);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+
+.online-utility-drawer {
+  width: min(390px, 100%);
+  height: 100%;
+  overflow-y: auto;
+  padding: 18px;
+  color: #edf8ef;
+  background: #0c1711;
+  border-left: 1px solid rgba(248, 197, 107, 0.32);
+  box-shadow: -20px 0 48px rgba(0, 0, 0, 0.42);
+}
+
+.online-utility-drawer > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.online-utility-drawer h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.online-utility-close {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  color: #d9ebe0;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 50%;
+  font-size: 24px;
+}
+
+.online-utility-drawer .chat-panel {
+  min-height: 0;
+  margin-top: 22px;
+}
+
+@media (max-width: 600px) {
+  .online-match-hud {
+    gap: 6px;
+    min-height: 52px;
+    padding: max(7px, env(safe-area-inset-top)) 10px 7px;
+  }
+
+  .online-match-logo {
+    width: 68px;
+    height: 28px;
+  }
+
+  .online-match-room {
+    flex: 1;
+    justify-content: center;
+    min-width: 0;
+  }
+
+  .online-match-hud .connection span,
+  .online-utility-trigger span,
+  .online-exit-trigger {
+    display: none;
+  }
+
+  .online-match-hud .connection {
+    margin-left: 0;
+    padding: 5px;
+  }
+
+  .online-utility-trigger {
+    width: 34px;
+    padding: 0;
+  }
+
+  .online-match-layout .online-table-area {
+    padding: 6px 8px max(6px, env(safe-area-inset-bottom));
+  }
+
+  .online-match-layout .table-status-bar {
+    gap: 4px;
+    margin-bottom: 2px;
+  }
+
+  .online-match-layout .status-pill {
+    padding: 4px 7px;
+    font-size: 10px;
+  }
+
+  .online-match-layout .status-pill strong {
+    font-size: 10px;
+  }
+
+  .online-play-stage {
+    padding: 6px 4px 4px;
+  }
+
+  .online-play-stage .player-seat.player-seat-ring {
+    width: 112px;
+    --seat-radius: 106px;
+  }
+
+  .online-play-stage .table-center {
+    gap: 12px;
+  }
+
+  .online-play-stage .deck-slot,
+  .online-play-stage .discard-slot {
+    width: 88px;
+    height: 126px;
+  }
+
+  .online-play-stage .deck-slot .card-wrapper,
+  .online-play-stage .discard-slot .card-wrapper {
+    width: 88px !important;
+    height: 126px !important;
+  }
+
+  .online-play-stage .turn-summary {
+    margin-top: 28px;
+    padding: 7px 9px;
+  }
+
+  .online-play-stage .turn-summary span {
+    font-size: 10px;
+  }
+
+  .online-match-layout .online-hand-container .card-wrapper {
+    width: 74px !important;
+    height: 106px !important;
+  }
+
+  .online-utility-backdrop {
+    align-items: flex-end;
+  }
+
+  .online-utility-drawer {
+    width: 100%;
+    height: min(78dvh, 650px);
+    padding-bottom: max(18px, env(safe-area-inset-bottom));
+    border: 1px solid rgba(248, 197, 107, 0.32);
+    border-bottom: 0;
+    border-radius: 20px 20px 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .online-utility-backdrop {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}

@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useGameSocket } from './services/socketClient';
 import { AvatarComStatus } from './components/AvatarComStatus';
 import { WifiStatus } from './components/WifiStatus';
@@ -11,16 +11,6 @@ import { ModalEscolhaCor } from './components/ModalEscolhaCor';
 import { MesaOnline } from './components/MesaOnline';
 import AppSingleplayer from './AppSingleplayer';
 
-/**
- * App principal do Kabemjunto (M16 — Sprint 5).
- *
- * Suporta 2 modos:
- * - **Online** (multiplayer via Socket.IO) — código B10 + Sprint 4 polish
- * - **Local** (single-player/hotseat/bots) — código legacy do `src/`, agora `AppSingleplayer.tsx`
- *
- * Toggle no header (botão "Local" / "Online"). Estado em React state (não persiste).
- */
-
 type Modo = 'local' | 'online';
 
 export default function App() {
@@ -32,7 +22,6 @@ export default function App() {
     window.sessionStorage.setItem('kabemjunto.modo', modo);
   }, [modo]);
 
-  // Single-player: renderiza o App legacy (independente)
   if (modo === 'local') {
     return (
       <div>
@@ -111,9 +100,57 @@ function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
   const [cartaSelecionada, setCartaSelecionada] = useState<string>();
   const [copiedCode, setCopiedCode] = useState(false);
   const [copyError, setCopyError] = useState(false);
+  const [utilityOpen, setUtilityOpen] = useState(false);
+  const utilityTriggerRef = useRef<HTMLButtonElement>(null);
+  const utilityCloseRef = useRef<HTMLButtonElement>(null);
+  const utilityDrawerRef = useRef<HTMLElement>(null);
   const entrouNaSala = Boolean(online.salaId);
   const partidaIniciada = Boolean(online.state.estado);
   const wifiOn = online.state.status === 'connected';
+
+  useEffect(() => {
+    if (!utilityOpen) return undefined;
+    utilityCloseRef.current?.focus();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeUtilityDrawer();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+
+      const focusable = Array.from(
+        utilityDrawerRef.current?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      );
+      if (focusable.length === 0) return;
+
+      const [first, ...remainingFocusable] = focusable;
+      if (first === undefined) return;
+      const last = remainingFocusable.at(-1) ?? first;
+      const activeElement = document.activeElement;
+      if (!utilityDrawerRef.current?.contains(activeElement)) {
+        event.preventDefault();
+        first.focus();
+      } else if (event.shiftKey && activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [utilityOpen]);
+
+  function closeUtilityDrawer(): void {
+    setUtilityOpen(false);
+    window.setTimeout(() => utilityTriggerRef.current?.focus(), 0);
+  }
 
   function enviarChat(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
@@ -124,7 +161,6 @@ function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
 
   async function copiarCodigoSala(): Promise<void> {
     if (!online.salaId) return;
-
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(online.salaId);
@@ -155,7 +191,6 @@ function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
       setCartaSelecionada(carta.id);
       return;
     }
-
     setCartaSelecionada(undefined);
     if (carta.acao === 'TROCA_MAO') {
       setCartaTrocaPendente(carta.id);
@@ -172,30 +207,79 @@ function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
     online.jogarCarta(carta.id);
   }
 
+  const utilidades = (
+    <>
+      <section>
+        <h2>Jogadores</h2>
+        <ul className="player-list">
+          {online.state.jogadores.map((jogador) => (
+            <li key={jogador.id} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <AvatarComStatus
+                avatarId={jogador.avatar}
+                conectado={jogador.conectado}
+                nome={jogador.nome}
+                size={36}
+              />
+              <span style={{ flex: 1 }}>
+                <strong>{jogador.nome}</strong>
+              </span>
+              <small>{jogador.quantidadeCartas} cartas</small>
+            </li>
+          ))}
+        </ul>
+      </section>
+      <section className="chat-panel">
+        <h2>Chat</h2>
+        <div className="chat-messages" aria-live="polite">
+          {online.state.mensagens.map((message, index) => (
+            <p key={`${message.timestamp}-${index}`}>
+              <strong>{message.jogadorId.slice(0, 6)}:</strong> {message.texto}
+            </p>
+          ))}
+        </div>
+        <form onSubmit={enviarChat} className="chat-form">
+          <input
+            value={chatInput}
+            onChange={(event) => setChatInput(event.target.value)}
+            placeholder="Mensagem"
+            maxLength={240}
+          />
+          <button className="button button-primary" type="submit">
+            Enviar
+          </button>
+        </form>
+      </section>
+    </>
+  );
+
   return (
     <>
-      <ToggleModo modo="online" onChange={(m) => m === 'local' && onMudarModo()} />
-      <header className="app-header">
-        <img
-          src="/assets/cards/kabemjunto/brand-kabemjunto.webp"
-          alt="Kabemjunto"
-          className="header-logo"
-          width={160}
-          height={46}
-        />
-        <div className={`connection connection-${online.state.status}`}>
-          <WifiStatus status={wifiOn ? 'online' : 'offline'} size={20} />
-          <span>
-            {online.state.status === 'reconnecting'
-              ? 'Reconectando...'
-              : online.state.status === 'connecting'
-                ? 'Conectando...'
-                : online.state.status === 'connected'
-                  ? 'Online'
-                  : 'Offline'}
-          </span>
-        </div>
-      </header>
+      {!partidaIniciada && (
+        <ToggleModo modo="online" onChange={(m) => m === 'local' && onMudarModo()} />
+      )}
+      {!partidaIniciada && (
+        <header className="app-header">
+          <img
+            src="/assets/cards/kabemjunto/brand-kabemjunto.webp"
+            alt="Kabemjunto"
+            className="header-logo"
+            width={160}
+            height={46}
+          />
+          <div className={`connection connection-${online.state.status}`}>
+            <WifiStatus status={wifiOn ? 'online' : 'offline'} size={20} />
+            <span>
+              {online.state.status === 'reconnecting'
+                ? 'Reconectando...'
+                : online.state.status === 'connecting'
+                  ? 'Conectando...'
+                  : online.state.status === 'connected'
+                    ? 'Online'
+                    : 'Offline'}
+            </span>
+          </div>
+        </header>
+      )}
 
       {online.state.erroCodigo === 'SALA_INEXISTENTE' ? (
         <NotFound
@@ -208,7 +292,7 @@ function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
           erro={online.state.erro}
           desabilitado={online.state.status === 'connecting'}
         />
-      ) : (
+      ) : !partidaIniciada ? (
         <section className="room-layout">
           <div className="room-main">
             <div className="room-toolbar">
@@ -231,94 +315,113 @@ function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
                 Sair
               </button>
             </div>
-
-            {!partidaIniciada ? (
-              <div className="waiting-state">
-                <span className="waiting-icon">◈</span>
-                <h2>Aguardando o grupo</h2>
-                <p className="muted">Compartilhe o código e inicie quando todos entrarem.</p>
-                {online.isHost && (
-                  <button
-                    className="button button-primary"
-                    disabled={online.state.jogadores.length < 2}
-                    onClick={online.iniciarPartida}
-                  >
-                    Iniciar partida
-                  </button>
-                )}
-                {!online.isHost && <p className="muted">O host inicia a partida.</p>}
-              </div>
-            ) : online.state.estado ? (
-              <MesaOnline
-                estado={online.state.estado}
-                mao={online.state.mao}
-                jogadorId={online.jogadorId}
-                selectedCardId={cartaSelecionada}
-                onSelecionarCarta={selecionarCarta}
-                onComprarCarta={online.comprarCarta}
-              />
-            ) : null}
-            {online.state.cartaAceita && (
-              <p className="toast-feedback sucesso" role="status">
-                Jogada aceita: {online.state.cartaAceita}
-              </p>
-            )}
-            {online.state.cartaRejeitada && (
-              <p className="toast-feedback erro" role="alert">
-                {online.state.cartaRejeitada}
-              </p>
-            )}
-            {online.state.erro && <p className="error-message">{online.state.erro}</p>}
-          </div>
-
-          <aside className="room-sidebar">
-            <section>
-              <h2>Jogadores</h2>
-              <ul className="player-list">
-                {online.state.jogadores.map((jogador) => (
-                  <li
-                    key={jogador.id}
-                    style={{ display: 'flex', alignItems: 'center', gap: '12px' }}
-                  >
-                    <AvatarComStatus
-                      avatarId={jogador.avatar}
-                      conectado={jogador.conectado}
-                      nome={jogador.nome}
-                      size={36}
-                    />
-                    <span style={{ flex: 1 }}>
-                      <strong>{jogador.nome}</strong>
-                    </span>
-                    <small>{jogador.quantidadeCartas} cartas</small>
-                  </li>
-                ))}
-              </ul>
-            </section>
-            <section className="chat-panel">
-              <h2>Chat</h2>
-              <div className="chat-messages" aria-live="polite">
-                {online.state.mensagens.map((message, index) => (
-                  <p key={`${message.timestamp}-${index}`}>
-                    <strong>{message.jogadorId.slice(0, 6)}:</strong> {message.texto}
-                  </p>
-                ))}
-              </div>
-              <form onSubmit={enviarChat} className="chat-form">
-                <input
-                  value={chatInput}
-                  onChange={(event) => setChatInput(event.target.value)}
-                  placeholder="Mensagem"
-                  maxLength={240}
-                />
-                <button className="button button-primary" type="submit">
-                  Enviar
+            <div className="waiting-state">
+              <span className="waiting-icon">◈</span>
+              <h2>Aguardando o grupo</h2>
+              <p className="muted">Compartilhe o código e inicie quando todos entrarem.</p>
+              {online.isHost && (
+                <button
+                  className="button button-primary"
+                  disabled={online.state.jogadores.length < 2}
+                  onClick={online.iniciarPartida}
+                >
+                  Iniciar partida
                 </button>
-              </form>
-            </section>
-          </aside>
+              )}
+              {!online.isHost && <p className="muted">O host inicia a partida.</p>}
+            </div>
+          </div>
+          <aside className="room-sidebar">{utilidades}</aside>
+        </section>
+      ) : (
+        <section className="online-match-layout" aria-label="Partida online">
+          <header className="online-match-hud">
+            <img
+              src="/assets/cards/kabemjunto/brand-kabemjunto.webp"
+              alt="Kabemjunto"
+              className="online-match-logo"
+              width={112}
+              height={44}
+            />
+            <div className="online-match-room">
+              <span className="online-match-room-label">Sala</span>
+              <strong>{online.salaId}</strong>
+              <button type="button" onClick={copiarCodigoSala} aria-label="Copiar código da sala">
+                {copiedCode ? '✓' : copyError ? '⚠' : '⧉'}
+              </button>
+            </div>
+            <div className={`connection connection-${online.state.status}`}>
+              <WifiStatus status={wifiOn ? 'online' : 'offline'} size={16} />
+              <span>{wifiOn ? 'Online' : 'Offline'}</span>
+            </div>
+            <button
+              ref={utilityTriggerRef}
+              type="button"
+              className="online-utility-trigger"
+              aria-haspopup="dialog"
+              aria-expanded={utilityOpen}
+              aria-controls="online-utility-drawer"
+              onClick={() => setUtilityOpen(true)}
+            >
+              ☰ <span>Menu</span>
+            </button>
+            <button type="button" className="online-exit-trigger" onClick={online.sair}>
+              Sair
+            </button>
+          </header>
+
+          <MesaOnline
+            estado={online.state.estado!}
+            mao={online.state.mao}
+            jogadorId={online.jogadorId}
+            selectedCardId={cartaSelecionada}
+            onSelecionarCarta={selecionarCarta}
+            onComprarCarta={online.comprarCarta}
+          />
+
+          {utilityOpen && (
+            <div className="online-utility-backdrop" onMouseDown={closeUtilityDrawer}>
+              <aside
+                ref={utilityDrawerRef}
+                id="online-utility-drawer"
+                className="online-utility-drawer"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="online-utility-title"
+                onMouseDown={(event) => event.stopPropagation()}
+              >
+                <header>
+                  <h2 id="online-utility-title">Partida</h2>
+                  <button
+                    ref={utilityCloseRef}
+                    type="button"
+                    className="online-utility-close"
+                    onClick={closeUtilityDrawer}
+                    aria-label="Fechar utilidades"
+                  >
+                    ×
+                  </button>
+                </header>
+                {utilidades}
+              </aside>
+            </div>
+          )}
         </section>
       )}
 
+      {online.state.cartaAceita && (
+        <p className="toast-feedback sucesso" role="status">
+          Jogada aceita: {online.state.cartaAceita}
+        </p>
+      )}
+      {online.state.cartaRejeitada && (
+        <p className="toast-feedback erro" role="alert">
+          {online.state.cartaRejeitada}
+        </p>
+      )}
+      {online.state.erro && online.state.erroCodigo !== 'SALA_INEXISTENTE' && (
+        <p className="error-message">{online.state.erro}</p>
+      )}
       {cartaTrocaPendente && (
         <SelecionarAlvoTrocaMao
           jogadores={online.state.jogadores}
@@ -330,7 +433,6 @@ function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
           }}
         />
       )}
-
       {cartaCorPendente && (
         <ModalEscolhaCor
           onEscolherCor={(cor) => {
@@ -339,14 +441,12 @@ function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
           }}
         />
       )}
-
       {online.state.status === 'reconnecting' && (
         <Reconectando
           tentativa={online.tentativaReconexao}
           mensagem="Conexão perdida, tentando reconectar..."
         />
       )}
-
       {online.state.estado?.vencedor && (
         <VitoriaAnimada
           vencedorNome={

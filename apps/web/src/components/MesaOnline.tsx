@@ -25,20 +25,17 @@ function AssentoOnline({
   index,
   totalJogadores,
   ativo,
-  jogadorId,
 }: {
   jogador: JogadorPublico;
   index: number;
   totalJogadores: number;
   ativo: boolean;
-  jogadorId?: string | undefined;
 }) {
-  const voce = jogador.id === jogadorId;
-  const angle = 180 + (index * 360) / totalJogadores;
+  const angle = (index * 360) / totalJogadores;
   const radians = (angle * Math.PI) / 180;
   return (
     <div
-      className={`player-seat player-seat-ring ${voce ? 'player-seat-you' : ''} ${ativo ? 'active' : ''}`}
+      className={`player-seat player-seat-ring ${ativo ? 'active' : ''}`}
       style={
         {
           '--seat-angle': `${angle}deg`,
@@ -54,7 +51,7 @@ function AssentoOnline({
       </div>
       <div className="player-seat-copy">
         <strong>{jogador.nome}</strong>
-        <span>{voce ? 'Você' : jogador.conectado ? 'Online' : 'Offline'}</span>
+        <span>{jogador.conectado ? 'Online' : 'Offline'}</span>
       </div>
       <div
         className={`player-seat-count ${!jogador.conectado ? 'player-seat-count-offline' : ''}`}
@@ -76,79 +73,13 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
 }) => {
   const minhaVez = estado.vezDe === jogadorId;
   const jogadorAtual = estado.jogadores.find((jogador) => jogador.id === estado.vezDe);
-  const totalJogadores = estado.jogadores.length;
-  const indiceLocal = estado.jogadores.findIndex((jogador) => jogador.id === jogadorId);
+  const jogadorLocal = estado.jogadores.find((jogador) => jogador.id === jogadorId);
+  const jogadoresRemotos = estado.jogadores.filter((jogador) => jogador.id !== jogadorId);
   const corAtiva = estado.corAtiva ?? 'LARANJA';
   const infoCor = PALETA_CORES[corAtiva] ?? PALETA_CORES.NEUTRO;
 
   return (
     <div className="table-area online-table-area">
-      {/* Assentos em anel rotacionados para o local ficar no rodapé */}
-      <div
-        className={`player-table player-table-ring player-count-${Math.min(totalJogadores, 10)}`}
-        aria-label="Jogadores na mesa online"
-      >
-        {estado.jogadores.map((jogador, index) => {
-          const indiceVisual =
-            indiceLocal >= 0 ? (index - indiceLocal + totalJogadores) % totalJogadores : index;
-          return (
-            <AssentoOnline
-              key={jogador.id}
-              jogador={jogador}
-              index={indiceVisual}
-              totalJogadores={totalJogadores}
-              ativo={jogador.id === estado.vezDe}
-              jogadorId={jogadorId}
-            />
-          );
-        })}
-      </div>
-
-      {/* Núcleo: Monte de Compra (esq.) | Monte de Descarte (dir.) */}
-      <div className="table-center" aria-label="Núcleo da mesa online">
-        <div className="deck-slot" title={minhaVez ? 'Comprar carta' : 'Aguardando sua vez'}>
-          <CartaView
-            verso
-            contador={`${estado.quantidadeMonteCompra}`}
-            jogavel={minhaVez}
-            {...(!minhaVez ? { motivoBloqueio: 'Aguardando o turno.' } : {})}
-            onClick={onComprarCarta}
-          />
-          <span className="pile-label pile-label-deck">MONTE</span>
-        </div>
-
-        <div className="discard-slot">
-          {estado.ataqueAcumulado > 0 && (
-            <div
-              className={`attack-badge ${estado.ataqueAcumulado >= 8 ? 'attack-badge-big' : ''}`}
-              role="status"
-              aria-label={`Ataque acumulado: +${estado.ataqueAcumulado}`}
-            >
-              +{estado.ataqueAcumulado}
-            </div>
-          )}
-          <CartaView carta={estado.topo} jogavel={false} />
-          <span className="pile-label">DESCARTE</span>
-        </div>
-      </div>
-
-      {/* Resumo de turno */}
-      <div
-        className={`turn-summary ${estado.ataqueAcumulado > 0 ? 'danger' : ''}`}
-        role="status"
-        aria-live="polite"
-      >
-        <strong>{minhaVez ? 'SUA VEZ' : (jogadorAtual?.nome ?? 'Jogador')}</strong>
-        <span>
-          {minhaVez
-            ? estado.ataqueAcumulado > 0
-              ? `Ataque +${estado.ataqueAcumulado}: cubra com +2/+4 ou compre no monte.`
-              : 'Toque uma carta para selecionar, toque novamente para confirmar.'
-            : `Aguardando ${jogadorAtual?.nome ?? 'o próximo jogador'}.`}
-        </span>
-      </div>
-
-      {/* Faixa de status */}
       <div className="table-status-bar" aria-label="Status da mesa online">
         <div
           className="status-pill"
@@ -177,15 +108,75 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
         )}
       </div>
 
-      {/* Mão do jogador local — dock inferior */}
+      <div className="online-play-stage">
+        <div
+          className={`player-table player-table-ring player-count-${Math.min(jogadoresRemotos.length, 10)}`}
+          aria-label="Jogadores remotos na mesa online"
+        >
+          {jogadoresRemotos.map((jogador, index) => (
+            <AssentoOnline
+              key={jogador.id}
+              jogador={jogador}
+              index={index}
+              totalJogadores={jogadoresRemotos.length}
+              ativo={jogador.id === estado.vezDe}
+            />
+          ))}
+        </div>
+
+        <div className="table-center" aria-label="Núcleo da mesa online">
+          <div className="deck-slot" title={minhaVez ? 'Comprar carta' : 'Aguardando sua vez'}>
+            <CartaView
+              verso
+              contador={`${estado.quantidadeMonteCompra}`}
+              jogavel={minhaVez}
+              {...(!minhaVez ? { motivoBloqueio: 'Aguardando o turno.' } : {})}
+              onClick={onComprarCarta}
+            />
+            <span className="pile-label pile-label-deck">MONTE</span>
+          </div>
+
+          <div className="discard-slot">
+            {estado.ataqueAcumulado > 0 && (
+              <div
+                className={`attack-badge ${estado.ataqueAcumulado >= 8 ? 'attack-badge-big' : ''}`}
+                role="status"
+                aria-label={`Ataque acumulado: +${estado.ataqueAcumulado}`}
+              >
+                +{estado.ataqueAcumulado}
+              </div>
+            )}
+            <CartaView carta={estado.topo} jogavel={false} />
+            <span className="pile-label">DESCARTE</span>
+          </div>
+        </div>
+
+        <div
+          className={`turn-summary ${estado.ataqueAcumulado > 0 ? 'danger' : ''}`}
+          role="status"
+          aria-live="polite"
+        >
+          <strong>{minhaVez ? 'SUA VEZ' : (jogadorAtual?.nome ?? 'Jogador')}</strong>
+          <span>
+            {minhaVez
+              ? estado.ataqueAcumulado > 0
+                ? `Ataque +${estado.ataqueAcumulado}: cubra com +2/+4 ou compre no monte.`
+                : 'Toque uma carta para selecionar, toque novamente para confirmar.'
+              : `Aguardando ${jogadorAtual?.nome ?? 'o próximo jogador'}.`}
+          </span>
+        </div>
+      </div>
+
       <section className="online-hand-container" aria-label={`Sua mão: ${mao.length} cartas`}>
         <div className="hand-status" role="status" aria-live="polite">
+          <div
+            className="hand-local-player"
+            aria-label={`Você: ${jogadorLocal?.nome ?? 'Jogador'}`}
+          >
+            <i aria-hidden="true">{jogadorLocal?.avatar || '👤'}</i>
+            <em>{jogadorLocal?.nome ?? 'Você'}</em>
+          </div>
           <strong>SUA MÃO</strong>
-          {minhaVez && (
-            <b className="hand-status-vez" aria-label="É a sua vez">
-              SUA VEZ
-            </b>
-          )}
           <span>{mao.length} cartas</span>
         </div>
         <div className="hand-cards hand-fan" role="list">
