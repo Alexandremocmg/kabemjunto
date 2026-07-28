@@ -99,8 +99,9 @@ export function registerObservabilityRoutes(
 ): void {
   app.get('/live', async () => ({ status: 'ok' }));
 
-  app.get('/ready', async (_request, reply) => {
+  app.get('/ready', async (request, reply) => {
     if (!store.probeStorageWritable()) {
+      request.log.warn('probe de gravabilidade do storage falhou — /ready retornando 503');
       return reply.code(503).send({ status: 'unavailable', reason: 'storage_not_writable' });
     }
     return { status: 'ok' };
