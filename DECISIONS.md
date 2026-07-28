@@ -324,6 +324,14 @@ Este arquivo registra as Decisões de Arquitetura (ADRs) do projeto Kabemjunto.
      processo Node/WebSocket e storage persistente de baixo custo. O Dockerfile
      permanece portável para Fly, Render pago ou VPS. Um plano que durma pode
      fornecer URL estável, mas não pode ser descrito como always-on.
+  9. Antes do primeiro deploy, o snapshot sobe para schema v2 e a retomada passa
+     a exigir token opaco de alta entropia. O servidor persiste somente SHA-256,
+     rotaciona o token na retomada e revoga o socket anterior. Snapshot v1 é
+     rejeitado explicitamente porque nunca foi implantado e não existe migração
+     segura capaz de entregar credenciais aos jogadores antigos.
+  10. O alvo inicial confirmado é Railway, serviço único same-origin com volume
+      de 500 MB em `/data`. O domínio Railway é a origem CORS exata. Ativação de
+      plano pago permanece decisão separada do proprietário.
 - **Alternativas rejeitadas nesta sprint:**
   - **Postgres desde o início:** robusto para múltiplas réplicas, porém adiciona
     conta, migrações, pool e I/O assíncrono sem demanda atual.
@@ -342,5 +350,7 @@ Este arquivo registra as Decisões de Arquitetura (ADRs) do projeto Kabemjunto.
   - ✅ Recuperação simples, auditável e testável sem serviço externo.
   - ✅ Deploy portátil e Socket.IO same-origin.
   - ✅ Segredos e PII ficam fora de logs/métricas.
+  - ✅ Tokens brutos permanecem somente no `sessionStorage` do cliente e nunca
+    entram em snapshot, logs, métricas ou telemetria.
   - ❌ Uma única instância continua sendo ponto único de falha.
   - ❌ Volume persistente e backup dependem do provedor escolhido.

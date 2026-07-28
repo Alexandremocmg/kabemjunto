@@ -188,7 +188,10 @@ Uma partida Online deve sobreviver a restart do processo, operar com configuraç
 - volume `web-volume` de 500 MB montado em `/data`;
 - `ROOM_STORAGE_FILE=/data/rooms.json` e variáveis operacionais configuradas;
 - `METRICS_TOKEN` aleatório configurado diretamente no provedor, sem registro no Git/log;
-- nenhum domínio ou deployment criado antes dos gates locais.
+- domínio reservado `https://web-production-52c52.up.railway.app`;
+- domínio configurado em `CORS_ORIGINS` e `PUBLIC_BASE_URL`;
+- nenhum deployment criado antes dos gates locais;
+- deploy inicial usa o trial; após o trial, serviço sempre ativo pode exigir Hobby (US$5/mês, com US$5 de uso incluído). Nenhum plano pago será ativado sem autorização separada.
 
 **Pode tocar:**
 
