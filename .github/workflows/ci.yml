@@ -17,6 +17,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   quality-gate:
     name: Lint + Typecheck + Test + Build
@@ -25,16 +28,19 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
 
       # 1. Lint (ESLint + Prettier)
       - name: Lint
@@ -51,12 +57,12 @@ jobs:
       - name: Test with coverage
         run: npm run test:cov
 
-      # 4. Build de produção (Vite + tsc)
+      # 4. Build de produção (shared + server + web)
       - name: Build
         run: npm run build
 
-      # 5. Cobertura: falha se as regras puras caírem abaixo de 80%
-      - name: Verify motor coverage ≥ 80%
+      # 5. Cobertura: falha se módulos críticos caírem abaixo de 80%
+      - name: Verify critical coverage ≥ 80%
         run: |
           node <<'NODE'
           const fs = require('fs');
@@ -91,12 +97,32 @@ jobs:
             console.error(`::error::Cobertura de linhas do motor abaixo de 80% (atual: ${lines.toFixed(2)}%)`);
             process.exit(1);
           }
+
+          const persistenceEntry = Object.entries(report).find(([file]) => {
+            const normalizedFile = file.split(path.win32.sep).join('/');
+            return normalizedFile.endsWith('/apps/server/src/persistence.ts');
+          });
+          if (!persistenceEntry) {
+            console.error('::error::persistence.ts não encontrado no relatório de cobertura');
+            process.exit(1);
+          }
+          const persistenceCounts = Object.values(persistenceEntry[1].s ?? {});
+          const persistenceHit = persistenceCounts.filter((count) => count > 0).length;
+          const persistenceCoverage =
+            persistenceCounts.length === 0 ? 100 : (persistenceHit / persistenceCounts.length) * 100;
+          console.log(`Cobertura de statements da persistência: ${persistenceCoverage.toFixed(2)}%`);
+          if (persistenceCoverage < 80) {
+            console.error(
+              `::error::Cobertura de persistence.ts abaixo de 80% (atual: ${persistenceCoverage.toFixed(2)}%)`,
+            );
+            process.exit(1);
+          }
           NODE
 
       # 6. Upload da cobertura pro Codecov (opcional, configurável depois)
       - name: Upload coverage artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: coverage-report
           path: coverage/
@@ -110,10 +136,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -132,7 +158,7 @@ jobs:
 
       - name: Upload Playwright report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: playwright-report
           path: playwright-report/
