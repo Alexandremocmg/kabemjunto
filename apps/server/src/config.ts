@@ -15,6 +15,8 @@ export interface AppConfig {
   /** `undefined` = allowlist não aplicada (permissivo, só fora de produção). */
   corsOrigins: string[] | undefined;
   e2eFixturesEnabled: boolean;
+  /** Bearer token pra proteger `/metrics`. Obrigatório em produção. */
+  metricsToken?: string;
 }
 
 const envSchema = z.object({
@@ -24,6 +26,7 @@ const envSchema = z.object({
   ROOM_STORAGE_FILE: z.string().trim().min(1).optional(),
   CORS_ORIGINS: z.string().trim().min(1).optional(),
   KABEMJUNTO_E2E_FIXTURE: z.enum(['0', '1']).optional(),
+  METRICS_TOKEN: z.string().trim().min(16).optional(),
 });
 
 function parseOrigins(value: string | undefined): string[] | undefined {
@@ -57,6 +60,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       'CORS_ORIGINS é obrigatório em produção (lista de origens separadas por vírgula).',
     );
   }
+  if (data.NODE_ENV === 'production' && !data.METRICS_TOKEN) {
+    throw new ConfigError('METRICS_TOKEN é obrigatório em produção (mínimo 16 caracteres).');
+  }
 
   return {
     nodeEnv: data.NODE_ENV,
@@ -66,5 +72,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     corsOrigins,
     // Fixture E2E nunca liga em produção, independente da flag.
     e2eFixturesEnabled: data.NODE_ENV !== 'production' && data.KABEMJUNTO_E2E_FIXTURE === '1',
+    ...(data.METRICS_TOKEN ? { metricsToken: data.METRICS_TOKEN } : {}),
   };
 }

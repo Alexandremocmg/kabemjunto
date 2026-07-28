@@ -335,6 +335,22 @@ export class RoomStore {
     return this.rooms.get(salaId.trim().toUpperCase());
   }
 
+  /** Contagem de salas por status, pra métricas de baixa cardinalidade. */
+  roomsByStatus(): Record<Sala['status'], number> {
+    const counts: Record<Sala['status'], number> = {
+      AGUARDANDO: 0,
+      EM_PARTIDA: 0,
+      FINALIZADA: 0,
+    };
+    for (const session of this.rooms.values()) counts[session.sala.status] += 1;
+    return counts;
+  }
+
+  /** Probe não destrutivo de gravabilidade do storage. Sem persistência configurada, é sempre `true`. */
+  probeStorageWritable(): boolean {
+    return this.persistence?.probeWritable?.() ?? true;
+  }
+
   /**
    * Encontra a sala em que um socket está conectado. Helper pra `disconnect`.
    */

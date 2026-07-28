@@ -157,7 +157,7 @@ Uma partida Online deve sobreviver a restart do processo, operar com configuraç
 
 **Dono:** Codex  
 **Dependência:** B24 aprovada  
-**Status:** BLOQUEADA
+**Status:** APROVADA
 
 **Pode tocar:**
 
@@ -166,7 +166,11 @@ Uma partida Online deve sobreviver a restart do processo, operar com configuraç
 - `apps/server/src/persistence.ts` somente para probe de gravabilidade/estado operacional
 - `apps/server/src/persistence.test.ts` para o probe
 - `apps/server/src/server.ts`
+- `apps/server/src/server.test.ts` (extensão pragmática fora da lista original, ver feedback)
 - `apps/server/src/socket.ts`
+- `apps/server/src/config.ts` (extensão pragmática pra `METRICS_TOKEN`, fora da lista original — ver feedback)
+- `apps/server/src/config.test.ts`
+- `apps/server/src/room-store.ts` (extensão pragmática pra `roomsByStatus()`/`probeStorageWritable()`, ver feedback)
 - `apps/server/package.json`
 - `package-lock.json` mediante aprovação estrutural de Mavis
 
@@ -255,7 +259,7 @@ Uma partida Online deve sobreviver a restart do processo, operar com configuraç
 - [x] B23 — persistência aprovada.
 - [x] B28 — retomada autenticada aprovada.
 - [x] B24 — hardening aprovado.
-- [ ] B25 — observabilidade aprovada.
+- [x] B25 — observabilidade aprovada.
 - [ ] B26 — container aprovado.
 - [ ] Sala aguardando sobrevive a restart.
 - [ ] Partida ativa sobrevive a restart e reconexão.

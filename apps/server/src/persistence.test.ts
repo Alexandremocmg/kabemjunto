@@ -171,4 +171,35 @@ describe('JsonRoomPersistence', () => {
     expect(() => new JsonRoomPersistence(file).save([])).toThrow(RoomSnapshotError);
     expect(readdirSync(join(directory, 'nested'))).toEqual(['rooms.json']);
   });
+
+  describe('probeWritable', () => {
+    it('retorna true e não deixa arquivo residual quando o volume é gravável', () => {
+      const { directory, file } = temporaryFile();
+      const persistence = new JsonRoomPersistence(file);
+
+      expect(persistence.probeWritable()).toBe(true);
+      expect(readdirSync(join(directory, 'nested'))).toEqual([]);
+    });
+
+    it('não toca no snapshot real ao sondar gravabilidade', () => {
+      const { file } = temporaryFile();
+      const persistence = new JsonRoomPersistence(file);
+      persistence.save([waitingRoom()]);
+      const before = readFileSync(file, 'utf8');
+
+      persistence.probeWritable();
+
+      expect(readFileSync(file, 'utf8')).toBe(before);
+    });
+
+    it('retorna false sem lançar quando o caminho é inalcançável', () => {
+      const { directory } = temporaryFile();
+      const blockerFile = join(directory, 'blocker');
+      writeFileSync(blockerFile, 'isto é um arquivo, não um diretório', 'utf8');
+      const blockedPath = join(blockerFile, 'nested', 'rooms.json');
+      const persistence = new JsonRoomPersistence(blockedPath);
+
+      expect(persistence.probeWritable()).toBe(false);
+    });
+  });
 });

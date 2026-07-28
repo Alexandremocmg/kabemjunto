@@ -31,6 +31,15 @@
 - 📄 Revisão completa em [`feedback/2026-07-28-b24-mavis.md`](./feedback/2026-07-28-b24-mavis.md).
 - 🔓 B25 (observabilidade) desbloqueada. Próximo: B25 → B26 → M22.
 
+### 2026-07-28 · Mavis — B25 aprovada (observabilidade operacional)
+
+- ✅ B25 fechada: `observability.ts` (registro de métricas Prometheus em memória, sem PII), `/live`, `/ready` (probe de gravabilidade não destrutivo em `persistence.ts`), `/metrics` (bearer token obrigatório em produção).
+- 🔧 Extensões pragmáticas fora do lock original: `METRICS_TOKEN` em `config.ts`, `roomsByStatus()`/`probeStorageWritable()` em `room-store.ts` (métodos read-only aditivos).
+- ✅ `npm run validate` 100% verde — 240/240 testes (17 novos).
+- 📄 Revisão completa em [`feedback/2026-07-28-b25-mavis.md`](./feedback/2026-07-28-b25-mavis.md).
+- 🔓 B26 (container e deploy) desbloqueada. Próximo: B26 → M22.
+- ⚠️ B26 envolve deploy real no Railway e possível ativação de plano pago — vou parar e pedir confirmação explícita antes de disparar qualquer coisa que afete o serviço/billing real, conforme combinado no plano.
+
 ### Atualização técnica — TROCA_MAO
 
 - ✅ Motor implementa `TROCA_MAO` com alvo obrigatório, troca imutável e evento `MAO_TROCADA`.

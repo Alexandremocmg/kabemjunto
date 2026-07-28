@@ -31,6 +31,8 @@ interface RoomSnapshot {
 export interface RoomPersistence {
   load(): PersistedRoomSession[];
   save(rooms: readonly PersistedRoomSession[]): void;
+  /** Probe não destrutivo: confirma que o volume ainda aceita escrita (usado por `/ready`). */
+  probeWritable?(): boolean;
 }
 
 export class RoomSnapshotError extends Error {
@@ -406,6 +408,28 @@ export class JsonRoomPersistence implements RoomPersistence {
           cause: error,
         },
       );
+    }
+  }
+
+  /**
+   * Escreve e remove um arquivo-sonda no mesmo diretório do snapshot, sem
+   * tocar no snapshot real. Usado pelo `/ready` pra provar que o volume
+   * montado continua gravável, não só que carregou no boot.
+   */
+  probeWritable(): boolean {
+    const directory = dirname(this.filePath);
+    const probePath = `${this.filePath}.${process.pid}.${randomUUID()}.probe`;
+    try {
+      mkdirSync(directory, { recursive: true, mode: 0o700 });
+      const descriptor = openSync(probePath, 'wx', 0o600);
+      writeFileSync(descriptor, 'probe', 'utf8');
+      fsyncSync(descriptor);
+      closeSync(descriptor);
+      rmSync(probePath, { force: true });
+      return true;
+    } catch {
+      rmSync(probePath, { force: true });
+      return false;
     }
   }
 }

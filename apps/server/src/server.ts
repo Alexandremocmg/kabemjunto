@@ -7,6 +7,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Server as SocketIOServer } from 'socket.io';
 import { loadConfig, type AppConfig } from './config.js';
+import { createMetricsRegistry, registerObservabilityRoutes } from './observability.js';
 import { JsonRoomPersistence } from './persistence.js';
 import { RoomError, RoomStore, toPublicState } from './room-store.js';
 import { registerSocketHandlers } from './socket.js';
@@ -35,14 +36,21 @@ export async function buildServer(config: AppConfig = loadConfig()) {
   const store = new RoomStore(
     config.roomStorageFile ? new JsonRoomPersistence(config.roomStorageFile) : undefined,
   );
+  const metrics = createMetricsRegistry();
+  app.addHook('onResponse', (_request, reply, done) => {
+    metrics.recordHttpRequest(reply.elapsedTime);
+    done();
+  });
+
   app.get('/health', async () => ({
     status: 'ok',
     service: 'kabemjunto-server',
     sprint: '2-backend',
     timestamp: new Date().toISOString(),
   }));
+  registerObservabilityRoutes(app, store, metrics, config);
 
-  return { app, store, config };
+  return { app, store, config, metrics };
 }
 
 function registerE2EFixtureRoutes(
@@ -107,12 +115,12 @@ function registerGracefulShutdown(app: Awaited<ReturnType<typeof buildServer>>['
 }
 
 async function bootstrap(): Promise<void> {
-  const { app, store, config } = await buildServer();
+  const { app, store, config, metrics } = await buildServer();
   const io = new SocketIOServer(app.server, {
     cors: { origin: config.corsOrigins ?? true },
     maxHttpBufferSize: SOCKET_MAX_BUFFER_BYTES,
   });
-  registerSocketHandlers(io, store);
+  registerSocketHandlers(io, store, metrics);
   registerE2EFixtureRoutes(app, store, io, config);
   registerGracefulShutdown(app);
 

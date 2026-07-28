@@ -5,6 +5,8 @@ function env(overrides: Record<string, string | undefined>): NodeJS.ProcessEnv {
   return { ...overrides } as NodeJS.ProcessEnv;
 }
 
+const METRICS_TOKEN = 'a'.repeat(32);
+
 describe('loadConfig', () => {
   it('usa defaults seguros em desenvolvimento sem env configurada', () => {
     const config = loadConfig(env({}));
@@ -31,15 +33,37 @@ describe('loadConfig', () => {
 
   it('aceita produção com CORS_ORIGINS explícita e faz parse da lista', () => {
     const config = loadConfig(
-      env({ NODE_ENV: 'production', CORS_ORIGINS: 'https://a.example.com, https://b.example.com' }),
+      env({
+        NODE_ENV: 'production',
+        CORS_ORIGINS: 'https://a.example.com, https://b.example.com',
+        METRICS_TOKEN,
+      }),
     );
     expect(config.corsOrigins).toEqual(['https://a.example.com', 'https://b.example.com']);
   });
 
   it('ignora CORS_ORIGINS vazia ou só com vírgulas', () => {
-    expect(() => loadConfig(env({ NODE_ENV: 'production', CORS_ORIGINS: ' , , ' }))).toThrow(
-      ConfigError,
-    );
+    expect(() =>
+      loadConfig(env({ NODE_ENV: 'production', CORS_ORIGINS: ' , , ', METRICS_TOKEN })),
+    ).toThrow(ConfigError);
+  });
+
+  it('exige METRICS_TOKEN em produção', () => {
+    expect(() =>
+      loadConfig(env({ NODE_ENV: 'production', CORS_ORIGINS: 'https://a.example.com' })),
+    ).toThrow(/METRICS_TOKEN é obrigatório em produção/);
+  });
+
+  it('rejeita METRICS_TOKEN curto demais', () => {
+    expect(() =>
+      loadConfig(
+        env({
+          NODE_ENV: 'production',
+          CORS_ORIGINS: 'https://a.example.com',
+          METRICS_TOKEN: 'curto',
+        }),
+      ),
+    ).toThrow(ConfigError);
   });
 
   it('habilita fixture E2E fora de produção quando a flag está ligada', () => {
@@ -53,6 +77,7 @@ describe('loadConfig', () => {
         NODE_ENV: 'production',
         CORS_ORIGINS: 'https://a.example.com',
         KABEMJUNTO_E2E_FIXTURE: '1',
+        METRICS_TOKEN,
       }),
     );
     expect(config.e2eFixturesEnabled).toBe(false);

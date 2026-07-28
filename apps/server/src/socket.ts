@@ -17,6 +17,7 @@ import type {
   ServerSessaoEmitidaEvent,
   SocketEventMap,
 } from '@kabemjunto/shared';
+import { createNoopMetrics, type MetricsRegistry } from './observability.js';
 import { RoomError, RoomStore, toPublicState } from './room-store.js';
 import {
   isNonEmptyString,
@@ -83,7 +84,11 @@ function sendPrivateHands(io: GameServer, session: ReturnType<RoomStore['get']>)
   }
 }
 
-export function registerSocketHandlers(io: GameServer, store: RoomStore): void {
+export function registerSocketHandlers(
+  io: GameServer,
+  store: RoomStore,
+  metrics: MetricsRegistry = createNoopMetrics(),
+): void {
   const limiter = new SocketRateLimiter();
 
   /** Aplica o limite da categoria; se excedido, avisa o cliente e sinaliza pra abortar o handler. */
@@ -97,6 +102,8 @@ export function registerSocketHandlers(io: GameServer, store: RoomStore): void {
   }
 
   io.on('connection', (socket: GameSocket) => {
+    metrics.recordConnection(1);
+
     socket.on('client:entrar:sala', (payload) => {
       if (!checkRateLimit(socket, 'sala')) return;
       if (
@@ -147,7 +154,10 @@ export function registerSocketHandlers(io: GameServer, store: RoomStore): void {
           });
           sendPrivateHands(io, joined.session);
         }
+        metrics.recordEventOutcome('sala', 'accepted');
       } catch (error) {
+        metrics.recordEventOutcome('sala', 'rejected');
+        if (!(error instanceof RoomError)) metrics.recordPersistenceFailure();
         emitError(socket, error);
       }
     });
@@ -191,7 +201,10 @@ export function registerSocketHandlers(io: GameServer, store: RoomStore): void {
         socket.emit('server:jogada:aceita', { cartaId: payload.cartaId, jogadorId });
         broadcastState(io, salaId, { estado: toPublicState(session.estado!) });
         sendPrivateHands(io, session);
+        metrics.recordEventOutcome('jogo', 'accepted');
       } catch (error) {
+        metrics.recordEventOutcome('jogo', 'rejected');
+        if (!(error instanceof RoomError)) metrics.recordPersistenceFailure();
         const roomError =
           error instanceof RoomError ? error : new RoomError('JOGADA_INVALIDA', 'Jogada inválida.');
         socket.emit('server:jogada:rejeitada', {
@@ -242,6 +255,7 @@ export function registerSocketHandlers(io: GameServer, store: RoomStore): void {
     });
 
     socket.on('disconnect', () => {
+      metrics.recordConnection(-1);
       limiter.releaseSocket(socket.id);
       const session = store.disconnect(socket.id);
       if (session) {
