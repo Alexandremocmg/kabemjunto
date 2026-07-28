@@ -189,7 +189,7 @@ Uma partida Online deve sobreviver a restart do processo, operar com configuraç
 
 **Dono:** Codex  
 **Dependência:** B25 aprovada  
-**Status:** GATES LOCAIS APROVADOS — deploy real pendente de execução pelo proprietário (ver feedback)
+**Status:** APROVADA — deploy Railway e smoke HTTPS reais comprovados
 
 **Alvo escolhido pelo proprietário:** Railway com volume persistente.
 
@@ -231,7 +231,7 @@ Uma partida Online deve sobreviver a restart do processo, operar com configuraç
 
 **Dono:** Mavis  
 **Dependência:** B23–B26  
-**Status:** BLOQUEADA
+**Status:** APROVADA — CI remoto verde no run `30349171891`
 
 **Pode tocar:** documentação, workflow estrutural, tags e arquivos de feedback.
 
@@ -260,14 +260,14 @@ Uma partida Online deve sobreviver a restart do processo, operar com configuraç
 - [x] B28 — retomada autenticada aprovada.
 - [x] B24 — hardening aprovado.
 - [x] B25 — observabilidade aprovada.
-- [x] B26 — gates locais aprovados (deploy real pendente, ver feedback).
+- [x] B26 — container e deploy Railway aprovados.
 - [x] Sala aguardando sobrevive a restart. _(verificado localmente via `docker restart` + volume)_
 - [x] Partida ativa sobrevive a restart e reconexão. _(verificado localmente, 2 jogadores reconectados após restart)_
 - [x] `/live`, `/ready` e `/metrics` verificados. _(local; falta smoke da URL pública real)_
 - [x] CORS/rate limit/validação runtime verificados. _(local, via testes de integração)_
 - [x] Container não-root e volume persistente verificados.
 - [x] URL HTTPS permanente comprovada. `https://web-production-52c52.up.railway.app` — `/live`, `/ready`, `/health`, frontend e fluxo Socket.IO validados.
-- [ ] CI externo verde. _(não verificável por mim — repo privado, sem `gh`/token neste ambiente; pedido ao dono)_
+- [x] CI externo verde. _(run `30349171891`: quality gate e E2E Playwright aprovados no SHA `2b2e366`)_
 - [x] Changelog/STATUS/feedback atualizados.
 - [ ] `v0.5.0` tagged + pushed. _(aguardando autorização explícita)_
 
