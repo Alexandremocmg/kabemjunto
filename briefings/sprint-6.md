@@ -49,7 +49,7 @@ Uma partida Online deve sobreviver a restart do processo, operar com configuraç
 
 **Dono:** Codex  
 **Dependência:** M21  
-**Status:** BLOQUEADA até M21
+**Status:** EM ANDAMENTO
 
 **Pode tocar:**
 
