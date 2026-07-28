@@ -17,6 +17,7 @@ import {
   type ServerJogadaRejeitadaEvent,
   type ServerMaoAtualizadaEvent,
   type ServerSalaAtualizadaEvent,
+  type ServerSessaoEmitidaEvent,
 } from '@kabemjunto/shared';
 
 type ClientEvents = {
@@ -32,6 +33,7 @@ type ServerEvents = {
   disconnect: (reason: string) => void;
   connect_error: (error: Error) => void;
   'server:estado:atualizado': (payload: ServerEstadoAtualizadoEvent) => void;
+  'server:sessao:emitida': (payload: ServerSessaoEmitidaEvent) => void;
   'server:sala:atualizada': (payload: ServerSalaAtualizadaEvent) => void;
   'server:chat:msg': (payload: ServerChatEvent) => void;
   'server:erro': (payload: ServerErroEvent) => void;
@@ -68,6 +70,8 @@ export interface SessionCredentials {
   nome: string;
   /** Indica se a primeira entrada podia criar a sala. */
   criar?: boolean;
+  /** Token opaco rotativo emitido pelo servidor. Nunca é enviado à telemetria/logs. */
+  resumeToken?: string;
 }
 
 /**
@@ -105,6 +109,9 @@ export function readSession(): SessionCredentials | undefined {
         salaId: parsed.salaId,
         nome: parsed.nome,
         ...('criar' in parsed && typeof parsed.criar === 'boolean' ? { criar: parsed.criar } : {}),
+        ...('resumeToken' in parsed && typeof parsed.resumeToken === 'string'
+          ? { resumeToken: parsed.resumeToken }
+          : {}),
       };
     }
   } catch {
@@ -115,6 +122,20 @@ export function readSession(): SessionCredentials | undefined {
 
 export function saveSession(credentials: SessionCredentials): void {
   sessionStorage.setItem(SESSION_KEY, JSON.stringify(credentials));
+}
+
+/**
+ * Funde as credenciais atuais com o token rotativo emitido pelo servidor
+ * (`server:sessao:emitida`) e persiste o resultado. O token bruto só existe
+ * em memória/sessionStorage — nunca é logado.
+ */
+export function applyIssuedSession(
+  baseCredentials: SessionCredentials,
+  issued: ServerSessaoEmitidaEvent,
+): SessionCredentials {
+  const updated: SessionCredentials = { ...baseCredentials, resumeToken: issued.resumeToken };
+  saveSession(updated);
+  return updated;
 }
 
 export function createSocket(url = SOCKET_URL): GameSocket {
@@ -239,6 +260,9 @@ export function useGameSocket(): {
     };
     const onHand = ({ mao }: ServerMaoAtualizadaEvent) =>
       setState((current) => ({ ...current, mao }));
+    const onSessionIssued = (issued: ServerSessaoEmitidaEvent) => {
+      setCredentials((current) => (current ? applyIssuedSession(current, issued) : current));
+    };
 
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
@@ -246,6 +270,7 @@ export function useGameSocket(): {
     socket.io.on('reconnect_attempt', onReconnectAttempt);
     socket.io.on('reconnect_failed', onReconnectFailed);
     socket.on('server:estado:atualizado', onState);
+    socket.on('server:sessao:emitida', onSessionIssued);
     socket.on('server:sala:atualizada', onRoom);
     socket.on('server:chat:msg', onChat);
     socket.on('server:erro', onError);
@@ -265,6 +290,7 @@ export function useGameSocket(): {
       socket.io.off('reconnect_attempt', onReconnectAttempt);
       socket.io.off('reconnect_failed', onReconnectFailed);
       socket.off('server:estado:atualizado', onState);
+      socket.off('server:sessao:emitida', onSessionIssued);
       socket.off('server:sala:atualizada', onRoom);
       socket.off('server:chat:msg', onChat);
       socket.off('server:erro', onError);

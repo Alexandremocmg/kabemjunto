@@ -14,11 +14,13 @@ import { randomUUID } from 'node:crypto';
 import { dirname } from 'node:path';
 import type { Carta, EstadoPartida, Jogador, JogadorPublico, Sala } from '@kabemjunto/shared';
 
-export const ROOM_SNAPSHOT_VERSION = 1 as const;
+export const ROOM_SNAPSHOT_VERSION = 2 as const;
 
 export interface PersistedRoomSession {
   sala: Sala;
   estado?: EstadoPartida;
+  /** SHA-256 hexadecimal do token de retomada por jogador. */
+  resumeTokenHashes: Record<string, string>;
 }
 
 interface RoomSnapshot {
@@ -179,6 +181,19 @@ function isRoom(value: unknown): value is Sala {
   );
 }
 
+function isResumeTokenHashes(value: unknown, sala: Sala): value is Record<string, string> {
+  if (!isRecord(value)) return false;
+  const playerIds = new Set(sala.jogadores.map((player) => player.id));
+  const entries = Object.entries(value);
+  return (
+    entries.length === playerIds.size &&
+    entries.every(
+      ([playerId, hash]) =>
+        playerIds.has(playerId) && typeof hash === 'string' && /^[a-f0-9]{64}$/.test(hash),
+    )
+  );
+}
+
 function isGameEvent(value: unknown): boolean {
   if (
     !isRecord(value) ||
@@ -279,6 +294,11 @@ function validateSnapshot(value: unknown): RoomSnapshot {
     throw new RoomSnapshotError('Snapshot de salas inválido: raiz deve ser um objeto.');
   }
   if (value['version'] !== ROOM_SNAPSHOT_VERSION) {
+    if (value['version'] === 1) {
+      throw new RoomSnapshotError(
+        'Snapshot v1 não pode ser migrado com segurança: credenciais de retomada ausentes.',
+      );
+    }
     throw new RoomSnapshotError(
       `Versão de snapshot desconhecida: ${String(value['version'])}. Esperada: ${ROOM_SNAPSHOT_VERSION}.`,
     );
@@ -292,6 +312,9 @@ function validateSnapshot(value: unknown): RoomSnapshot {
   for (const candidate of value['rooms']) {
     if (!isRecord(candidate) || !isRoom(candidate['sala'])) {
       throw new RoomSnapshotError('Snapshot de salas inválido: sala malformada.');
+    }
+    if (!isResumeTokenHashes(candidate['resumeTokenHashes'], candidate['sala'])) {
+      throw new RoomSnapshotError('Snapshot de salas inválido: hashes de retomada malformados.');
     }
     const state = candidate['estado'];
     if (state !== undefined && !isGameState(state)) {
@@ -317,8 +340,12 @@ function validateSnapshot(value: unknown): RoomSnapshot {
     roomIds.add(candidate['sala'].id);
     rooms.push(
       state === undefined
-        ? { sala: candidate['sala'] }
-        : { sala: candidate['sala'], estado: state },
+        ? { sala: candidate['sala'], resumeTokenHashes: candidate['resumeTokenHashes'] }
+        : {
+            sala: candidate['sala'],
+            estado: state,
+            resumeTokenHashes: candidate['resumeTokenHashes'],
+          },
     );
   }
 

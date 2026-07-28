@@ -14,6 +14,7 @@ import type {
   ServerJogadaRejeitadaEvent,
   ServerMaoAtualizadaEvent,
   ServerSalaAtualizadaEvent,
+  ServerSessaoEmitidaEvent,
   SocketEventMap,
 } from '@kabemjunto/shared';
 import { RoomError, RoomStore, toPublicState } from './room-store.js';
@@ -29,6 +30,7 @@ type ClientEvents = {
 
 type ServerEvents = {
   'server:estado:atualizado': (payload: ServerEstadoAtualizadoEvent) => void;
+  'server:sessao:emitida': (payload: ServerSessaoEmitidaEvent) => void;
   'server:jogada:aceita': (payload: ServerJogadaAceitaEvent) => void;
   'server:jogada:rejeitada': (payload: ServerJogadaRejeitadaEvent) => void;
   'server:sala:atualizada': (payload: ServerSalaAtualizadaEvent) => void;
@@ -86,10 +88,23 @@ export function registerSocketHandlers(io: GameServer, store: RoomStore): void {
           nome: payload.nome,
           socketId: socket.id,
           ...(payload.criar !== undefined ? { criar: payload.criar } : {}),
+          ...(payload.resumeToken !== undefined ? { resumeToken: payload.resumeToken } : {}),
         });
         socket.data.salaId = joined.session.sala.id;
         socket.data.jogadorId = joined.jogadorId;
         void socket.join(joined.session.sala.id);
+
+        // Revoga o socket anterior: uma identidade só pode ter uma conexão ativa por vez.
+        if (joined.previousSocketId && joined.previousSocketId !== socket.id) {
+          io.sockets.sockets.get(joined.previousSocketId)?.disconnect(true);
+        }
+
+        // Credenciais rotativas: só pro socket que autenticou, nunca em broadcast.
+        socket.emit('server:sessao:emitida', {
+          jogadorId: joined.jogadorId,
+          salaId: joined.session.sala.id,
+          resumeToken: joined.resumeToken,
+        });
 
         // Broadcast: sala atualizada (incluindo `conectado: true` no reconectado).
         io.to(joined.session.sala.id).emit('server:sala:atualizada', {

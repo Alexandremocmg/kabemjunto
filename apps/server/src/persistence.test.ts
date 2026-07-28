@@ -39,7 +39,12 @@ function waitingRoom(): PersistedRoomSession {
     modo: 'ONLINE_PRIVADA',
     status: 'AGUARDANDO',
   };
-  return { sala };
+  return {
+    sala,
+    resumeTokenHashes: {
+      'player-1': 'a'.repeat(64),
+    },
+  };
 }
 
 function activeRoom(roomId = 'ABC123'): PersistedRoomSession {
@@ -63,7 +68,13 @@ function activeRoom(roomId = 'ABC123'): PersistedRoomSession {
     status: 'EM_PARTIDA',
     partidaId: estado.partidaId,
   };
-  return { sala, estado };
+  return {
+    sala,
+    estado,
+    resumeTokenHashes: Object.fromEntries(
+      sala.jogadores.map((jogador, index) => [jogador.id, String(index + 1).repeat(64)]),
+    ),
+  };
 }
 
 afterEach(() => {
@@ -91,7 +102,9 @@ describe('JsonRoomPersistence', () => {
     persistence.save(rooms);
 
     expect(persistence.load()).toEqual(rooms);
-    expect(JSON.parse(readFileSync(file, 'utf8'))).toMatchObject({ version: 1, rooms });
+    const snapshotText = readFileSync(file, 'utf8');
+    expect(JSON.parse(snapshotText)).toMatchObject({ version: 2, rooms });
+    expect(snapshotText).not.toContain('token-bruto-proibido');
     expect(readdirSync(join(directory, 'nested'))).toEqual(['rooms.json']);
   });
 
@@ -99,8 +112,9 @@ describe('JsonRoomPersistence', () => {
     ['JSON corrompido', '{nao-json'],
     ['raiz que não é objeto', JSON.stringify([])],
     ['versão desconhecida', JSON.stringify({ version: 999, rooms: [] })],
-    ['rooms que não é array', JSON.stringify({ version: 1, rooms: {} })],
-    ['estrutura inválida', JSON.stringify({ version: 1, rooms: [{ sala: null }] })],
+    ['snapshot v1 sem credenciais migráveis', JSON.stringify({ version: 1, rooms: [] })],
+    ['rooms que não é array', JSON.stringify({ version: 2, rooms: {} })],
+    ['estrutura inválida', JSON.stringify({ version: 2, rooms: [{ sala: null }] })],
   ])('falha explicitamente para %s sem sobrescrever o arquivo', (_case, contents) => {
     const { file } = temporaryFile();
     const persistence = new JsonRoomPersistence(file);
@@ -132,9 +146,22 @@ describe('JsonRoomPersistence', () => {
     const { file } = temporaryFile();
     const room = activeRoom();
 
-    expect(() => new JsonRoomPersistence(file).save([{ sala: room.sala }])).toThrow(
-      /sem partida ativa/,
-    );
+    expect(() =>
+      new JsonRoomPersistence(file).save([
+        { sala: room.sala, resumeTokenHashes: room.resumeTokenHashes },
+      ]),
+    ).toThrow(/sem partida ativa/);
+  });
+
+  it('rejeita hash de retomada malformado e não aceita token bruto no snapshot', () => {
+    const { file } = temporaryFile();
+    const room = waitingRoom();
+
+    expect(() =>
+      new JsonRoomPersistence(file).save([
+        { ...room, resumeTokenHashes: { 'player-1': 'token-bruto-proibido' } },
+      ]),
+    ).toThrow(RoomSnapshotError);
   });
 
   it('encapsula falha de substituição e remove o arquivo temporário', () => {

@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { gerarJogadorId, readSession, saveSession, type SessionCredentials } from './socketClient';
+import {
+  applyIssuedSession,
+  gerarJogadorId,
+  readSession,
+  saveSession,
+  type SessionCredentials,
+} from './socketClient';
 
 const SESSION_KEY = 'kabemjunto-online-session';
 
@@ -38,6 +44,37 @@ describe('sessao estavel do jogador', () => {
 
     saveSession(session);
     expect(readSession()).toEqual(session);
+  });
+
+  it('preserva token válido e ignora token com tipo inválido', () => {
+    saveSession({
+      jogadorId: 'jogador-teste-123',
+      salaId: 'K4B3MJ',
+      nome: 'Ana',
+      resumeToken: 'token-opaco',
+    });
+    expect(readSession()?.resumeToken).toBe('token-opaco');
+
+    sessionStorage.setItem(
+      SESSION_KEY,
+      JSON.stringify({
+        jogadorId: 'jogador-teste-123',
+        salaId: 'K4B3MJ',
+        nome: 'Ana',
+        resumeToken: 1,
+      }),
+    );
+    expect(readSession()?.resumeToken).toBeUndefined();
+  });
+
+  it('salva token emitido pelo servidor no sessionStorage', () => {
+    const updated = applyIssuedSession(
+      { jogadorId: 'player-1', salaId: 'ROOM1', nome: 'Ana', criar: true },
+      { jogadorId: 'player-1', salaId: 'ROOM1', resumeToken: 'token-rotacionado' },
+    );
+
+    expect(updated.resumeToken).toBe('token-rotacionado');
+    expect(readSession()).toEqual(updated);
   });
 
   it('ignora sessao antiga sem jogadorId', () => {

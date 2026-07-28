@@ -14,6 +14,15 @@
 - 🎯 Gates: recuperação após restart, hardening, health/métricas, container não-root e URL HTTPS estável.
 - ⚠️ Deploy real depende de vincular um provedor com volume persistente; nenhum token de Railway/Fly/Render está configurado no ambiente atual.
 
+### 2026-07-28 · Mavis — B28 aprovada (retomada autenticada por token)
+
+- ✅ B28 fechada: token opaco rotativo (SHA-256, `timingSafeEqual`), emitido só ao socket autenticado via `server:sessao:emitida`, socket anterior revogado na reconexão.
+- 🐛 2 bugs corrigidos em `room-store.ts`: jogador novo não recebia token; `commit()` descartava `resumeTokenHashes` ao persistir (quebrava restart).
+- ✅ Testes legados de reconexão (M14/B23) atualizados para o novo contrato de auth. `npm run validate` 100% verde — 198/198 testes.
+- 📄 Revisão completa em [`feedback/2026-07-28-b28-mavis.md`](./feedback/2026-07-28-b28-mavis.md).
+- 🔓 B24 (hardening) desbloqueada. Próximo: B24 → B25 → B26 → M22, nessa ordem (lock estrito sequencial).
+- ⚠️ Achado: spec de B24 assumia `@fastify/helmet@11.1.1`/`@fastify/rate-limit@9.1.0` (linha "Fastify 4"), mas o servidor já está em Fastify 5.10.0 desde B27. Vou usar as faixas compatíveis com Fastify 5 (`helmet@^12`, `rate-limit@^10`) na implementação de B24.
+
 ### Atualização técnica — TROCA_MAO
 
 - ✅ Motor implementa `TROCA_MAO` com alvo obrigatório, troca imutável e evento `MAO_TROCADA`.

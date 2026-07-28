@@ -61,6 +61,8 @@ export interface ClientEntrarSalaEvent {
   jogadorId: string;
   salaId: string;
   nome: string;
+  /** Token opaco emitido pelo servidor para retomar uma identidade existente. */
+  resumeToken?: string;
   /** `true` cria a sala; `false` exige que a sala já exista. */
   criar?: boolean;
 }
@@ -73,6 +75,13 @@ export type ClientIniciarPartidaEvent = Record<string, never>;
 /** Servidor envia o estado canônico atualizado. SEMPRE escutar este evento. */
 export interface ServerEstadoAtualizadoEvent {
   estado: EstadoPartidaPublico;
+}
+
+/** Credenciais rotativas emitidas somente ao socket autenticado. */
+export interface ServerSessaoEmitidaEvent {
+  jogadorId: JogadorId;
+  salaId: string;
+  resumeToken: string;
 }
 
 /** Servidor confirma que a jogada do cliente foi aceita (efeito visual). */
@@ -161,6 +170,7 @@ export interface SocketEventMap {
   'client:iniciar:partida': ClientIniciarPartidaEvent;
   // server → client
   'server:estado:atualizado': ServerEstadoAtualizadoEvent;
+  'server:sessao:emitida': ServerSessaoEmitidaEvent;
   'server:jogada:aceita': ServerJogadaAceitaEvent;
   'server:jogada:rejeitada': ServerJogadaRejeitadaEvent;
   'server:uno:declarado': ServerUnoDeclaradoEvent;

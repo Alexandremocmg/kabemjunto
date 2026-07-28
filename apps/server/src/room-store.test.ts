@@ -154,7 +154,7 @@ describe('RoomStore — M14 (identidade estável + reconexão)', () => {
     );
   });
 
-  it('rejeita jogadorId que já está em OUTRA sala', () => {
+  it('rejeita jogadorId que já está em OUTRA sala com erro genérico (anti-enumeração)', () => {
     const store = new RoomStore();
     store.join({ jogadorId: uuid(1), salaId: 'A1', nome: 'Ana', socketId: 's1' });
     store.join({ jogadorId: uuid(2), salaId: 'A1', nome: 'Bia', socketId: 's2' });
@@ -163,7 +163,8 @@ describe('RoomStore — M14 (identidade estável + reconexão)', () => {
       expect.fail('Deveria ter lançado RoomError');
     } catch (error) {
       expect(error).toBeInstanceOf(RoomError);
-      expect((error as RoomError).code).toBe('JOGADOR_EM_OUTRA_SALA');
+      expect((error as RoomError).code).toBe('AUTH_REQUIRED');
+      expect((error as RoomError).message).toBe('Credenciais de retomada inválidas.');
     }
   });
 
@@ -173,8 +174,14 @@ describe('RoomStore — M14 (identidade estável + reconexão)', () => {
     const first = store.join({ jogadorId: id, salaId: 'R1', nome: 'Ana', socketId: 'socket-old' });
     expect(first.reconectado).toBe(false);
 
-    // Simula reconexão: novo socket, mesmo jogadorId
-    const second = store.join({ jogadorId: id, salaId: 'R1', nome: 'Ana', socketId: 'socket-new' });
+    // Simula reconexão: novo socket, mesmo jogadorId, com o token emitido na primeira entrada.
+    const second = store.join({
+      jogadorId: id,
+      salaId: 'R1',
+      nome: 'Ana',
+      socketId: 'socket-new',
+      resumeToken: first.resumeToken,
+    });
     expect(second.reconectado).toBe(true);
     expect(second.session.sala.jogadores).toHaveLength(1);
     expect(second.session.socketByPlayer.get(id)).toBe('socket-new');
@@ -196,12 +203,18 @@ describe('RoomStore — M14 (identidade estável + reconexão)', () => {
   it('reconexão depois de disconnect restaura conectado=true', () => {
     const store = new RoomStore();
     const id = uuid(1);
-    store.join({ jogadorId: id, salaId: 'RC1', nome: 'Ana', socketId: 'socket-1' });
+    const first = store.join({ jogadorId: id, salaId: 'RC1', nome: 'Ana', socketId: 'socket-1' });
     store.disconnect('socket-1');
     expect(store.get('RC1')?.sala.jogadores[0]?.conectado).toBe(false);
 
     // Reconexão
-    const result = store.join({ jogadorId: id, salaId: 'RC1', nome: 'Ana', socketId: 'socket-2' });
+    const result = store.join({
+      jogadorId: id,
+      salaId: 'RC1',
+      nome: 'Ana',
+      socketId: 'socket-2',
+      resumeToken: first.resumeToken,
+    });
     expect(result.reconectado).toBe(true);
     expect(result.session.sala.jogadores).toHaveLength(1);
     expect(result.session.sala.jogadores[0]?.conectado).toBe(true);
@@ -209,7 +222,15 @@ describe('RoomStore — M14 (identidade estável + reconexão)', () => {
   });
 
   it('reconecta o mesmo jogador depois que a partida começou', () => {
-    const store = createStartedStore();
+    const store = new RoomStore();
+    store.join({ jogadorId: uuid(1), salaId: 'KJTEST', nome: 'Ana', socketId: 'socket-a' });
+    const biaJoined = store.join({
+      jogadorId: uuid(2),
+      salaId: 'KJTEST',
+      nome: 'Bia',
+      socketId: 'socket-b',
+    });
+    store.start('KJTEST', 'socket-a');
     const id = uuid(2);
 
     store.disconnect('socket-b');
@@ -218,6 +239,7 @@ describe('RoomStore — M14 (identidade estável + reconexão)', () => {
       salaId: 'KJTEST',
       nome: 'Bia',
       socketId: 'socket-b-new',
+      resumeToken: biaJoined.resumeToken,
     });
 
     expect(result.reconectado).toBe(true);
@@ -232,13 +254,14 @@ describe('RoomStore — M14 (identidade estável + reconexão)', () => {
   it('reconexão preserva nome/avatar do servidor (anti-impersonation)', () => {
     const store = new RoomStore();
     const id = uuid(1);
-    store.join({ jogadorId: id, salaId: 'AI1', nome: 'Ana', socketId: 'socket-1' });
-    // Atacante tenta entrar com nome diferente
+    const first = store.join({ jogadorId: id, salaId: 'AI1', nome: 'Ana', socketId: 'socket-1' });
+    // Atacante tenta entrar com nome diferente, mas apresenta o token válido do jogador legítimo
     const result = store.join({
       jogadorId: id,
       salaId: 'AI1',
       nome: 'Hacker',
       socketId: 'socket-2',
+      resumeToken: first.resumeToken,
     });
     expect(result.reconectado).toBe(true);
     // Nome continua sendo o do servidor
@@ -274,14 +297,24 @@ describe('RoomStore — B23 (persistência durável)', () => {
     expect(restored.sala.jogadores[0]?.conectado).toBe(false);
     expect(restored.socketByPlayer.size).toBe(0);
     expect(afterRestart.findBySocketId('socket-before-restart')).toBeUndefined();
-    expect(afterRestart.exportState()).toEqual([{ sala: restored.sala }]);
+    expect(afterRestart.exportState()).toEqual([
+      {
+        sala: restored.sala,
+        resumeTokenHashes: Object.fromEntries(restored.resumeTokenHashByPlayer),
+      },
+    ]);
     expect(JSON.stringify(afterRestart.exportState())).not.toContain('socket-before-restart');
   });
 
   it('preserva partida ativa integralmente e permite retomar pela identidade estável', () => {
     const persistence = new JsonRoomPersistence(persistenceFile());
     const beforeRestart = new RoomStore(persistence);
-    beforeRestart.join({ jogadorId: uuid(1), salaId: 'GAME01', nome: 'Ana', socketId: 'old-a' });
+    const anaJoined = beforeRestart.join({
+      jogadorId: uuid(1),
+      salaId: 'GAME01',
+      nome: 'Ana',
+      socketId: 'old-a',
+    });
     beforeRestart.join({ jogadorId: uuid(2), salaId: 'GAME01', nome: 'Bia', socketId: 'old-b' });
     const started = beforeRestart.start('GAME01', 'old-a');
 
@@ -301,6 +334,7 @@ describe('RoomStore — B23 (persistência durável)', () => {
       nome: 'Nome ignorado',
       socketId: 'new-a',
       criar: false,
+      resumeToken: anaJoined.resumeToken,
     });
     expect(reconnected.reconectado).toBe(true);
     expect(reconnected.session.socketByPlayer.get(uuid(1))).toBe('new-a');
@@ -363,5 +397,90 @@ describe('RoomStore — B23 (persistência durável)', () => {
       if (previous === undefined) delete process.env['ROOM_STORAGE_FILE'];
       else process.env['ROOM_STORAGE_FILE'] = previous;
     }
+  });
+});
+
+describe('RoomStore — B28 (retomada autenticada)', () => {
+  it('emite token opaco inicial e persiste apenas seu hash SHA-256', () => {
+    const store = new RoomStore();
+    const joined = store.join({
+      jogadorId: uuid(1),
+      salaId: 'TOKEN1',
+      nome: 'Ana',
+      socketId: 'socket-a',
+    });
+
+    expect(joined.resumeToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(JSON.stringify(store.exportState())).not.toContain(joined.resumeToken);
+    expect([...joined.session.resumeTokenHashByPlayer.values()][0]).toMatch(/^[a-f0-9]{64}$/);
+  });
+
+  it('torna token ausente e inválido indistinguíveis', () => {
+    const store = new RoomStore();
+    const id = uuid(1);
+    store.join({ jogadorId: id, salaId: 'AUTH01', nome: 'Ana', socketId: 'old' });
+
+    for (const resumeToken of [undefined, 'token-invalido']) {
+      try {
+        store.join({
+          jogadorId: id,
+          salaId: 'AUTH01',
+          nome: 'Ataque',
+          socketId: 'new',
+          ...(resumeToken === undefined ? {} : { resumeToken }),
+        });
+        expect.fail('Deveria exigir autenticação');
+      } catch (error) {
+        expect(error).toBeInstanceOf(RoomError);
+        expect((error as RoomError).code).toBe('AUTH_REQUIRED');
+        expect((error as RoomError).message).toBe('Credenciais de retomada inválidas.');
+      }
+    }
+  });
+
+  it('rotaciona token, invalida o anterior e informa o socket revogado', () => {
+    const store = new RoomStore();
+    const id = uuid(1);
+    const first = store.join({ jogadorId: id, salaId: 'ROTATE', nome: 'Ana', socketId: 'old' });
+    const resumed = store.join({
+      jogadorId: id,
+      salaId: 'ROTATE',
+      nome: 'Ana',
+      socketId: 'new',
+      resumeToken: first.resumeToken,
+    });
+
+    expect(resumed.resumeToken).not.toBe(first.resumeToken);
+    expect(resumed.previousSocketId).toBe('old');
+    expect(() =>
+      store.join({
+        jogadorId: id,
+        salaId: 'ROTATE',
+        nome: 'Ana',
+        socketId: 'attacker',
+        resumeToken: first.resumeToken,
+      }),
+    ).toThrowError(expect.objectContaining({ code: 'AUTH_REQUIRED' }));
+  });
+
+  it('retoma após restart com token válido e disconnect antigo não desfaz o novo binding', () => {
+    const persistence = new JsonRoomPersistence(persistenceFile());
+    const id = uuid(1);
+    const before = new RoomStore(persistence);
+    const first = before.join({ jogadorId: id, salaId: 'RESTART', nome: 'Ana', socketId: 'old' });
+
+    const after = new RoomStore(persistence);
+    const resumed = after.join({
+      jogadorId: id,
+      salaId: 'RESTART',
+      nome: 'Ana',
+      socketId: 'new',
+      resumeToken: first.resumeToken,
+    });
+
+    expect(resumed.reconectado).toBe(true);
+    expect(after.disconnect('old')).toBeUndefined();
+    expect(after.get('RESTART')?.socketByPlayer.get(id)).toBe('new');
+    expect(after.get('RESTART')?.sala.jogadores[0]?.conectado).toBe(true);
   });
 });

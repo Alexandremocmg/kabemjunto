@@ -1,3 +1,4 @@
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import {
   Constants,
   comprarCartas,
@@ -19,6 +20,8 @@ export interface RoomSession {
   estado?: EstadoPartida;
   /** Mapeia `jogadorId` (identidade estável) → `socketId` atual. */
   socketByPlayer: ReadonlyMap<JogadorId, string>;
+  /** Hash SHA-256 do token rotativo. Nunca contém o token bruto. */
+  resumeTokenHashByPlayer: ReadonlyMap<JogadorId, string>;
 }
 
 export interface JoinRoomInput {
@@ -28,6 +31,7 @@ export interface JoinRoomInput {
   nome: string;
   socketId: string;
   criar?: boolean;
+  resumeToken?: string;
 }
 
 export interface JoinRoomResult {
@@ -35,6 +39,8 @@ export interface JoinRoomResult {
   jogadorId: JogadorId;
   /** True se o jogador já existia (reconexão). False se foi criado agora. */
   reconectado: boolean;
+  resumeToken: string;
+  previousSocketId?: string;
 }
 
 export interface DeterministicVictoryFixture {
@@ -53,6 +59,7 @@ export class RoomError extends Error {
       | 'NAO_SUA_VEZ'
       | 'JOGADA_INVALIDA'
       | 'JOGADOR_EM_OUTRA_SALA'
+      | 'AUTH_REQUIRED'
       | 'INTERNAL',
     message: string,
   ) {
@@ -64,6 +71,20 @@ export class RoomError extends Error {
 function sanitizeName(name: string): string {
   const normalized = name.replace(/[<>]/g, '').trim().slice(0, 24);
   return normalized || 'Jogador';
+}
+
+const AUTH_REQUIRED_MESSAGE = 'Credenciais de retomada inválidas.';
+
+function issueResumeToken(): { raw: string; hash: string } {
+  const raw = randomBytes(32).toString('base64url');
+  return { raw, hash: createHash('sha256').update(raw).digest('hex') };
+}
+
+function validResumeToken(raw: string | undefined, expectedHash: string | undefined): boolean {
+  if (raw === undefined || expectedHash === undefined) return false;
+  const actual = createHash('sha256').update(raw).digest();
+  const expected = Buffer.from(expectedHash, 'hex');
+  return expected.length === actual.length && timingSafeEqual(actual, expected);
 }
 
 function publicPlayer(jogador: EstadoPartida['jogadores'][number]): JogadorPublico {
@@ -132,8 +153,15 @@ export class RoomStore {
   exportState(): PersistedRoomSession[] {
     return [...this.rooms.values()].map((session) =>
       session.estado === undefined
-        ? { sala: session.sala }
-        : { sala: session.sala, estado: session.estado },
+        ? {
+            sala: session.sala,
+            resumeTokenHashes: Object.fromEntries(session.resumeTokenHashByPlayer),
+          }
+        : {
+            sala: session.sala,
+            estado: session.estado,
+            resumeTokenHashes: Object.fromEntries(session.resumeTokenHashByPlayer),
+          },
     );
   }
 
@@ -157,8 +185,17 @@ export class RoomStore {
       restored.set(
         sala.id,
         estado === undefined
-          ? { sala, socketByPlayer: new Map() }
-          : { sala, estado, socketByPlayer: new Map() },
+          ? {
+              sala,
+              socketByPlayer: new Map(),
+              resumeTokenHashByPlayer: new Map(Object.entries(room.resumeTokenHashes)),
+            }
+          : {
+              sala,
+              estado,
+              socketByPlayer: new Map(),
+              resumeTokenHashByPlayer: new Map(Object.entries(room.resumeTokenHashes)),
+            },
       );
     }
     this.rooms.clear();
@@ -187,10 +224,7 @@ export class RoomStore {
     for (const [outraSalaId, outraSession] of this.rooms) {
       if (outraSalaId === salaId) continue;
       if (outraSession.sala.jogadores.some((j) => j.id === input.jogadorId)) {
-        throw new RoomError(
-          'JOGADOR_EM_OUTRA_SALA',
-          `Jogador ${input.jogadorId} já está na sala ${outraSalaId}. Saia dela primeiro.`,
-        );
+        throw new RoomError('AUTH_REQUIRED', AUTH_REQUIRED_MESSAGE);
       }
     }
 
@@ -211,19 +245,31 @@ export class RoomStore {
         modo: 'ONLINE_PRIVADA',
         status: 'AGUARDANDO',
       };
-      session = { sala, socketByPlayer: new Map() };
+      session = {
+        sala,
+        socketByPlayer: new Map(),
+        resumeTokenHashByPlayer: new Map(),
+      };
     }
 
     // Tenta encontrar o jogador existente nesta sala (caso de reconexão).
     const jogadorExistente = session.sala.jogadores.find((j) => j.id === input.jogadorId);
 
     if (jogadorExistente) {
-      // Reconexão: atualiza o socket, marca como conectado.
+      if (
+        !validResumeToken(input.resumeToken, session.resumeTokenHashByPlayer.get(input.jogadorId))
+      ) {
+        throw new RoomError('AUTH_REQUIRED', AUTH_REQUIRED_MESSAGE);
+      }
+      const issued = issueResumeToken();
+      const previousSocketId = session.socketByPlayer.get(input.jogadorId);
       const jogadores = session.sala.jogadores.map((j) =>
         j.id === input.jogadorId ? { ...j, conectado: true } : j,
       );
       const socketByPlayer = new Map(session.socketByPlayer);
       socketByPlayer.set(input.jogadorId, input.socketId);
+      const resumeTokenHashByPlayer = new Map(session.resumeTokenHashByPlayer);
+      resumeTokenHashByPlayer.set(input.jogadorId, issued.hash);
       const next: RoomSession = {
         ...session,
         sala: { ...session.sala, jogadores },
@@ -238,9 +284,16 @@ export class RoomStore {
               },
             }),
         socketByPlayer,
+        resumeTokenHashByPlayer,
       };
       this.commit(next);
-      return { session: next, jogadorId: input.jogadorId, reconectado: true };
+      return {
+        session: next,
+        jogadorId: input.jogadorId,
+        reconectado: true,
+        resumeToken: issued.raw,
+        ...(previousSocketId === undefined ? {} : { previousSocketId }),
+      };
     }
 
     if (session.sala.status !== 'AGUARDANDO') {
@@ -265,13 +318,17 @@ export class RoomStore {
     };
     const socketByPlayer = new Map(session.socketByPlayer);
     socketByPlayer.set(jogadorId, input.socketId);
+    const issued = issueResumeToken();
+    const resumeTokenHashByPlayer = new Map(session.resumeTokenHashByPlayer);
+    resumeTokenHashByPlayer.set(jogadorId, issued.hash);
     const next: RoomSession = {
       ...session,
       sala: { ...session.sala, jogadores: [...session.sala.jogadores, jogador] },
       socketByPlayer,
+      resumeTokenHashByPlayer,
     };
     this.commit(next);
-    return { session: next, jogadorId, reconectado: false };
+    return { session: next, jogadorId, reconectado: false, resumeToken: issued.raw };
   }
 
   get(salaId: string): RoomSession | undefined {
@@ -547,8 +604,11 @@ export class RoomStore {
   private commit(next: RoomSession): void {
     if (this.persistence) {
       const rooms = this.exportState().filter((room) => room.sala.id !== next.sala.id);
+      const resumeTokenHashes = Object.fromEntries(next.resumeTokenHashByPlayer);
       rooms.push(
-        next.estado === undefined ? { sala: next.sala } : { sala: next.sala, estado: next.estado },
+        next.estado === undefined
+          ? { sala: next.sala, resumeTokenHashes }
+          : { sala: next.sala, estado: next.estado, resumeTokenHashes },
       );
       this.persistence.save(rooms);
     }
