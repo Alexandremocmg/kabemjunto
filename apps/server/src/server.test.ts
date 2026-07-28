@@ -145,4 +145,23 @@ describe('buildServer', () => {
     const response = await app.inject({ method: 'GET', url: '/metrics' });
     expect(response.statusCode).toBe(200);
   });
+
+  it('serve o frontend estático no mesmo origin, com fallback de SPA', async () => {
+    ({ app } = await buildServer(loadConfig({})));
+
+    const root = await app.inject({ method: 'GET', url: '/' });
+    expect(root.statusCode).toBe(200);
+    expect(root.headers['content-type']).toContain('text/html');
+
+    const deepLink = await app.inject({ method: 'GET', url: '/sala/ABC123' });
+    expect(deepLink.statusCode).toBe(200);
+    expect(deepLink.headers['content-type']).toContain('text/html');
+  });
+
+  it('não engole /socket.io no fallback de SPA', async () => {
+    ({ app } = await buildServer(loadConfig({})));
+    const response = await app.inject({ method: 'GET', url: '/socket.io/qualquer' });
+    expect(response.statusCode).toBe(404);
+    expect(response.headers['content-type']).not.toContain('text/html');
+  });
 });

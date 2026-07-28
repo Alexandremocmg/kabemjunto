@@ -91,6 +91,50 @@ npm run validate
 
 ---
 
+## 🐳 Deploy com Docker
+
+A imagem é única: Fastify + Socket.IO servem o frontend estático (`apps/web/dist`) no mesmo origin/porta. Multi-stage, executa como usuário não-root.
+
+```bash
+# Build local
+docker build -t kabemjunto .
+
+# Run local (produção exige CORS_ORIGINS e METRICS_TOKEN — ver abaixo)
+docker run -d --name kabemjunto \
+  -p 3001:3001 \
+  -v kabemjunto-data:/data \
+  -e CORS_ORIGINS=https://seu-dominio.example.com \
+  -e METRICS_TOKEN=<segredo-com-16+-caracteres> \
+  kabemjunto
+```
+
+### Variáveis de ambiente
+
+| Variável                 | Obrigatória em produção | Descrição                                                                                                     |
+| ------------------------ | :---------------------: | ------------------------------------------------------------------------------------------------------------- |
+| `NODE_ENV`               |            —            | `development` \| `test` \| `production`. Falha cedo se inválida.                                              |
+| `PORT` / `HOST`          |            —            | Padrão `3001` / `0.0.0.0`.                                                                                    |
+| `ROOM_STORAGE_FILE`      |       recomendada       | Caminho do snapshot JSON em volume persistente (ex.: `/data/rooms.json`). Sem ela, salas ficam só em memória. |
+| `CORS_ORIGINS`           |           ✅            | Lista de origens separadas por vírgula. Sem `Origin` (health/probes) sempre passa.                            |
+| `METRICS_TOKEN`          |           ✅            | Bearer token (16+ caracteres) que protege `/metrics`.                                                         |
+| `KABEMJUNTO_E2E_FIXTURE` |            —            | Nunca liga em produção, mesmo setada — só afeta ambiente de teste/dev.                                        |
+
+### Endpoints operacionais
+
+- `GET /live` — processo vivo.
+- `GET /ready` — 200 só depois que o storage carrega e um probe não destrutivo confirma que o volume `/data` continua gravável.
+- `GET /metrics` — formato Prometheus; exige `Authorization: Bearer <METRICS_TOKEN>` em produção.
+
+### Volume persistente
+
+O container declara `VOLUME ["/data"]`. Monte um volume real nesse caminho e aponte `ROOM_STORAGE_FILE=/data/rooms.json` — sem isso, um restart do container perde todas as salas. Restart com volume montado foi validado manualmente: sala criada antes do restart continua presente depois (jogadores voltam como `conectado: false` até reconectar pelo `resumeToken`).
+
+### Deploy no Railway
+
+`railway.json` já aponta pro `Dockerfile` e configura o healthcheck em `/live`. O projeto/volume/segredos (`METRICS_TOKEN`, `CORS_ORIGINS`, domínio) são provisionados diretamente no provedor — nenhum segredo fica no repositório.
+
+---
+
 ## 🛠️ Scripts disponíveis
 
 | Script                 | O que faz                                                           |

@@ -40,6 +40,16 @@
 - 🔓 B26 (container e deploy) desbloqueada. Próximo: B26 → M22.
 - ⚠️ B26 envolve deploy real no Railway e possível ativação de plano pago — vou parar e pedir confirmação explícita antes de disparar qualquer coisa que afete o serviço/billing real, conforme combinado no plano.
 
+### 2026-07-28 · Mavis — B26 gates locais aprovados (container e deploy)
+
+- ✅ `Dockerfile` multi-stage não-root, `.dockerignore`, `railway.json`, frontend servido no mesmo origin via `@fastify/static`.
+- 🐛 Bug de build corrigido: `tsconfig.tsbuildinfo` do host sendo copiado pra imagem fazia o `tsc` do `packages/shared` pular a emissão (cache incremental confiava em `dist/` que o `.dockerignore` excluía). Corrigido excluindo `**/*.tsbuildinfo`.
+- ✅ Smoke test real local: `docker build` limpo, usuário não-root confirmado, `/live`/`/ready`/`/health`/`/metrics` (com bearer token) 200/401 corretos.
+- ✅ **Restart com volume comprovado**: sala aguardando E partida ativa (2 jogadores) sobrevivem a `docker restart`, com reconexão via `resumeToken` funcionando nos dois casos.
+- 📄 Revisão completa em [`feedback/2026-07-28-b26-mavis.md`](./feedback/2026-07-28-b26-mavis.md).
+- ⏸️ **Parado aqui de propósito**: deploy real no Railway (URL HTTPS pública, CI externo) exige ação no provedor de terceiro e possível billing. Não tenho `railway` CLI neste ambiente. Aguardando decisão do dono do projeto sobre como proceder.
+- 🔒 M22 (fechamento da sprint) bloqueado até essa evidência de deploy existir.
+
 ### Atualização técnica — TROCA_MAO
 
 - ✅ Motor implementa `TROCA_MAO` com alvo obrigatório, troca imutável e evento `MAO_TROCADA`.

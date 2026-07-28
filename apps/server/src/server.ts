@@ -3,7 +3,9 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import sensible from '@fastify/sensible';
-import { resolve } from 'node:path';
+import staticFiles from '@fastify/static';
+import { existsSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Server as SocketIOServer } from 'socket.io';
 import { loadConfig, type AppConfig } from './config.js';
@@ -15,6 +17,12 @@ import { registerSocketHandlers } from './socket.js';
 const HTTP_BODY_LIMIT_BYTES = 32 * 1024;
 const SOCKET_MAX_BUFFER_BYTES = 16 * 1024;
 const HTTP_RATE_LIMIT_PER_MINUTE = 120;
+
+// `apps/server/src/server.ts` (dev, tsx) e `apps/server/dist/server.js`
+// (compilado) ficam ambos 2 níveis abaixo de `apps/` — o caminho relativo
+// pro build do frontend é o mesmo nos dois casos, e é assim que o Dockerfile
+// espelha a estrutura de diretórios na imagem final.
+const WEB_DIST_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../../web/dist');
 
 export async function buildServer(config: AppConfig = loadConfig()) {
   const app = Fastify({
@@ -49,6 +57,18 @@ export async function buildServer(config: AppConfig = loadConfig()) {
     timestamp: new Date().toISOString(),
   }));
   registerObservabilityRoutes(app, store, metrics, config);
+
+  // Serve o frontend estático no mesmo origin/porta do Fastify + Socket.IO.
+  // Sem build do frontend (ex.: rodando só a suíte de testes), não registra nada.
+  if (existsSync(WEB_DIST_DIR)) {
+    await app.register(staticFiles, { root: WEB_DIST_DIR });
+    app.setNotFoundHandler((request, reply) => {
+      if (request.method !== 'GET' || request.url.startsWith('/socket.io')) {
+        return reply.code(404).send({ status: 'not_found' });
+      }
+      return reply.sendFile('index.html');
+    });
+  }
 
   return { app, store, config, metrics };
 }

@@ -189,7 +189,7 @@ Uma partida Online deve sobreviver a restart do processo, operar com configuraç
 
 **Dono:** Codex  
 **Dependência:** B25 aprovada  
-**Status:** BLOQUEADA
+**Status:** GATES LOCAIS APROVADOS — deploy real pendente de execução pelo proprietário (ver feedback)
 
 **Alvo escolhido pelo proprietário:** Railway com volume persistente.
 
@@ -260,13 +260,13 @@ Uma partida Online deve sobreviver a restart do processo, operar com configuraç
 - [x] B28 — retomada autenticada aprovada.
 - [x] B24 — hardening aprovado.
 - [x] B25 — observabilidade aprovada.
-- [ ] B26 — container aprovado.
-- [ ] Sala aguardando sobrevive a restart.
-- [ ] Partida ativa sobrevive a restart e reconexão.
-- [ ] `/live`, `/ready` e `/metrics` verificados.
-- [ ] CORS/rate limit/validação runtime verificados.
-- [ ] Container não-root e volume persistente verificados.
-- [ ] URL HTTPS permanente comprovada.
+- [x] B26 — gates locais aprovados (deploy real pendente, ver feedback).
+- [x] Sala aguardando sobrevive a restart. _(verificado localmente via `docker restart` + volume)_
+- [x] Partida ativa sobrevive a restart e reconexão. _(verificado localmente, 2 jogadores reconectados após restart)_
+- [x] `/live`, `/ready` e `/metrics` verificados. _(local; falta smoke da URL pública real)_
+- [x] CORS/rate limit/validação runtime verificados. _(local, via testes de integração)_
+- [x] Container não-root e volume persistente verificados.
+- [ ] URL HTTPS permanente comprovada. _(depende do deploy real no Railway — pendente de autorização)_
 - [ ] CI externo verde.
 - [ ] Changelog/STATUS/feedback atualizados.
 - [ ] `v0.5.0` tagged + pushed.
