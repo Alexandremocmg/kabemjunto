@@ -4,6 +4,7 @@ import sensible from '@fastify/sensible';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Server as SocketIOServer } from 'socket.io';
+import { JsonRoomPersistence } from './persistence.js';
 import { RoomError, RoomStore, toPublicState } from './room-store.js';
 import { registerSocketHandlers } from './socket.js';
 
@@ -19,7 +20,8 @@ export async function buildServer() {
   await app.register(cors, { origin: true });
   await app.register(sensible);
 
-  const store = new RoomStore();
+  const storageFile = process.env['ROOM_STORAGE_FILE']?.trim();
+  const store = new RoomStore(storageFile ? new JsonRoomPersistence(storageFile) : undefined);
   app.get('/health', async () => ({
     status: 'ok',
     service: 'kabemjunto-server',

@@ -1,6 +1,29 @@
-import { describe, expect, it } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, describe, expect, it } from 'vitest';
 import { Constants, type JogadorId } from '@kabemjunto/shared';
+import {
+  JsonRoomPersistence,
+  type PersistedRoomSession,
+  type RoomPersistence,
+} from './persistence.js';
+import { buildServer } from './server.js';
 import { RoomError, RoomStore, toPublicState } from './room-store.js';
+
+const persistenceDirectories: string[] = [];
+
+function persistenceFile(): string {
+  const directory = mkdtempSync(join(tmpdir(), 'kabemjunto-room-store-'));
+  persistenceDirectories.push(directory);
+  return join(directory, 'rooms.json');
+}
+
+afterEach(() => {
+  for (const directory of persistenceDirectories.splice(0)) {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
 
 function uuid(n: number): JogadorId {
   return `jogador-${n.toString().padStart(4, '0')}-aaaa-bbbb-cccc-ddddeeeeffff`;
@@ -231,5 +254,114 @@ describe('RoomStore — M14 (identidade estável + reconexão)', () => {
     const found = store.findBySocketId('sock-b');
     expect(found?.salaId).toBe('F1');
     expect(found?.session.sala.jogadores).toHaveLength(2);
+  });
+});
+
+describe('RoomStore — B23 (persistência durável)', () => {
+  it('restaura sala aguardando sem sockets e com jogadores desconectados', () => {
+    const persistence = new JsonRoomPersistence(persistenceFile());
+    const beforeRestart = new RoomStore(persistence);
+    beforeRestart.join({
+      jogadorId: uuid(1),
+      salaId: 'SAVE01',
+      nome: 'Ana',
+      socketId: 'socket-before-restart',
+    });
+
+    const afterRestart = new RoomStore(persistence);
+    const restored = afterRestart.get('SAVE01')!;
+
+    expect(restored.sala.jogadores[0]?.conectado).toBe(false);
+    expect(restored.socketByPlayer.size).toBe(0);
+    expect(afterRestart.findBySocketId('socket-before-restart')).toBeUndefined();
+    expect(afterRestart.exportState()).toEqual([{ sala: restored.sala }]);
+    expect(JSON.stringify(afterRestart.exportState())).not.toContain('socket-before-restart');
+  });
+
+  it('preserva partida ativa integralmente e permite retomar pela identidade estável', () => {
+    const persistence = new JsonRoomPersistence(persistenceFile());
+    const beforeRestart = new RoomStore(persistence);
+    beforeRestart.join({ jogadorId: uuid(1), salaId: 'GAME01', nome: 'Ana', socketId: 'old-a' });
+    beforeRestart.join({ jogadorId: uuid(2), salaId: 'GAME01', nome: 'Bia', socketId: 'old-b' });
+    const started = beforeRestart.start('GAME01', 'old-a');
+
+    const afterRestart = new RoomStore(persistence);
+    const restored = afterRestart.get('GAME01')!;
+
+    expect(restored.estado).toEqual({
+      ...started.estado,
+      jogadores: started.estado!.jogadores.map((player) => ({ ...player, conectado: false })),
+    });
+    expect(restored.sala.jogadores.every((player) => player.conectado === false)).toBe(true);
+    expect(restored.socketByPlayer.size).toBe(0);
+
+    const reconnected = afterRestart.join({
+      jogadorId: uuid(1),
+      salaId: 'GAME01',
+      nome: 'Nome ignorado',
+      socketId: 'new-a',
+      criar: false,
+    });
+    expect(reconnected.reconectado).toBe(true);
+    expect(reconnected.session.socketByPlayer.get(uuid(1))).toBe('new-a');
+    expect(
+      reconnected.session.estado?.jogadores.find((player) => player.id === uuid(1))?.conectado,
+    ).toBe(true);
+  });
+
+  it('persiste antes de publicar a mutação na memória', () => {
+    class FailingPersistence implements RoomPersistence {
+      load(): PersistedRoomSession[] {
+        return [];
+      }
+
+      save(): void {
+        throw new Error('volume indisponível');
+      }
+    }
+
+    const store = new RoomStore(new FailingPersistence());
+
+    expect(() =>
+      store.join({ jogadorId: uuid(1), salaId: 'FAIL01', nome: 'Ana', socketId: 'socket-a' }),
+    ).toThrow('volume indisponível');
+    expect(store.get('FAIL01')).toBeUndefined();
+  });
+
+  it('exporta e restaura apenas estado autoritativo, nunca identidade de socket', () => {
+    const original = new RoomStore();
+    original.join({ jogadorId: uuid(1), salaId: 'IDENT1', nome: 'Ana', socketId: 'secret-socket' });
+    const exported = original.exportState();
+
+    const restored = new RoomStore();
+    restored.restoreState(exported);
+
+    expect(restored.get('IDENT1')?.sala.hostId).toBe(uuid(1));
+    expect(restored.get('IDENT1')?.socketByPlayer.size).toBe(0);
+    expect(JSON.stringify(exported)).not.toContain('secret-socket');
+  });
+
+  it('hidrata o bootstrap por ROOM_STORAGE_FILE quando configurado', async () => {
+    const file = persistenceFile();
+    const persistence = new JsonRoomPersistence(file);
+    const persistedStore = new RoomStore(persistence);
+    persistedStore.join({
+      jogadorId: uuid(1),
+      salaId: 'BOOT01',
+      nome: 'Ana',
+      socketId: 'bootstrap-old-socket',
+    });
+    const previous = process.env['ROOM_STORAGE_FILE'];
+    process.env['ROOM_STORAGE_FILE'] = file;
+
+    try {
+      const { app, store } = await buildServer();
+      expect(store.get('BOOT01')?.sala.jogadores[0]?.conectado).toBe(false);
+      expect(store.get('BOOT01')?.socketByPlayer.size).toBe(0);
+      await app.close();
+    } finally {
+      if (previous === undefined) delete process.env['ROOM_STORAGE_FILE'];
+      else process.env['ROOM_STORAGE_FILE'] = previous;
+    }
   });
 });

@@ -12,6 +12,7 @@ import {
   type Sala,
   type SalaId,
 } from '@kabemjunto/shared';
+import type { PersistedRoomSession, RoomPersistence } from './persistence.js';
 
 export interface RoomSession {
   sala: Sala;
@@ -124,6 +125,46 @@ export function toPublicState(estado: EstadoPartida): EstadoPartidaPublico {
 export class RoomStore {
   private readonly rooms = new Map<SalaId, RoomSession>();
 
+  constructor(private readonly persistence?: RoomPersistence) {
+    if (persistence) this.restoreState(persistence.load());
+  }
+
+  exportState(): PersistedRoomSession[] {
+    return [...this.rooms.values()].map((session) =>
+      session.estado === undefined
+        ? { sala: session.sala }
+        : { sala: session.sala, estado: session.estado },
+    );
+  }
+
+  restoreState(rooms: readonly PersistedRoomSession[]): void {
+    const restored = new Map<SalaId, RoomSession>();
+    for (const room of rooms) {
+      const sala = {
+        ...room.sala,
+        jogadores: room.sala.jogadores.map((player) => ({ ...player, conectado: false })),
+      };
+      const estado =
+        room.estado === undefined
+          ? undefined
+          : {
+              ...room.estado,
+              jogadores: room.estado.jogadores.map((player) => ({
+                ...player,
+                conectado: false,
+              })),
+            };
+      restored.set(
+        sala.id,
+        estado === undefined
+          ? { sala, socketByPlayer: new Map() }
+          : { sala, estado, socketByPlayer: new Map() },
+      );
+    }
+    this.rooms.clear();
+    for (const [roomId, session] of restored) this.rooms.set(roomId, session);
+  }
+
   /**
    * Adiciona ou restaura um jogador na sala.
    *
@@ -171,7 +212,6 @@ export class RoomStore {
         status: 'AGUARDANDO',
       };
       session = { sala, socketByPlayer: new Map() };
-      this.rooms.set(salaId, session);
     }
 
     // Tenta encontrar o jogador existente nesta sala (caso de reconexão).
@@ -187,9 +227,19 @@ export class RoomStore {
       const next: RoomSession = {
         ...session,
         sala: { ...session.sala, jogadores },
+        ...(session.estado === undefined
+          ? {}
+          : {
+              estado: {
+                ...session.estado,
+                jogadores: session.estado.jogadores.map((player) =>
+                  player.id === input.jogadorId ? { ...player, conectado: true } : player,
+                ),
+              },
+            }),
         socketByPlayer,
       };
-      this.rooms.set(salaId, next);
+      this.commit(next);
       return { session: next, jogadorId: input.jogadorId, reconectado: true };
     }
 
@@ -220,7 +270,7 @@ export class RoomStore {
       sala: { ...session.sala, jogadores: [...session.sala.jogadores, jogador] },
       socketByPlayer,
     };
-    this.rooms.set(salaId, next);
+    this.commit(next);
     return { session: next, jogadorId, reconectado: false };
   }
 
@@ -273,7 +323,7 @@ export class RoomStore {
       sala: { ...session.sala, status: 'EM_PARTIDA', partidaId: estado.partidaId },
       estado,
     };
-    this.rooms.set(session.sala.id, next);
+    this.commit(next);
     return next;
   }
 
@@ -294,20 +344,21 @@ export class RoomStore {
       throw new RoomError('JOGADA_INVALIDA', 'Essa carta não está na sua mão.');
     }
 
+    let novoEstado: EstadoPartida;
     try {
-      const resultado = executarJogada({
+      novoEstado = executarJogada({
         estado: session.estado,
         cartaIndex,
         ...(corEscolhida !== undefined ? { corEscolhida } : {}),
         ...(alvoTrocaId !== undefined ? { alvoTrocaId } : {}),
-      });
-      return this.saveState(session, resultado.novoEstado);
+      }).novoEstado;
     } catch (error) {
       throw new RoomError(
         'JOGADA_INVALIDA',
         error instanceof Error ? error.message : 'Jogada inválida.',
       );
     }
+    return this.saveState(session, novoEstado);
   }
 
   buy(salaId: string, jogadorId: JogadorId): RoomSession {
@@ -446,7 +497,7 @@ export class RoomStore {
   disconnect(socketId: string): RoomSession | undefined {
     const found = this.findBySocketId(socketId);
     if (!found) return undefined;
-    const { salaId, session } = found;
+    const { session } = found;
 
     // Encontra o jogadorId deste socket
     const jogadorEntry = [...session.socketByPlayer.entries()].find(
@@ -458,8 +509,20 @@ export class RoomStore {
     const jogadores = session.sala.jogadores.map((j) =>
       j.id === jogadorId ? { ...j, conectado: false } : j,
     );
-    const next = { ...session, sala: { ...session.sala, jogadores } };
-    this.rooms.set(salaId, next);
+    const estado =
+      session.estado === undefined
+        ? undefined
+        : {
+            ...session.estado,
+            jogadores: session.estado.jogadores.map((player) =>
+              player.id === jogadorId ? { ...player, conectado: false } : player,
+            ),
+          };
+    const next: RoomSession =
+      estado === undefined
+        ? { ...session, sala: { ...session.sala, jogadores } }
+        : { ...session, sala: { ...session.sala, jogadores }, estado };
+    this.commit(next);
     return next;
   }
 
@@ -477,7 +540,18 @@ export class RoomStore {
 
   private saveState(session: RoomSession, estado: EstadoPartida): RoomSession {
     const next = { ...session, estado };
-    this.rooms.set(session.sala.id, next);
+    this.commit(next);
     return next;
+  }
+
+  private commit(next: RoomSession): void {
+    if (this.persistence) {
+      const rooms = this.exportState().filter((room) => room.sala.id !== next.sala.id);
+      rooms.push(
+        next.estado === undefined ? { sala: next.sala } : { sala: next.sala, estado: next.estado },
+      );
+      this.persistence.save(rooms);
+    }
+    this.rooms.set(next.sala.id, next);
   }
 }

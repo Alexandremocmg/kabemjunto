@@ -49,7 +49,7 @@ Uma partida Online deve sobreviver a restart do processo, operar com configuraç
 
 **Dono:** Codex  
 **Dependência:** M21  
-**Status:** EM ANDAMENTO
+**Status:** APROVADA
 
 **Pode tocar:**
 
@@ -123,7 +123,7 @@ Uma partida Online deve sobreviver a restart do processo, operar com configuraç
 
 **Dono:** Codex, com aprovação de tipos por Mavis  
 **Dependência:** B23 aprovada  
-**Status:** BLOQUEADA
+**Status:** EM ANDAMENTO
 
 **Pode tocar:**
 
@@ -241,7 +241,7 @@ Uma partida Online deve sobreviver a restart do processo, operar com configuraç
 
 - [x] M21 — ADR publicada.
 - [x] B27 — backend incluído no typecheck/build raiz.
-- [ ] B23 — persistência aprovada.
+- [x] B23 — persistência aprovada.
 - [ ] B28 — retomada autenticada aprovada.
 - [ ] B24 — hardening aprovado.
 - [ ] B25 — observabilidade aprovada.
