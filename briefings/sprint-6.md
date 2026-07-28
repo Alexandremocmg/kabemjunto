@@ -74,7 +74,7 @@ Uma partida Online deve sobreviver a restart do processo, operar com configuraç
 ### B27 — Incluir backend no gate de produção
 
 **Dono:** Mavis  
-**Status:** EM ANDAMENTO  
+**Status:** APROVADA
 **Motivo:** auditoria da Sprint 6 comprovou que o build raiz/CI não compilava `apps/server` e ocultava um erro de `exactOptionalPropertyTypes`.
 
 **Pode tocar:**
@@ -240,6 +240,7 @@ Uma partida Online deve sobreviver a restart do processo, operar com configuraç
 ## Definição de Pronto da Sprint 6
 
 - [x] M21 — ADR publicada.
+- [x] B27 — backend incluído no typecheck/build raiz.
 - [ ] B23 — persistência aprovada.
 - [ ] B28 — retomada autenticada aprovada.
 - [ ] B24 — hardening aprovado.

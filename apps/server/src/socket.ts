@@ -85,7 +85,7 @@ export function registerSocketHandlers(io: GameServer, store: RoomStore): void {
           salaId: payload.salaId,
           nome: payload.nome,
           socketId: socket.id,
-          criar: payload.criar,
+          ...(payload.criar !== undefined ? { criar: payload.criar } : {}),
         });
         socket.data.salaId = joined.session.sala.id;
         socket.data.jogadorId = joined.jogadorId;
