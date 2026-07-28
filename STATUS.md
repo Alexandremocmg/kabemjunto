@@ -50,6 +50,14 @@
 - ⏸️ **Parado aqui de propósito**: deploy real no Railway (URL HTTPS pública, CI externo) exige ação no provedor de terceiro e possível billing. Não tenho `railway` CLI neste ambiente. Aguardando decisão do dono do projeto sobre como proceder.
 - 🔒 M22 (fechamento da sprint) bloqueado até essa evidência de deploy existir.
 
+### 2026-07-28 · Mavis — deploy real no Railway + M22 (fechamento Sprint 6)
+
+- 🐛 `railway up` falhou 2x em produção (bugs que não apareciam localmente): `VOLUME` do Dockerfile rejeitado pelo builder Metal; `/ready` 503 porque o `chown` da imagem não sobrevive à montagem do volume real. Corrigidos com `docker-entrypoint.sh` (`su-exec`, chown em runtime).
+- ✅ **Deploy real confirmado**: `https://web-production-52c52.up.railway.app` — `/live`, `/ready`, `/health` 200, frontend servido, `/metrics` protegido (401 sem token), fluxo de criação de sala via Socket.IO sobre TLS funcionando.
+- ✅ Gates finais: `npm run test:cov` (motor 90,16%), `npm run e2e` (7/7), `npm audit --omit=dev` (0 vulnerabilidades).
+- 📄 Fechamento formal em [`feedback/2026-07-28-m22-mavis.md`](./feedback/2026-07-28-m22-mavis.md). `CHANGELOG.md` atualizado com `[0.5.0]`.
+- ⚠️ Pendências antes da tag `v0.5.0`: confirmar CI externo verde (não tenho acesso ao repo privado) e autorização explícita pra criar/publicar a tag.
+
 ### Atualização técnica — TROCA_MAO
 
 - ✅ Motor implementa `TROCA_MAO` com alvo obrigatório, troca imutável e evento `MAO_TROCADA`.

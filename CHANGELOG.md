@@ -5,6 +5,40 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ---
 
+## [0.5.0] — 2026-07-28 · Sprint 6 FECHADA ✅
+
+Persistência, hardening, observabilidade e deploy real. Diário completo em [`briefings/sprint-6.md`](./briefings/sprint-6.md) e revisões formais em `feedback/2026-07-28-*.md`.
+
+### Adicionado
+
+- Persistência durável de salas em snapshot JSON atômico (`apps/server/src/persistence.ts`), com recuperação após restart do processo.
+- Retomada autenticada de sessão por token opaco rotativo (SHA-256, `timingSafeEqual`), emitido só ao socket autenticado; socket anterior é revogado na reconexão (B28).
+- Hardening do runtime: configuração validada com Zod e fail-fast (`apps/server/src/config.ts`), Helmet, `@fastify/rate-limit` (120 req/min/IP), CORS por allowlist explícita em produção, `bodyLimit` de 32 KiB, `maxHttpBufferSize` de 16 KiB no Socket.IO, token bucket por socket+categoria (`apps/server/src/socket-security.ts`), payloads validados antes do `RoomStore`, shutdown gracioso em `SIGTERM`/`SIGINT` (B24).
+- Observabilidade operacional: `/live`, `/ready` (probe de gravabilidade não destrutivo), `/metrics` em formato Prometheus protegido por bearer token em produção, métricas de baixa cardinalidade sem PII (`apps/server/src/observability.ts`) (B25).
+- Container Docker multi-stage, usuário não-root, frontend estático servido no mesmo origin via `@fastify/static`; `railway.json` pro deploy (B26).
+- Deploy real em produção no Railway, com volume persistente montado em `/data`.
+
+### Corrigido
+
+- Dois bugs na implementação de retomada de sessão: jogador novo nunca recebia token; `commit()` descartava os hashes de token ao persistir (quebrava restart).
+- Erro de tipagem em `apps/server/src/socket.test.ts` que passava sem checagem de tipos no Vitest.
+- Versões de plugin Fastify da spec original assumiam Fastify 4; corrigidas para as compatíveis com Fastify 5.10.0 (`@fastify/helmet@^12`, `@fastify/rate-limit@^10`).
+- `tsconfig.tsbuildinfo` do host sendo copiado pra imagem Docker fazia o `tsc` de `packages/shared` pular a emissão (cache incremental confiava em `dist/` excluído pelo `.dockerignore`).
+- Instrução `VOLUME` do Dockerfile rejeitada pelo builder Metal do Railway.
+- `/ready` retornando 503 em produção: `chown` do Dockerfile não sobrevive à montagem do volume real; `docker-entrypoint.sh` corrige a posse em runtime antes de largar privilégio.
+
+### Verificado
+
+- `npm run validate`: typecheck, lint, Prettier, 242 testes e build.
+- `npm run test:cov`: motor (`packages/shared/src/rules`) em 90,16% de cobertura de statements.
+- `npm run e2e`: 7 cenários passando.
+- `npm audit --omit=dev`: 0 vulnerabilidades.
+- `docker build` limpo + smoke test real (usuário não-root, `/live`/`/ready`/`/health`/`/metrics` corretos).
+- Restart real do container com volume: sala aguardando e partida ativa (2 jogadores) sobrevivem, com reconexão via `resumeToken`.
+- URL HTTPS pública real (`https://web-production-52c52.up.railway.app`) validada: `/live`, `/ready`, `/health`, frontend e fluxo de criação de sala via Socket.IO sobre TLS.
+
+---
+
 ## [0.4.0] — 2026-07-27 · Sprint 5 FECHADA ✅
 
 O diário completo, com o inventário de commits, decisões, validações e instruções operacionais, está em [`docs/CHANGELOG-2026-07-27.md`](./docs/CHANGELOG-2026-07-27.md).

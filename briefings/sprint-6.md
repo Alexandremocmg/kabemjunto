@@ -266,10 +266,10 @@ Uma partida Online deve sobreviver a restart do processo, operar com configuraç
 - [x] `/live`, `/ready` e `/metrics` verificados. _(local; falta smoke da URL pública real)_
 - [x] CORS/rate limit/validação runtime verificados. _(local, via testes de integração)_
 - [x] Container não-root e volume persistente verificados.
-- [ ] URL HTTPS permanente comprovada. _(depende do deploy real no Railway — pendente de autorização)_
-- [ ] CI externo verde.
-- [ ] Changelog/STATUS/feedback atualizados.
-- [ ] `v0.5.0` tagged + pushed.
+- [x] URL HTTPS permanente comprovada. `https://web-production-52c52.up.railway.app` — `/live`, `/ready`, `/health`, frontend e fluxo Socket.IO validados.
+- [ ] CI externo verde. _(não verificável por mim — repo privado, sem `gh`/token neste ambiente; pedido ao dono)_
+- [x] Changelog/STATUS/feedback atualizados.
+- [ ] `v0.5.0` tagged + pushed. _(aguardando autorização explícita)_
 
 ## Riscos e decisões de contingência
 
