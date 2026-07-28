@@ -71,10 +71,29 @@ Uma partida Online deve sobreviver a restart do processo, operar com configuraç
 - teste cobre round-trip, restart, corrupção e isolamento de identidade;
 - nenhuma alteração em `packages/shared/**`.
 
+### B27 — Incluir backend no gate de produção
+
+**Dono:** Mavis  
+**Status:** EM ANDAMENTO  
+**Motivo:** auditoria da Sprint 6 comprovou que o build raiz/CI não compilava `apps/server` e ocultava um erro de `exactOptionalPropertyTypes`.
+
+**Pode tocar:**
+
+- `package.json` raiz
+- `apps/server/src/socket.ts` somente para o erro de tipagem reproduzido
+- `.github/workflows/ci.yml` somente se os scripts raiz não forem suficientes
+
+**Critério de pronto:**
+
+- `npm run typecheck` inclui shared, server e web;
+- `npm run build` produz shared, `apps/server/dist/server.js` e web;
+- CI canônico usa esses scripts e não pode ficar verde com backend quebrado;
+- processo compilado responde ao health check.
+
 ### B24 — Hardening do runtime e contratos externos
 
 **Dono:** Codex  
-**Dependência:** B23 aprovada  
+**Dependência:** B28 aprovada  
 **Status:** BLOQUEADA
 
 **Pode tocar:**
@@ -99,6 +118,34 @@ Uma partida Online deve sobreviver a restart do processo, operar com configuraç
 - shutdown gracioso em `SIGTERM`/`SIGINT`;
 - erros externos não incluem stack ou estado privado;
 - testes de origem negada, payload inválido e flood.
+
+### B28 — Token seguro de retomada de sessão
+
+**Dono:** Codex, com aprovação de tipos por Mavis  
+**Dependência:** B23 aprovada  
+**Status:** BLOQUEADA
+
+**Pode tocar:**
+
+- `packages/shared/src/types/socket-events.ts`
+- `packages/shared/src/types/index.ts` somente se necessário para export
+- `apps/server/src/room-store.ts`
+- `apps/server/src/room-store.test.ts`
+- `apps/server/src/persistence.ts`
+- `apps/server/src/persistence.test.ts`
+- `apps/server/src/socket.ts`
+- `apps/web/src/services/socketClient.ts`
+- testes correspondentes nos mesmos módulos
+
+**Critério de pronto:**
+
+- servidor emite token opaco criptograficamente aleatório na primeira entrada;
+- somente hash do token entra no snapshot durável;
+- reconexão de jogador existente exige token válido;
+- token é rotacionado na reconexão e o socket anterior é revogado;
+- cliente guarda token apenas em `sessionStorage` e nunca o envia à telemetria/logs;
+- erro externo não revela se jogador/token existe;
+- testes cobrem retomada válida, token ausente, token inválido, rotação e restart.
 
 ### B25 — Observabilidade operacional
 
@@ -131,6 +178,17 @@ Uma partida Online deve sobreviver a restart do processo, operar com configuraç
 **Dono:** Codex  
 **Dependência:** B25 aprovada  
 **Status:** BLOQUEADA
+
+**Alvo escolhido pelo proprietário:** Railway com volume persistente.
+
+**Infraestrutura já provisionada (sem deploy):**
+
+- projeto `kabemjunto`, ambiente `production`;
+- serviço vazio `web`;
+- volume `web-volume` de 500 MB montado em `/data`;
+- `ROOM_STORAGE_FILE=/data/rooms.json` e variáveis operacionais configuradas;
+- `METRICS_TOKEN` aleatório configurado diretamente no provedor, sem registro no Git/log;
+- nenhum domínio ou deployment criado antes dos gates locais.
 
 **Pode tocar:**
 
@@ -183,6 +241,7 @@ Uma partida Online deve sobreviver a restart do processo, operar com configuraç
 
 - [x] M21 — ADR publicada.
 - [ ] B23 — persistência aprovada.
+- [ ] B28 — retomada autenticada aprovada.
 - [ ] B24 — hardening aprovado.
 - [ ] B25 — observabilidade aprovada.
 - [ ] B26 — container aprovado.
