@@ -24,7 +24,9 @@ COPY --from=build --chown=kabemjunto:kabemjunto /app/apps/server/dist ./apps/ser
 COPY --from=build --chown=kabemjunto:kabemjunto /app/apps/web/dist ./apps/web/dist
 
 RUN mkdir -p /data && chown kabemjunto:kabemjunto /data
-VOLUME ["/data"]
+# Sem `VOLUME` do Dockerfile: builders gerenciados (Railway) rejeitam essa
+# instrução e montam o volume declarativamente pelo próprio provedor
+# (aqui, `web-volume` em /data). Localmente, use `docker run -v ...:/data`.
 
 USER kabemjunto
 EXPOSE 3001
