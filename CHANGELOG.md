@@ -5,7 +5,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ---
 
-## [Unreleased] — 2026-07-27 · Consolidação do dia
+## [0.4.0] — 2026-07-27 · Sprint 5 FECHADA ✅
 
 O diário completo, com o inventário de commits, decisões, validações e instruções operacionais, está em [`docs/CHANGELOG-2026-07-27.md`](./docs/CHANGELOG-2026-07-27.md).
 
@@ -16,7 +16,9 @@ O diário completo, com o inventário de commits, decisões, validações e inst
 - Lobby Online com persistência de nome, validação, `NotFound` para sala inexistente e cópia de código.
 - `npm run dev` supervisionando backend Fastify e frontend Vite simultaneamente.
 - Proxy Socket.IO same-origin para uso via Cloudflare Tunnel.
-- Playwright E2E para multiplayer, reload, proxy, acessibilidade e mesa Local com 10 jogadores.
+- Playwright E2E para multiplayer, reload, proxy, acessibilidade, mesa Local com 10 jogadores e partida Online determinística até a vitória.
+- Telemetria PostHog Cloud opcional para o evento `RECONECTADO`, validada no dashboard US Cloud.
+- Lighthouse Accessibility 100/100 em build de produção.
 
 ### Corrigido
 
@@ -26,12 +28,16 @@ O diário completo, com o inventário de commits, decisões, validações e inst
 - Entrada em sala inexistente que criava sala silenciosamente.
 - Conexão externa quebrada por fallback para `127.0.0.1:3001`.
 - Cópia de código sem fallback em browsers sem Clipboard API.
+- Instalação limpa do monorepo no npm/GitHub Actions, com workspaces declarados e cache incremental fora do Git.
+- Dependências Fastify atualizadas; auditoria de produção sem vulnerabilidades conhecidas.
 
 ### Verificado
 
 - `npm run validate`: typecheck, lint, Prettier, 171 testes e build.
-- `npm run e2e`: 6 cenários passando.
+- `npm run e2e`: 7 cenários passando.
 - Backend `/health`, frontend `5173` e proxy `/socket.io` respondendo `200`.
+- GitHub Actions verde em `quality-gate` e `E2E (Playwright)`.
+- PostHog US Cloud recebeu e exibiu `RECONECTADO` após queda/reconexão real.
 
 ---
 

@@ -215,7 +215,7 @@
 - [x] `npm run dev` mostra app único (Local + Online com toggle)
 - [x] `npm run e2e` verde (7 testes Playwright)
 - [x] E2E Online conclui uma partida até a vitória (B20)
-- [ ] PostHog recebe e exibe `RECONECTADO` em produção
+- [x] PostHog recebe e exibe `RECONECTADO` em produção (US Cloud, confirmado no dashboard)
 - [x] CI externo confirma `validate` + `e2e` no último SHA (`4a95189`, run `30313623191`)
 - [x] Lighthouse Accessibility ≥ 95 (100/100 em build de produção)
 - [x] Vitória dispara confetti
@@ -223,7 +223,7 @@
 - [x] `npm run validate` verde (171 testes)
 - [x] `apps/web/src/components/` contém os componentes consolidados
 - [x] ADR-009 publicada
-- [ ] v0.4.0 tagged + pushed
+- [x] v0.4.0 tagged + pushed
 
 ---
 

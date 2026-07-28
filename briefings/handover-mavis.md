@@ -189,13 +189,13 @@ Se tiver pressa, leia só os **marcados com ⭐**:
 - **90,16%** de cobertura de statements/linhas no motor compartilhado
 - Build de produção, lint, typecheck e Prettier verdes
 
-### Sprint 5 — fechamento condicionado
+### Sprint 5 — fechada
 
 Itens já entregues:
 
 - ✅ M16 — consolidação do app em `apps/web/`
 - ✅ M19 — workflow de CI, cobertura e E2E
-- ✅ B17 — `posthogSink` e emissão de `RECONECTADO` no código
+- ✅ B17/B21 — `RECONECTADO` aceito pelo PostHog US Cloud e confirmado no dashboard
 - ✅ A11 — 404 estilizada
 - ✅ A12 — vitória animada/confetti
 - ✅ B18/B20 — sete cenários E2E, incluindo partida Online determinística até a vitória
@@ -203,18 +203,14 @@ Itens já entregues:
 - ✅ Proxy Socket.IO same-origin para túnel público
 - ✅ `npm run dev` inicia backend + frontend
 
-Evidências pendentes antes da tag `v0.4.0`:
-
-1. Evento `RECONECTADO` confirmado no dashboard PostHog Cloud ou waiver explícito de Mavis/proprietário
-2. Fechamento documental e tag anotada
+Release `v0.4.0` aprovada após gates locais, CI remoto, Lighthouse 100/100 e evidência real no PostHog Cloud.
 
 ---
 
 ## ⚠️ Pendências conhecidas
 
-1. **PostHog Cloud** — sink e evento foram comprovados em build de produção contra endpoint controlado; falta project token/dashboard real ou waiver explícito
-2. **M17 (persistência)** e **M18 (auth)** seguem candidatas à Sprint 6
-3. **Sprint 6** recomendada: persistência, deploy estável, hardening e observabilidade
+1. **M17 (persistência)** e **M18 (auth)** seguem candidatas à Sprint 6
+2. **Sprint 6** recomendada: persistência, deploy estável, hardening e observabilidade
 
 ---
 

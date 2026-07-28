@@ -43,7 +43,9 @@ Código revisado:
 - `apps/web/src/main.tsx` ativa o sink somente em build de produção;
 - `apps/web/src/services/socketClient.ts` emite `RECONECTADO` após queda real.
 
-Validação executada com build de produção e endpoint local controlado, sem credencial real:
+Validação em duas fases:
+
+### Endpoint controlado
 
 ```text
 frontend preview                 4174
@@ -59,19 +61,25 @@ properties                       duracaoMs,jogadorId,modo,salaId,tentativa
 tipos                            number,string,string,string,number
 ```
 
-Como a configuração usa `sampleRate: 0.1`, a auditoria fixou `Math.random()` em zero somente na página de QA para tornar a amostragem determinística. Nenhum código foi alterado.
+### PostHog US Cloud real
 
-Após o teste, processos, payload e script temporários foram removidos e o bundle normal foi reconstruído sem chave fake.
-
-Bloqueio externo remanescente:
+`apps/web/.env.local` foi configurado localmente e permanece ignorado pelo Git. O build de produção foi executado com o project token real, sem imprimir ou versionar a chave.
 
 ```text
-apps/web/.env                    ausente
-VITE_POSTHOG_API_KEY             não configurada
-GitHub Actions secrets/variables sem configuração PostHog
+queda reconhecida                conexão perdida / reconectando
+reconexão                        Online
+endpoint                         https://us.i.posthog.com/capture/
+method                           POST
+event                            RECONECTADO
+status HTTP                      200
+dashboard US Cloud               evento confirmado pelo proprietário
 ```
 
-A integração está funcional, mas o critério literal “visível no dashboard PostHog Cloud” exige um project token real ou waiver explícito do proprietário/Mavis.
+Como a configuração usa `sampleRate: 0.1`, a auditoria fixou `Math.random()` em zero somente na página de QA para tornar a amostragem determinística. Isso também tornou temporariamente vazio o código de sala gerado por `Math.random`, explicando a 404 observada durante o teste; não era regressão do fluxo normal.
+
+Após a auditoria, processos isolados foram encerrados e o bundle normal foi reconstruído. Nenhuma credencial foi adicionada ao Git.
+
+**Decisão B21:** APPROVED.
 
 ## CI externo
 

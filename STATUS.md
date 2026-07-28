@@ -5,20 +5,20 @@
 **Time:** Mavis (lead) · Codex (eng. pleno) · Antigravity (eng. júnior)
 **Fonte da verdade:** [`GDD-Kabemjunto.md`](./GDD-Kabemjunto.md) v1.0 + [`PLANO-EQUIPE-3DEVS.md`](./PLANO-EQUIPE-3DEVS.md) v1.0
 **Branch:** `main`
-**Sprint atual:** Sprint 5 — **em andamento** — release robusta v0.4.0
+**Sprint atual:** Sprint 5 — **FECHADA** — release robusta v0.4.0
 
 ### Atualização técnica — TROCA_MAO
 
 - ✅ Motor implementa `TROCA_MAO` com alvo obrigatório, troca imutável e evento `MAO_TROCADA`.
 - ✅ Contrato multiplayer transporta `alvoTrocaId` do cliente ao `RoomStore` e ao motor autoritativo.
 - ✅ UI de `Troca Mão`: dialog no desktop, bottom sheet no mobile e seleção acessível por teclado.
-- ✅ Testes: 170/170; cobertura do motor: 89,16%; build e 3 E2E verdes.
+- ✅ Testes: 171/171; cobertura do motor acima de 80%; build e 7 E2E verdes.
 
 ### PostHog Cloud — configuração local
 
 - ✅ `apps/web/.env.local` foi configurado localmente com o project token do PostHog US Cloud.
 - 🔒 O token permanece fora do Git (`.env.local` é ignorado); nenhuma chave foi incluída na documentação ou no código versionado.
-- ⏳ B21 continua pendente apenas da evidência operacional: build de produção, reconexão real e confirmação de `RECONECTADO` no dashboard.
+- ✅ B21 aprovada: build de produção, queda/reconexão real, `POST /capture/` 200 e `RECONECTADO` confirmado no dashboard US Cloud.
 
 ---
 
