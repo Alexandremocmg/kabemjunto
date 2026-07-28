@@ -131,7 +131,42 @@ O container declara `VOLUME ["/data"]`. Monte um volume real nesse caminho e apo
 
 ### Deploy no Railway
 
-`railway.json` já aponta pro `Dockerfile` e configura o healthcheck em `/live`. O projeto/volume/segredos (`METRICS_TOKEN`, `CORS_ORIGINS`, domínio) são provisionados diretamente no provedor — nenhum segredo fica no repositório.
+`railway.json` aponta para o `Dockerfile` e configura o healthcheck em `/live`. O projeto/volume/segredos (`METRICS_TOKEN`, `CORS_ORIGINS`, domínio) são provisionados diretamente no provedor — nenhum segredo fica no repositório.
+
+#### Regra operacional: GitHub não publica Railway automaticamente
+
+Neste projeto, **um `git push origin main` não cria um deploy Railway por si só**: não há workflow de deploy no GitHub Actions nem source/autodeploy Railway conectado. Antes de dizer que uma alteração está pública, confira o deployment ativo e compare os assets servidos pelo domínio com os assets produzidos no build.
+
+> Um deploy de `production` altera o serviço ativo e pode consumir o plano do provedor. Faça-o somente após autorização explícita do proprietário.
+
+Depois de um commit aprovado e enviado, publique no serviço já vinculado:
+
+```bash
+railway status
+railway up --service web --environment production --ci \
+  --message "deploy <sha-curto>: <resumo>"
+```
+
+O comando deve terminar com `Deploy complete`. Em seguida, confirme **todos** os itens abaixo no domínio permanente, substituindo `PROD` pela URL Railway:
+
+```bash
+PROD='https://web-production-52c52.up.railway.app'
+
+# O deployment/volume correto está online e os assets mudaram para o build novo.
+railway status
+curl -sS "$PROD/" | grep -Eo '/assets/index-[A-Za-z0-9_-]+\.(js|css)' | sort -u
+
+# Processo, storage e serviço HTTP estão prontos.
+curl -sS -w ' HTTP=%{http_code}\n' "$PROD/live"
+curl -sS -w ' HTTP=%{http_code}\n' "$PROD/ready"
+curl -sS -w ' HTTP=%{http_code}\n' "$PROD/health"
+
+# Same-origin Socket.IO responde com frame Engine.IO e HTTP 200.
+curl -sS -w '\nHTTP=%{http_code}\n' \
+  "$PROD/socket.io/?EIO=4&transport=polling"
+```
+
+Por fim, faça smoke real no navegador público: criar sala com um cliente, entrar com outro, iniciar partida, validar reconexão/estado Online e confirmar a funcionalidade alterada. HTML 200 isolado não comprova que o deploy serve o frontend novo nem que Socket.IO está funcional.
 
 ---
 

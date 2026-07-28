@@ -7,6 +7,14 @@
 **Branch:** `main`
 **Sprint atual:** Sprint 6 — **EM ANDAMENTO** — persistência, produção e operação v0.5.0
 
+### Regra operacional permanente — GitHub → Railway
+
+- `git push origin main` **não** publica automaticamente no Railway neste projeto: não há workflow GitHub de deploy nem source/autodeploy Railway conectado.
+- Antes de declarar uma mudança pública, confirmar no `railway status` o deployment novo e comparar os nomes dos assets publicados no domínio Railway com o build recém-gerado.
+- Deploy de `production` exige autorização explícita do proprietário: usar `railway up --service web --environment production --ci --message "deploy <sha>: <resumo>"`; nunca mudar plano, volume ou segredos como parte desse fluxo.
+- Após `Deploy complete`, validar no domínio permanente: `/live`, `/ready`, `/health`, Engine.IO polling HTTP 200 e uma partida pública real de dois clientes. HTML 200 isolado não é evidência suficiente.
+- Se um link Railway estiver desatualizado após push, tratar como deployment pendente; identificar o deployment ativo/`Last-Modified`/assets antes de qualquer mudança de código.
+
 ### Sprint 6 — kickoff
 
 - ✅ M21: ADR-011 aprovada — snapshots JSON atômicos, instância única e container same-origin.
