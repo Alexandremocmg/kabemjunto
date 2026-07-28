@@ -64,16 +64,12 @@ export const HUDJogador: React.FC<HUDJogadorProps> = ({
     <header className="game-header">
       {/* Nome do Jogo & Status */}
       <div className="game-header-brand">
-        <h1
-          style={{
-            fontSize: '20px',
-            letterSpacing: '1px',
-            background: 'linear-gradient(135deg, #F39C12, #E74C3C)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-          }}
-        >
-          KABEMJUNTO
+        <h1>
+          <img
+            src="/assets/cards/kabemjunto/brand-kabemjunto.webp"
+            alt="Kabemjunto"
+            style={{ height: '40px', width: 'auto', display: 'block' }}
+          />
         </h1>
       </div>
 

@@ -176,11 +176,14 @@ function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
     <>
       <ToggleModo modo="online" onChange={(m) => m === 'local' && onMudarModo()} />
       <header className="app-header">
-        <div>
-          <p className="eyebrow">KABEMJUNTO</p>
-          <h1>Jogue junto, mesmo longe.</h1>
-        </div>
-        <div className="connection" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <img
+          src="/assets/cards/kabemjunto/brand-kabemjunto.webp"
+          alt="Kabemjunto"
+          className="header-logo"
+          width={160}
+          height={46}
+        />
+        <div className={`connection connection-${online.state.status}`}>
           <WifiStatus status={wifiOn ? 'online' : 'offline'} size={20} />
           <span>
             {online.state.status === 'reconnecting'

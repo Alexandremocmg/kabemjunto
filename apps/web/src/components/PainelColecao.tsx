@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Check, Palette, X } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 import { AvatarComStatus } from './AvatarComStatus';
 
 export type TemaColecao = 'FLORESTA' | 'NEON' | 'AREIA';
@@ -17,6 +17,12 @@ const TEMAS: Array<{ id: TemaColecao; nome: string; cores: string[] }> = [
   { id: 'FLORESTA', nome: 'Floresta', cores: ['#0d1c15', '#27ae60', '#f8c56b'] },
   { id: 'NEON', nome: 'Neon', cores: ['#15102a', '#c026d3', '#22d3ee'] },
   { id: 'AREIA', nome: 'Areia', cores: ['#2a2016', '#d97706', '#fde68a'] },
+];
+
+const DECK_PREVIEW_SPECIALS: readonly { src: string; alt: string }[] = [
+  { src: '/assets/cards/kabemjunto/mais-quatro.webp', alt: '+4' },
+  { src: '/assets/cards/kabemjunto/zero-mais.webp', alt: '0+ Reflexo' },
+  { src: '/assets/cards/kabemjunto/troca-mao.webp', alt: 'Troca Mão' },
 ];
 
 export const PainelColecao: React.FC<PainelColecaoProps> = ({
@@ -65,13 +71,24 @@ export const PainelColecao: React.FC<PainelColecaoProps> = ({
           </button>
         </header>
 
-        <div className="collection-preview" data-theme={tema}>
-          <AvatarComStatus avatarId={avatarId} nome="Seu Nome" size={72} />
-          <div>
-            <strong>Seu Nome</strong>
-            <span>Prévia local</span>
+        <div className="collection-deck-preview">
+          <div className="collection-deck-fan">
+            <img
+              src="/assets/cards/kabemjunto/card-back.webp"
+              alt="Verso do baralho Kabemjunto"
+              className="collection-deck-back"
+            />
+            {DECK_PREVIEW_SPECIALS.map((card, i) => (
+              <img
+                key={card.src}
+                src={card.src}
+                alt={card.alt}
+                className="collection-deck-special"
+                data-idx={i}
+              />
+            ))}
           </div>
-          <Palette size={19} aria-hidden="true" />
+          <span className="collection-deck-label">IDENTIDADE VISUAL DO BARALHO</span>
         </div>
 
         <div className="collection-section">

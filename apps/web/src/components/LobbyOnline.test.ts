@@ -16,4 +16,10 @@ describe('LobbyOnline', () => {
     expect(html).toContain('aria-describedby=');
     expect(html).toContain('novalidate');
   });
+
+  it('exibe dica tranquilizadora sobre conexao offline', () => {
+    const html = renderToStaticMarkup(createElement(LobbyOnline, { onEntrar: () => {} }));
+    expect(html).toContain('lobby-hint');
+    expect(html).toContain('conex');
+  });
 });

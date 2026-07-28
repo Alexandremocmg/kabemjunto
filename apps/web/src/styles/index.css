@@ -1308,12 +1308,15 @@ h5 {
 }
 .local-home-brand h1 {
   margin: 7px 0 4px;
-  color: #f8c56b;
-  font-family: var(--font-title);
-  font-size: clamp(38px, 11vw, 60px);
-  font-weight: 900;
-  letter-spacing: 0.04em;
-  line-height: 0.95;
+  display: flex;
+  justify-content: center;
+}
+.local-brand-logo {
+  height: clamp(38px, 11vw, 60px);
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+  display: block;
 }
 .local-home-brand p {
   color: #c2d6c8;
@@ -1477,10 +1480,8 @@ h5 {
     padding: 26px 18px;
     border-radius: 20px;
   }
-  .local-home-brand h1 {
-    font-size: 32px;
-    letter-spacing: 0;
-    white-space: nowrap;
+  .local-brand-logo {
+    height: 42px;
   }
   .local-config-grid {
     grid-template-columns: 1fr;
@@ -1634,6 +1635,55 @@ h5 {
 .victory-restart:focus-visible {
   outline: 3px solid #fff;
   outline-offset: 3px;
+}
+
+/* Fase 5 — prévia premium do baralho no PainelColecao */
+.collection-deck-preview {
+  margin-bottom: 21px;
+  padding: 14px 12px 11px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  text-align: center;
+}
+.collection-deck-fan {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  margin-bottom: 9px;
+}
+.collection-deck-back {
+  position: relative;
+  z-index: 2;
+  height: 86px;
+  width: auto;
+  border-radius: 8px;
+  object-fit: cover;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.56);
+}
+.collection-deck-special {
+  height: 74px;
+  width: auto;
+  border-radius: 7px;
+  object-fit: cover;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.44);
+  margin-left: -14px;
+}
+.collection-deck-special[data-idx='0'] {
+  transform: rotate(-10deg) translateY(6px);
+}
+.collection-deck-special[data-idx='1'] {
+  transform: rotate(-4deg) translateY(2px);
+}
+.collection-deck-special[data-idx='2'] {
+  transform: rotate(3deg) translateY(0);
+}
+.collection-deck-label {
+  color: #789780;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
 /* Fase 4 — coleção e personalização local */
@@ -1837,12 +1887,21 @@ h5 {
   outline-offset: 2px;
 }
 @media (max-width: 480px) {
+  .collection-backdrop {
+    padding: 0;
+    align-items: end;
+  }
   .collection-panel {
+    width: 100%;
+    max-height: 88dvh;
     padding: 20px 16px;
-    border-radius: 18px;
+    border-radius: 20px 20px 0 0;
   }
   .avatar-grid {
     grid-template-columns: repeat(4, 1fr);
+  }
+  .collection-deck-preview {
+    overflow-x: hidden;
   }
 }
 
@@ -2039,4 +2098,186 @@ h5 {
   .player-table-ring.player-count-6 {
     --seat-radius: 128px;
   }
+}
+
+/* ── Fase 1-3 — classes visuais de carta e mesa ──────────────────────── */
+
+/* Imagem de verso da carta — cobre a face inteira */
+.card-back-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+  object-fit: cover;
+  display: block;
+}
+
+/* Arte premium (5 cartas especiais neutras) — cobre a face inteira */
+.card-art-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+  object-fit: cover;
+  display: block;
+}
+
+/* Índice de canto sobreposto nas cartas com arte premium */
+.card-art-corner-index {
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  z-index: 2;
+  font-family: var(--font-title);
+  font-size: 16px;
+  font-weight: 900;
+  color: #fff;
+  text-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.9),
+    0 0 12px rgba(0, 0, 0, 0.7);
+  line-height: 1;
+  pointer-events: none;
+}
+
+/* Modificador para wrapper quando a carta tem arte real */
+.card-wrapper.card-has-art {
+  border: 2.5px solid rgba(255, 255, 255, 0.85);
+  box-shadow:
+    0 6px 22px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 215, 0, 0.12);
+}
+
+/* Valor do canto (número/símbolo) */
+.card-corner-value {
+  font-family: var(--font-title);
+  font-weight: 900;
+  line-height: 1;
+}
+
+/* Símbolo de cor no canto (•, ■, ▲, etc.) */
+.card-corner-symbol {
+  font-size: 0.65em;
+  opacity: 0.85;
+  line-height: 1;
+}
+
+/* Template carta numérica — face colorida padrão, sem diferencial visual */
+.card-template-numeric {
+  /* sem estilo adicional; herda .card-face */
+}
+
+/* Template ação colorida — leve intensidade extra no valor central */
+.card-template-acao .card-center-val {
+  font-size: 56px;
+  letter-spacing: -0.02em;
+}
+
+/* Template neutra sem arte — gradiente multicolor (fallback) */
+.card-template-neutra {
+  /* herda o gradiente NEUTRO/NEUTRA já definido em .card-face.NEUTRO */
+}
+
+/* Texto "0+" com brilho dourado — exibido no centro da carta */
+.zeroplus-glow {
+  display: inline-block;
+  color: #f8c56b;
+  text-shadow:
+    0 0 14px rgba(248, 197, 107, 0.95),
+    0 4px 10px rgba(0, 0, 0, 0.5);
+}
+
+/* Mini carta de fã (assentos de oponentes) — via className em vez de span nú */
+.mini-card-fan-item {
+  width: 13px;
+  height: 18px;
+  margin-left: -4px;
+  background: linear-gradient(135deg, #f8c56b, #7e4d2b);
+  border: 1px solid #fff;
+  border-radius: 3px;
+  transform-origin: bottom center;
+  flex: 0 0 auto;
+}
+
+/* Badge de ataque grande (≥ 8) */
+.attack-badge.attack-badge-big {
+  font-size: 26px;
+  padding: 10px 18px;
+  box-shadow: 0 0 32px #ff0000;
+}
+
+/* Rótulo do monte de compra */
+.pile-label-deck {
+  /* herda .pile-label — sem diferencial nesta versão */
+}
+
+/* Pílulas de status da barra de mesa */
+.status-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  background: rgba(7, 19, 13, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  font-size: 11px;
+  color: #f0f6fc;
+  white-space: nowrap;
+}
+
+.status-pill strong {
+  font-family: var(--font-title);
+  font-weight: 800;
+  font-size: 11px;
+}
+
+/* Variante de perigo na pílula de status */
+.status-pill.status-pill-danger {
+  background: rgba(120, 20, 20, 0.85);
+  border-color: rgba(231, 76, 60, 0.65);
+  color: #ffa7a7;
+}
+
+/* Ícone de sentido de jogo */
+.status-sentido-icone {
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* Bolinha de cor ativa */
+.status-color-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 6px currentColor;
+}
+
+/* Símbolo acessível da cor na pílula */
+.status-symbol {
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+/* Contagem de cartas de jogador offline */
+.player-seat-count.player-seat-count-offline {
+  background: #6c757d;
+  color: #dde;
+  opacity: 0.7;
+}
+
+/* Chip "SUA VEZ" na barra de status da mão (usa <b> para não interferir no seletor span do E2E) */
+.hand-status-vez {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(248, 197, 107, 0.22);
+  border: 1px solid rgba(248, 197, 107, 0.65);
+  color: #f8c56b;
+  font-family: var(--font-title);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
 }

@@ -44,7 +44,13 @@ export const Lobby: React.FC<LobbyProps> = ({ onIniciarJogo }) => {
       <section className="local-home-card" aria-labelledby="local-home-title">
         <div className="local-home-brand">
           <span className="local-home-kicker">MESA LOCAL</span>
-          <h1 id="local-home-title">KABEMJUNTO</h1>
+          <h1 id="local-home-title">
+            <img
+              src="/assets/cards/kabemjunto/brand-kabemjunto.webp"
+              alt="Kabemjunto"
+              className="local-brand-logo"
+            />
+          </h1>
           <p>O jogo de cartas que te denuncia.</p>
         </div>
 

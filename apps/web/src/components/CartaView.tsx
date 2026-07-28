@@ -1,6 +1,7 @@
 import React from 'react';
 import { Carta } from '@kabemjunto/shared/types';
 import { PALETA_CORES } from '@kabemjunto/shared/constants/cards';
+import { getCardVisual, getCardAltText, CARD_BACK_ASSET } from './cardVisuals.js';
 
 interface CartaViewProps {
   carta?: Carta;
@@ -35,17 +36,16 @@ function getCartaLabel(carta: Carta): string {
   return labels[carta.acao ?? ''] ?? 'Carta';
 }
 
-function getIcone(carta: Carta): string {
+function getIconeTexto(carta: Carta): string {
   if (carta.valor !== undefined) return `${carta.valor}`;
-  if (carta.acao === 'SKIP') return '🚫';
-  if (carta.acao === 'REVERSE') return '🔄';
+  if (carta.acao === 'SKIP') return '⊘';
+  if (carta.acao === 'REVERSE') return '⇄';
   if (carta.acao === 'MAIS_DOIS') return '+2';
   if (carta.acao === 'MAIS_QUATRO') return '+4';
   if (carta.acao === 'ZERO_MAIS') return '0+';
-  if (carta.acao === 'TROCA_MAO') return '🤝';
-  if (carta.acao === 'GIRA_MAO') return '🌀';
-  if (carta.acao === 'CORINGA_SIMPLES') return '🎨';
-  // A carta 7 é deliberadamente secreta: seu valor numérico já foi retornado acima.
+  if (carta.acao === 'TROCA_MAO') return '⇌';
+  if (carta.acao === 'GIRA_MAO') return '↻';
+  if (carta.acao === 'CORINGA_SIMPLES') return '✦';
   if (carta.acao === 'SILENCIO') return '7';
   return '?';
 }
@@ -61,99 +61,137 @@ export const CartaView: React.FC<CartaViewProps> = ({
   selecionada = false,
   contador,
 }) => {
+  const width = pequena ? '80px' : '130px';
+  const height = pequena ? '115px' : '185px';
+
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (jogavel && (event.key === 'Enter' || event.key === ' ')) {
+      event.preventDefault();
+      onClick?.();
+    }
+  };
+
+  // ── Verso / Monte de Compra ──────────────────────────────────────────────
   if (verso) {
     return (
       <div
         className={`card-wrapper card-back ${!jogavel ? 'disabled' : 'playable'}`}
         onClick={jogavel ? onClick : undefined}
-        onKeyDown={(event) => {
-          if (jogavel && (event.key === 'Enter' || event.key === ' ')) {
-            event.preventDefault();
-            onClick?.();
-          }
-        }}
+        onKeyDown={handleKeyDown}
         role={onClick ? 'button' : undefined}
         tabIndex={jogavel && onClick ? 0 : -1}
         aria-disabled={!jogavel}
         aria-label={jogavel ? 'Comprar carta' : (motivoBloqueio ?? 'Monte de compra bloqueado')}
         title={motivoBloqueio ?? 'Monte de compra'}
-        style={{ width: pequena ? '80px' : '130px', height: pequena ? '115px' : '185px' }}
+        style={{ width, height }}
       >
         <img
-          src="/assets/svgs/card-back.svg"
-          alt="Verso da Carta"
-          style={{
-            width: '100%',
-            height: '100%',
-            borderRadius: '12px',
-            boxShadow: '0 4px 15px rgba(0,0,0,0.5)',
-          }}
+          src={CARD_BACK_ASSET}
+          alt="Verso da carta Kabemjunto"
+          className="card-back-image"
+          draggable={false}
         />
-        {contador && <span className="card-back-count">{contador}</span>}
+        {contador && (
+          <span className="card-back-count" aria-label={`Monte com ${contador} cartas`}>
+            {contador}
+          </span>
+        )}
       </div>
     );
   }
 
   if (!carta) return null;
 
+  const visual = getCardVisual(carta);
   const corKey = carta.cor || 'NEUTRO';
   const infoCor = PALETA_CORES[corKey] || PALETA_CORES.NEUTRO;
-  const icone = getIcone(carta);
+  const iconeTexto = getIconeTexto(carta);
+
   const classes = [
     'card-wrapper',
     jogavel ? 'playable' : 'disabled',
     carta.acao === 'ZERO_MAIS' ? 'zeroplus-active' : '',
     shaking ? 'card-shake' : '',
     selecionada ? 'selected' : '',
+    visual.kind === 'asset' ? 'card-has-art' : '',
   ]
     .filter(Boolean)
     .join(' ');
+
+  // ── Carta com arte premium (5 neutras especiais) ────────────────────────
+  if (visual.kind === 'asset') {
+    return (
+      <div
+        className={classes}
+        onClick={jogavel ? onClick : undefined}
+        onKeyDown={handleKeyDown}
+        role={onClick ? 'button' : undefined}
+        tabIndex={jogavel && onClick ? 0 : -1}
+        aria-disabled={!jogavel}
+        aria-pressed={selecionada}
+        aria-label={jogavel ? getCartaLabel(carta) : (motivoBloqueio ?? getCartaLabel(carta))}
+        title={motivoBloqueio ?? carta.efeito_texto_longo}
+        style={{ width, height }}
+      >
+        <img
+          src={visual.src}
+          alt={getCardAltText(carta)}
+          className="card-art-image"
+          draggable={false}
+        />
+        {/* índice no canto para acessibilidade de leitura rápida */}
+        <span className="card-art-corner-index" aria-hidden="true">
+          {iconeTexto}
+        </span>
+      </div>
+    );
+  }
+
+  // ── Template CSS — numérica, ação colorida ou neutra sem arte ───────────
+  const templateClass =
+    visual.variant === 'numeric'
+      ? 'card-template-numeric'
+      : visual.variant === 'acao-colorida'
+        ? 'card-template-acao'
+        : 'card-template-neutra';
 
   return (
     <div
       className={classes}
       onClick={jogavel ? onClick : undefined}
-      onKeyDown={(event) => {
-        if (jogavel && (event.key === 'Enter' || event.key === ' ')) {
-          event.preventDefault();
-          onClick?.();
-        }
-      }}
+      onKeyDown={handleKeyDown}
       role={onClick ? 'button' : undefined}
       tabIndex={jogavel && onClick ? 0 : -1}
       aria-disabled={!jogavel}
       aria-pressed={selecionada}
       aria-label={jogavel ? getCartaLabel(carta) : (motivoBloqueio ?? getCartaLabel(carta))}
       title={motivoBloqueio ?? carta.efeito_texto_longo}
-      style={{
-        width: pequena ? '85px' : '130px',
-        height: pequena ? '120px' : '185px',
-      }}
+      style={{ width, height }}
     >
-      <div className={`card-face ${corKey}`}>
+      <div className={`card-face ${corKey} ${templateClass}`}>
         <div
           className="card-corner card-corner-top"
-          style={{ fontSize: pequena ? '14px' : '20px' }}
+          style={{ fontSize: pequena ? '13px' : '18px' }}
+          aria-hidden="true"
         >
-          <span>{icone}</span>
-          <span style={{ marginLeft: '4px', fontSize: '0.8em', opacity: 0.8 }}>
-            {infoCor.simboloAcessivel}
-          </span>
+          <span className="card-corner-value">{iconeTexto}</span>
+          <span className="card-corner-symbol">{infoCor.simboloAcessivel}</span>
         </div>
 
-        <div className="card-center-val" style={{ fontSize: pequena ? '26px' : '48px' }}>
-          {carta.acao === 'ZERO_MAIS' ? (
-            <span style={{ color: '#F1C40F', textShadow: '0 0 10px #F39C12' }}>0+</span>
-          ) : (
-            icone
-          )}
+        <div
+          className="card-center-val"
+          style={{ fontSize: pequena ? '28px' : '52px' }}
+          aria-hidden="true"
+        >
+          {carta.acao === 'ZERO_MAIS' ? <span className="zeroplus-glow">0+</span> : iconeTexto}
         </div>
 
         <div
           className="card-corner card-corner-bottom"
-          style={{ fontSize: pequena ? '14px' : '20px' }}
+          style={{ fontSize: pequena ? '13px' : '18px' }}
+          aria-hidden="true"
         >
-          <span>{icone}</span>
+          <span className="card-corner-value">{iconeTexto}</span>
         </div>
       </div>
     </div>

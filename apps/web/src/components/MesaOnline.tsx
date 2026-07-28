@@ -1,5 +1,6 @@
 import React from 'react';
 import type { Carta, EstadoPartidaPublico, JogadorPublico } from '@kabemjunto/shared';
+import { PALETA_CORES } from '@kabemjunto/shared/constants/cards';
 import { CartaView } from './CartaView';
 
 interface MesaOnlineProps {
@@ -9,6 +10,14 @@ interface MesaOnlineProps {
   selectedCardId?: string | undefined;
   onSelecionarCarta: (carta: Carta) => void;
   onComprarCarta: () => void;
+}
+
+function SentidoIcone({ sentido }: { sentido: number }) {
+  return (
+    <span aria-hidden="true" className="status-sentido-icone">
+      {sentido === 1 ? '↻' : '↺'}
+    </span>
+  );
 }
 
 function AssentoOnline({
@@ -34,11 +43,11 @@ function AssentoOnline({
         {
           '--seat-angle': `${angle}deg`,
           '--seat-offset-x': `${Math.sin(radians) * 140}px`,
-          '--seat-offset-y': `${-Math.cos(radians) * 210}px`,
+          '--seat-offset-y': `${-Math.cos(radians) * 160}px`,
         } as React.CSSProperties
       }
       data-seat-index={index}
-      aria-label={`Assento ${index + 1} de ${totalJogadores}: ${jogador.nome}`}
+      aria-label={`${jogador.nome}${ativo ? ' — vez deste jogador' : ''} · ${jogador.quantidadeCartas} cartas · ${jogador.conectado ? 'Online' : 'Offline'}`}
     >
       <div className="player-seat-avatar" aria-hidden="true">
         {jogador.avatar || '👤'}
@@ -47,7 +56,10 @@ function AssentoOnline({
         <strong>{jogador.nome}</strong>
         <span>{voce ? 'Você' : jogador.conectado ? 'Online' : 'Offline'}</span>
       </div>
-      <div className="player-seat-count" aria-label={`${jogador.quantidadeCartas} cartas`}>
+      <div
+        className={`player-seat-count ${!jogador.conectado ? 'player-seat-count-offline' : ''}`}
+        aria-label={`${jogador.quantidadeCartas} cartas`}
+      >
         {jogador.quantidadeCartas}
       </div>
     </div>
@@ -66,9 +78,12 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
   const jogadorAtual = estado.jogadores.find((jogador) => jogador.id === estado.vezDe);
   const totalJogadores = estado.jogadores.length;
   const indiceLocal = estado.jogadores.findIndex((jogador) => jogador.id === jogadorId);
+  const corAtiva = estado.corAtiva ?? 'LARANJA';
+  const infoCor = PALETA_CORES[corAtiva] ?? PALETA_CORES.NEUTRO;
 
   return (
     <div className="table-area online-table-area">
+      {/* Assentos em anel rotacionados para o local ficar no rodapé */}
       <div
         className={`player-table player-table-ring player-count-${Math.min(totalJogadores, 10)}`}
         aria-label="Jogadores na mesa online"
@@ -89,19 +104,26 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
         })}
       </div>
 
+      {/* Núcleo: Monte de Compra (esq.) | Monte de Descarte (dir.) */}
       <div className="table-center" aria-label="Núcleo da mesa online">
         <div className="deck-slot" title={minhaVez ? 'Comprar carta' : 'Aguardando sua vez'}>
           <CartaView
             verso
-            contador={`MONTE ${estado.quantidadeMonteCompra}`}
+            contador={`${estado.quantidadeMonteCompra}`}
             jogavel={minhaVez}
             {...(!minhaVez ? { motivoBloqueio: 'Aguardando o turno.' } : {})}
             onClick={onComprarCarta}
           />
+          <span className="pile-label pile-label-deck">MONTE</span>
         </div>
+
         <div className="discard-slot">
           {estado.ataqueAcumulado > 0 && (
-            <div className="attack-badge" role="status">
+            <div
+              className={`attack-badge ${estado.ataqueAcumulado >= 8 ? 'attack-badge-big' : ''}`}
+              role="status"
+              aria-label={`Ataque acumulado: +${estado.ataqueAcumulado}`}
+            >
               +{estado.ataqueAcumulado}
             </div>
           )}
@@ -110,36 +132,61 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
         </div>
       </div>
 
-      <div className={`turn-summary ${estado.ataqueAcumulado > 0 ? 'danger' : ''}`}>
+      {/* Resumo de turno */}
+      <div
+        className={`turn-summary ${estado.ataqueAcumulado > 0 ? 'danger' : ''}`}
+        role="status"
+        aria-live="polite"
+      >
         <strong>{minhaVez ? 'SUA VEZ' : (jogadorAtual?.nome ?? 'Jogador')}</strong>
         <span>
           {minhaVez
-            ? 'Toque uma carta duas vezes para confirmar ou compre no monte.'
-            : 'Aguardando o próximo jogador.'}
+            ? estado.ataqueAcumulado > 0
+              ? `Ataque +${estado.ataqueAcumulado}: cubra com +2/+4 ou compre no monte.`
+              : 'Toque uma carta para selecionar, toque novamente para confirmar.'
+            : `Aguardando ${jogadorAtual?.nome ?? 'o próximo jogador'}.`}
         </span>
       </div>
 
+      {/* Faixa de status */}
       <div className="table-status-bar" aria-label="Status da mesa online">
-        <div className="color-indicator">
-          <span className="status-label">Cor ativa</span>
-          <strong>{estado.corAtiva}</strong>
+        <div
+          className="status-pill"
+          style={{ '--kb-pill-accent': infoCor.hex } as React.CSSProperties}
+        >
+          <span
+            className="status-color-dot"
+            style={{ background: infoCor.hex }}
+            aria-hidden="true"
+          />
+          <span className="status-label">Cor</span>
+          <strong style={{ color: infoCor.hex }}>{infoCor.nomePt}</strong>
         </div>
-        <div className="color-indicator">
+
+        <div className="status-pill">
+          <SentidoIcone sentido={estado.sentido} />
           <span className="status-label">Sentido</span>
-          <strong>{estado.sentido === 1 ? '↻ Horário' : '↺ Anti-horário'}</strong>
+          <strong>{estado.sentido === 1 ? 'Horário' : 'Anti-horário'}</strong>
         </div>
+
         {estado.ataqueAcumulado > 0 && (
-          <div className="color-indicator attack-indicator">Ataque +{estado.ataqueAcumulado}</div>
+          <div className="status-pill status-pill-danger" role="status">
+            <span aria-hidden="true">⚡</span>
+            <strong>Ataque +{estado.ataqueAcumulado}</strong>
+          </div>
         )}
       </div>
 
+      {/* Mão do jogador local — dock inferior */}
       <section className="online-hand-container" aria-label={`Sua mão: ${mao.length} cartas`}>
         <div className="hand-status" role="status" aria-live="polite">
           <strong>SUA MÃO</strong>
-          <span>
-            {minhaVez ? 'SUA VEZ · ' : ''}
-            {mao.length} cartas
-          </span>
+          {minhaVez && (
+            <b className="hand-status-vez" aria-label="É a sua vez">
+              SUA VEZ
+            </b>
+          )}
+          <span>{mao.length} cartas</span>
         </div>
         <div className="hand-cards hand-fan" role="list">
           {mao.map((carta, index) => (

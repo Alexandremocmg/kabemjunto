@@ -8,6 +8,14 @@ interface MesaDeJogoProps {
   onComprarCarta: () => void;
 }
 
+function SentidoIcone({ sentido }: { sentido: number }) {
+  return (
+    <span aria-hidden="true" className="status-sentido-icone">
+      {sentido === 1 ? '↻' : '↺'}
+    </span>
+  );
+}
+
 function PlayerSeat({
   jogador,
   index,
@@ -19,20 +27,21 @@ function PlayerSeat({
   active: boolean;
   totalJogadores: number;
 }) {
-  const previewCards = Math.min(jogador.mao.length, 4);
+  const previewCards = Math.min(jogador.mao.length, 5);
   const angle = 180 + (index * 360) / totalJogadores;
   const radians = (angle * Math.PI) / 180;
   const seatStyle = {
     '--seat-angle': `${angle}deg`,
     '--seat-offset-x': `${Math.sin(radians) * 140}px`,
-    '--seat-offset-y': `${-Math.cos(radians) * 210}px`,
+    '--seat-offset-y': `${-Math.cos(radians) * 160}px`,
   } as React.CSSProperties;
+
   return (
     <div
       className={`player-seat player-seat-ring ${jogador.isBot ? '' : 'player-seat-you'} ${active ? 'active' : ''}`}
       style={seatStyle}
       data-seat-index={index}
-      aria-label={`Assento ${index + 1} de ${totalJogadores}: ${jogador.nome}`}
+      aria-label={`${jogador.nome}${active ? ' — vez deste jogador' : ''}, ${jogador.mao.length} cartas`}
     >
       <div className="player-seat-avatar" aria-hidden="true">
         {jogador.avatar || '👤'}
@@ -45,8 +54,12 @@ function PlayerSeat({
         {jogador.mao.length}
       </div>
       <div className="mini-card-fan" aria-hidden="true">
-        {Array.from({ length: previewCards }, (_, cardIndex) => (
-          <span key={cardIndex} style={{ transform: `rotate(${(cardIndex - 1.5) * 8}deg)` }} />
+        {Array.from({ length: previewCards }, (_, i) => (
+          <span
+            key={i}
+            className="mini-card-fan-item"
+            style={{ transform: `rotate(${(i - (previewCards - 1) / 2) * 9}deg)` }}
+          />
         ))}
       </div>
     </div>
@@ -65,6 +78,7 @@ export const MesaDeJogo: React.FC<MesaDeJogoProps> = ({ estado, onComprarCarta }
 
   return (
     <div className="table-area">
+      {/* Assentos em anel */}
       <div
         className={`player-table player-table-ring player-count-${Math.min(totalJogadores, 10)}`}
         aria-label="Jogadores na mesa"
@@ -80,55 +94,79 @@ export const MesaDeJogo: React.FC<MesaDeJogoProps> = ({ estado, onComprarCarta }
         ))}
       </div>
 
+      {/* Núcleo: Monte de Compra (esq.) | Monte de Descarte (dir.) */}
       <div className="table-center" aria-label="Núcleo da mesa">
         <div className="deck-slot" title={compraLabel}>
           <CartaView
             verso={true}
-            contador={`MONTE ${estado.monteCompra.length}`}
+            contador={`${estado.monteCompra.length}`}
             jogavel={compraDisponivel}
             {...(jogadorAtual?.isBot ? { motivoBloqueio: 'Aguardando o bot jogar.' } : {})}
             onClick={onComprarCarta}
           />
+          <span className="pile-label pile-label-deck">MONTE</span>
         </div>
 
         <div className="discard-slot">
           {estado.ataqueAcumulado > 0 && (
-            <div className="attack-badge" role="status">
+            <div
+              className={`attack-badge ${estado.ataqueAcumulado >= 8 ? 'attack-badge-big' : ''}`}
+              role="status"
+              aria-label={`Ataque acumulado: +${estado.ataqueAcumulado}`}
+            >
               +{estado.ataqueAcumulado}
             </div>
           )}
           {topo && <CartaView carta={topo} jogavel={false} />}
-          <span className="pile-label">DESCARTE {estado.monteDescarte.length}</span>
+          <span className="pile-label">DESCARTE</span>
         </div>
       </div>
 
-      <div className={`turn-summary ${estado.ataqueAcumulado > 0 ? 'danger' : ''}`}>
+      {/* Resumo de turno — fluxo normal, não absoluto em mobile */}
+      <div
+        className={`turn-summary ${estado.ataqueAcumulado > 0 ? 'danger' : ''}`}
+        role="status"
+        aria-live="polite"
+      >
         <strong>{jogadorAtual?.nome ?? 'Jogador'}</strong>
         <span>
           {jogadorAtual?.isBot
             ? 'Bot executando o turno.'
             : estado.ataqueAcumulado > 0
-              ? `Ataque ativo: +${estado.ataqueAcumulado}. Cubra com a mesma defesa ou compre.`
-              : 'Toque em uma carta para jogar ou no monte para comprar.'}
+              ? `Ataque ativo: +${estado.ataqueAcumulado}. Cubra com +2/+4 ou pague.`
+              : 'Toque em uma carta para selecionar, depois confirme. Ou compre no monte.'}
         </span>
       </div>
 
+      {/* Faixa de status — cor, sentido, ataque */}
       <div className="table-status-bar" aria-label="Status da mesa">
-        <div className="color-indicator">
-          <span className="status-label">Cor ativa</span>
-          <div className="color-dot" style={{ backgroundColor: infoCor.hex, color: infoCor.hex }} />
-          <span style={{ fontWeight: '800', color: infoCor.hex }}>
-            {infoCor.nomePt} {infoCor.simboloAcessivel}
+        <div
+          className="status-pill"
+          style={{ '--kb-pill-accent': infoCor.hex } as React.CSSProperties}
+        >
+          <span
+            className="status-color-dot"
+            style={{ background: infoCor.hex }}
+            aria-hidden="true"
+          />
+          <span className="status-label">Cor</span>
+          <strong style={{ color: infoCor.hex }}>{infoCor.nomePt}</strong>
+          <span className="status-symbol" aria-hidden="true">
+            {infoCor.simboloAcessivel}
           </span>
         </div>
-        <div className="color-indicator">
+
+        <div className="status-pill">
+          <SentidoIcone sentido={estado.sentido} />
           <span className="status-label">Sentido</span>
-          <span style={{ fontWeight: '800', color: '#F0F6FC' }}>
-            {estado.sentido === 1 ? '↻ Horário' : '↺ Anti-horário'}
-          </span>
+          <strong>{estado.sentido === 1 ? 'Horário' : 'Anti-horário'}</strong>
         </div>
+
         {estado.ataqueAcumulado > 0 && (
-          <div className="color-indicator attack-indicator">Ataque +{estado.ataqueAcumulado}</div>
+          <div className="status-pill status-pill-danger" role="status">
+            <span aria-hidden="true">⚡</span>
+            <strong>Ataque +{estado.ataqueAcumulado}</strong>
+          </div>
         )}
       </div>
     </div>

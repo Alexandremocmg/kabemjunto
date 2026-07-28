@@ -140,6 +140,7 @@ export const LobbyOnline: React.FC<LobbyOnlineProps> = ({ onEntrar, erro, desabi
           {errorMessage}
         </p>
       )}
+      <p className="lobby-hint">A conexão começa ao criar ou entrar em uma sala.</p>
     </section>
   );
 };
