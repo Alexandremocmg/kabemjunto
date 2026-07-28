@@ -419,16 +419,26 @@ export class JsonRoomPersistence implements RoomPersistence {
   probeWritable(): boolean {
     const directory = dirname(this.filePath);
     const probePath = `${this.filePath}.${process.pid}.${randomUUID()}.probe`;
+    const cleanup = (): void => {
+      // `force: true` só suprime ENOENT (caminho ausente) — se um segmento
+      // do caminho não é diretório (ENOTDIR), ainda lança. Isso é só
+      // limpeza best-effort de uma sonda, nunca deve derrubar o probe.
+      try {
+        rmSync(probePath, { force: true });
+      } catch {
+        // ignorado de propósito
+      }
+    };
     try {
       mkdirSync(directory, { recursive: true, mode: 0o700 });
       const descriptor = openSync(probePath, 'wx', 0o600);
       writeFileSync(descriptor, 'probe', 'utf8');
       fsyncSync(descriptor);
       closeSync(descriptor);
-      rmSync(probePath, { force: true });
+      cleanup();
       return true;
     } catch {
-      rmSync(probePath, { force: true });
+      cleanup();
       return false;
     }
   }

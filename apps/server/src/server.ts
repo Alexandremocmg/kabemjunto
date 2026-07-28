@@ -24,7 +24,7 @@ const HTTP_RATE_LIMIT_PER_MINUTE = 120;
 // espelha a estrutura de diretórios na imagem final.
 const WEB_DIST_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../../web/dist');
 
-export async function buildServer(config: AppConfig = loadConfig()) {
+export async function buildServer(config: AppConfig = loadConfig(), webDistDir = WEB_DIST_DIR) {
   const app = Fastify({
     bodyLimit: HTTP_BODY_LIMIT_BYTES,
     logger:
@@ -60,8 +60,8 @@ export async function buildServer(config: AppConfig = loadConfig()) {
 
   // Serve o frontend estático no mesmo origin/porta do Fastify + Socket.IO.
   // Sem build do frontend (ex.: rodando só a suíte de testes), não registra nada.
-  if (existsSync(WEB_DIST_DIR)) {
-    await app.register(staticFiles, { root: WEB_DIST_DIR });
+  if (existsSync(webDistDir)) {
+    await app.register(staticFiles, { root: webDistDir });
     app.setNotFoundHandler((request, reply) => {
       if (request.method !== 'GET' || request.url.startsWith('/socket.io')) {
         return reply.code(404).send({ status: 'not_found' });
