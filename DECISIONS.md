@@ -13,6 +13,8 @@ Este arquivo registra as Decisões de Arquitetura (ADRs) do projeto Kabemjunto.
 - [ADR-007: Mavis como Gerente/Revisor (Especialização por Papel)](#adr-007-mavis-como-gerenterevisor-especialização-por-papel)
 - [ADR-008: Dual App (Manter `src/` Legacy + `apps/web/` Novo)](#adr-008-dual-app-manter-src-legacy--appsweb-novo)
 - [ADR-009: Consolidação do App Único em `apps/web/` (Fim do Dual App)](#adr-009-consolidação-do-app-único-em-appsweb-fim-do-dual-app)
+- [ADR-010: Redesign da Mesa Mobile e Carta 7 Visualmente Secreta](#adr-010-redesign-da-mesa-mobile-e-carta-7-visualmente-secreta)
+- [ADR-011: Persistência Atômica em Instância Única e Container Same-Origin](#adr-011-persistência-atômica-em-instância-única-e-container-same-origin)
 
 ---
 
@@ -283,3 +285,62 @@ Este arquivo registra as Decisões de Arquitetura (ADRs) do projeto Kabemjunto.
   - ✅ Compra, seleção e eventos têm affordance mobile e acessível.
   - ❌ O modo de 5–10 jogadores e partidas em rodadas ficam para decisões
     posteriores.
+
+---
+
+### ADR-011: Persistência Atômica em Instância Única e Container Same-Origin
+
+- **Status:** Aprovado · 2026-07-27 · @Mavis
+- **Contexto:** A Sprint 5 entregou multiplayer autoritativo funcional, mas o
+  `RoomStore` vive somente em memória. Um restart perde salas e partidas. O app
+  também depende de processos separados em desenvolvimento, CORS permissivo e
+  health check insuficiente para operação. A Sprint 6 precisa de recuperação,
+  deploy estável e observabilidade sem introduzir uma arquitetura distribuída
+  prematura.
+- **Decisão:**
+  1. Persistir snapshots versionados das salas em JSON sobre volume local,
+     usando gravação atômica (`arquivo temporário` + `rename`) antes de confirmar
+     a mutação ao cliente.
+  2. Persistir somente estado autoritativo durável. `socketId` e o mapa
+     `socketByPlayer` são transitórios e nunca entram no snapshot. Após restart,
+     todos os jogadores são restaurados como desconectados e retomam pelo
+     `jogadorId` estável.
+  3. Arquivo ausente significa primeiro boot. Snapshot inválido ou versão
+     desconhecida deve falhar explicitamente e deixar `/ready` vermelho; o
+     servidor nunca apaga nem substitui silenciosamente dados corrompidos.
+  4. Operar uma única instância autoritativa. O arquivo não será compartilhado
+     entre réplicas. Escala horizontal exige nova ADR e migração para banco
+     transacional/coordenação distribuída, preferencialmente Postgres para
+     snapshots e Redis para presença/pub-sub quando houver necessidade real.
+  5. Empacotar frontend estático, Fastify e Socket.IO em um container
+     same-origin. O volume padrão é `/data` e o caminho vem de
+     `ROOM_STORAGE_FILE`.
+  6. Produção usa configuração validada, CORS allowlist, Helmet, rate limits,
+     validação runtime de payloads, fixture E2E desativada e shutdown gracioso.
+  7. Observabilidade usa logs Pino JSON e métricas Prometheus de baixa
+     cardinalidade. Nome, conteúdo de chat, mãos, tokens, `salaId`, `jogadorId` e
+     `socketId` não podem aparecer em labels ou logs operacionais.
+  8. Railway com volume é o alvo operacional inicial sugerido por suportar
+     processo Node/WebSocket e storage persistente de baixo custo. O Dockerfile
+     permanece portável para Fly, Render pago ou VPS. Um plano que durma pode
+     fornecer URL estável, mas não pode ser descrito como always-on.
+- **Alternativas rejeitadas nesta sprint:**
+  - **Postgres desde o início:** robusto para múltiplas réplicas, porém adiciona
+    conta, migrações, pool e I/O assíncrono sem demanda atual.
+  - **Redis como única persistência:** adequado a presença/cache, menos adequado
+    como fonte durável única sem configuração específica de persistência.
+  - **SQLite nativo:** bom para instância única, mas adiciona dependência nativa e
+    complexidade de build desnecessária para snapshots pequenos.
+  - **Filesystem efêmero:** incompatível com o objetivo de recuperação.
+- **Gatilhos de revisão:**
+  - necessidade de duas ou mais réplicas;
+  - volume de snapshots que torne a gravação completa perceptível;
+  - SLA/backup que exija PITR;
+  - matchmaking compartilhado entre regiões;
+  - indisponibilidade aceitável menor que o restart de uma instância.
+- **Consequências:**
+  - ✅ Recuperação simples, auditável e testável sem serviço externo.
+  - ✅ Deploy portátil e Socket.IO same-origin.
+  - ✅ Segredos e PII ficam fora de logs/métricas.
+  - ❌ Uma única instância continua sendo ponto único de falha.
+  - ❌ Volume persistente e backup dependem do provedor escolhido.

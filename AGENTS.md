@@ -52,7 +52,7 @@ Cada agente só toca em arquivos do escopo da issue que pegou.
 
 ## Onde achar o briefing atual
 
-→ [`briefings/sprint-5.md`](./briefings/sprint-5.md) (Sprint 5 — fechamento da v0.4.0)
+→ [`briefings/sprint-6.md`](./briefings/sprint-6.md) (Sprint 6 — persistência, produção e operação)
 
 ## Onde achar feedback histórico
 

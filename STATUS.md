@@ -5,7 +5,14 @@
 **Time:** Mavis (lead) · Codex (eng. pleno) · Antigravity (eng. júnior)
 **Fonte da verdade:** [`GDD-Kabemjunto.md`](./GDD-Kabemjunto.md) v1.0 + [`PLANO-EQUIPE-3DEVS.md`](./PLANO-EQUIPE-3DEVS.md) v1.0
 **Branch:** `main`
-**Sprint atual:** Sprint 5 — **FECHADA** — release robusta v0.4.0
+**Sprint atual:** Sprint 6 — **EM ANDAMENTO** — persistência, produção e operação v0.5.0
+
+### Sprint 6 — kickoff
+
+- ✅ M21: ADR-011 aprovada — snapshots JSON atômicos, instância única e container same-origin.
+- 🔒 B23–B26 serão executadas sequencialmente pelo Codex sob lock estrito.
+- 🎯 Gates: recuperação após restart, hardening, health/métricas, container não-root e URL HTTPS estável.
+- ⚠️ Deploy real depende de vincular um provedor com volume persistente; nenhum token de Railway/Fly/Render está configurado no ambiente atual.
 
 ### Atualização técnica — TROCA_MAO
 
