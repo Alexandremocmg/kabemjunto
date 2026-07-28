@@ -18,6 +18,11 @@ import type {
   SocketEventMap,
 } from '@kabemjunto/shared';
 import { RoomError, RoomStore, toPublicState } from './room-store.js';
+import {
+  isNonEmptyString,
+  SocketRateLimiter,
+  type SocketActionCategory,
+} from './socket-security.js';
 
 type ClientEvents = {
   'client:entrar:sala': (payload: ClientEntrarSalaEvent) => void;
@@ -79,8 +84,30 @@ function sendPrivateHands(io: GameServer, session: ReturnType<RoomStore['get']>)
 }
 
 export function registerSocketHandlers(io: GameServer, store: RoomStore): void {
+  const limiter = new SocketRateLimiter();
+
+  /** Aplica o limite da categoria; se excedido, avisa o cliente e sinaliza pra abortar o handler. */
+  function checkRateLimit(socket: GameSocket, category: SocketActionCategory): boolean {
+    if (limiter.allow(socket.id, category)) return true;
+    socket.emit('server:erro', {
+      codigo: 'INTERNAL',
+      mensagem: 'Muitas ações em pouco tempo. Aguarde um instante.',
+    });
+    return false;
+  }
+
   io.on('connection', (socket: GameSocket) => {
     socket.on('client:entrar:sala', (payload) => {
+      if (!checkRateLimit(socket, 'sala')) return;
+      if (
+        !isNonEmptyString(payload.jogadorId, 128) ||
+        !isNonEmptyString(payload.salaId, 32) ||
+        !isNonEmptyString(payload.nome, 64) ||
+        (payload.resumeToken !== undefined && !isNonEmptyString(payload.resumeToken, 256))
+      ) {
+        emitError(socket, new RoomError('INTERNAL', 'Payload inválido para entrar na sala.'));
+        return;
+      }
       try {
         const joined = store.join({
           jogadorId: payload.jogadorId,
@@ -126,6 +153,7 @@ export function registerSocketHandlers(io: GameServer, store: RoomStore): void {
     });
 
     socket.on('client:iniciar:partida', () => {
+      if (!checkRateLimit(socket, 'jogo')) return;
       try {
         const salaId = roomId(socket);
         if (!salaId) throw new RoomError('SALA_INEXISTENTE', 'Entre em uma sala primeiro.');
@@ -138,6 +166,14 @@ export function registerSocketHandlers(io: GameServer, store: RoomStore): void {
     });
 
     socket.on('client:jogar', (payload) => {
+      if (!checkRateLimit(socket, 'jogo')) return;
+      if (
+        !isNonEmptyString(payload.cartaId, 128) ||
+        (payload.alvoTrocaId !== undefined && !isNonEmptyString(payload.alvoTrocaId, 128))
+      ) {
+        emitError(socket, new RoomError('INTERNAL', 'Payload inválido para jogar carta.'));
+        return;
+      }
       try {
         const salaId = roomId(socket);
         const jogadorId = jogadorIdFromSocket(socket);
@@ -167,6 +203,7 @@ export function registerSocketHandlers(io: GameServer, store: RoomStore): void {
     });
 
     socket.on('client:comprar', (_payload) => {
+      if (!checkRateLimit(socket, 'jogo')) return;
       try {
         const salaId = roomId(socket);
         const jogadorId = jogadorIdFromSocket(socket);
@@ -182,6 +219,7 @@ export function registerSocketHandlers(io: GameServer, store: RoomStore): void {
     });
 
     socket.on('client:escolher:cor', (_payload) => {
+      if (!checkRateLimit(socket, 'jogo')) return;
       socket.emit('server:erro', {
         codigo: 'INTERNAL',
         mensagem: 'A cor deve ser enviada junto com a jogada da carta coringa.',
@@ -189,6 +227,8 @@ export function registerSocketHandlers(io: GameServer, store: RoomStore): void {
     });
 
     socket.on('client:chat:msg', (payload) => {
+      if (!checkRateLimit(socket, 'chat')) return;
+      if (!isNonEmptyString(payload.texto, 512)) return;
       const salaId = roomId(socket);
       const jogadorId = jogadorIdFromSocket(socket);
       if (!salaId || !jogadorId) {
@@ -202,6 +242,7 @@ export function registerSocketHandlers(io: GameServer, store: RoomStore): void {
     });
 
     socket.on('disconnect', () => {
+      limiter.releaseSocket(socket.id);
       const session = store.disconnect(socket.id);
       if (session) {
         io.to(session.sala.id).emit('server:sala:atualizada', {

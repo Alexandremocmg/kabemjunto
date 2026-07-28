@@ -94,14 +94,16 @@ Uma partida Online deve sobreviver a restart do processo, operar com configuraç
 
 **Dono:** Codex  
 **Dependência:** B28 aprovada  
-**Status:** BLOQUEADA
+**Status:** APROVADA
 
 **Pode tocar:**
 
 - `apps/server/src/config.ts` (novo)
 - `apps/server/src/config.test.ts` (novo)
 - `apps/server/src/server.ts`
+- `apps/server/src/server.test.ts` (novo — extensão pragmática fora da lista original, ver feedback)
 - `apps/server/src/socket.ts`
+- `apps/server/src/socket.test.ts` (extensão dos casos B28 com os casos de hardening)
 - `apps/server/src/socket-security.ts` (novo)
 - `apps/server/src/socket-security.test.ts` (novo)
 - `apps/server/package.json`
@@ -117,6 +119,7 @@ Uma partida Online deve sobreviver a restart do processo, operar com configuraç
 - `maxHttpBufferSize` do Socket.IO em 16 KiB e body HTTP máximo de 32 KiB;
 - payloads Socket.IO validados antes de chamar `RoomStore`;
 - usar `@fastify/helmet@11.1.1` e `@fastify/rate-limit@9.1.0`, compatíveis com Fastify 4;
+  **Correção:** servidor já roda Fastify 5.10.0 (desde B27) — usadas as versões compatíveis com Fastify 5, `@fastify/helmet@^12` e `@fastify/rate-limit@^10` (ver feedback).
 - fixture E2E impossível em produção;
 - shutdown gracioso em `SIGTERM`/`SIGINT`;
 - erros externos não incluem stack ou estado privado;
@@ -251,7 +254,7 @@ Uma partida Online deve sobreviver a restart do processo, operar com configuraç
 - [x] B27 — backend incluído no typecheck/build raiz.
 - [x] B23 — persistência aprovada.
 - [x] B28 — retomada autenticada aprovada.
-- [ ] B24 — hardening aprovado.
+- [x] B24 — hardening aprovado.
 - [ ] B25 — observabilidade aprovada.
 - [ ] B26 — container aprovado.
 - [ ] Sala aguardando sobrevive a restart.

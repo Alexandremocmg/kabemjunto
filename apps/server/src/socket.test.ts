@@ -92,3 +92,35 @@ describe('socket — B28', () => {
     }
   });
 });
+
+describe('socket — B24 (hardening)', () => {
+  it('rejeita payload com campo de tipo inválido antes de chamar o RoomStore', async () => {
+    const { url, store } = await harness();
+    const socket = await connect(url);
+    const errorEvent = once<ServerErroEvent>(socket, 'server:erro');
+
+    socket.emit('client:entrar:sala', { jogadorId: 42, salaId: 'ROOM1', nome: 'Ana' });
+
+    const error = await errorEvent;
+    expect(error.codigo).toBe('INTERNAL');
+    expect(store.get('ROOM1')).toBeUndefined();
+  });
+
+  it('aplica flood control por socket e categoria (chat)', async () => {
+    const { url } = await harness();
+    const socket = await connect(url);
+    socket.emit('client:entrar:sala', { jogadorId: 'player-1', salaId: 'ROOM1', nome: 'Ana' });
+    await once(socket, 'server:sessao:emitida');
+
+    for (let i = 0; i < 10; i++) {
+      socket.emit('client:chat:msg', { texto: `mensagem ${i}` });
+    }
+    const limited = once<ServerErroEvent>(socket, 'server:erro');
+    socket.emit('client:chat:msg', { texto: 'excesso' });
+
+    expect(await limited).toEqual({
+      codigo: 'INTERNAL',
+      mensagem: 'Muitas ações em pouco tempo. Aguarde um instante.',
+    });
+  });
+});

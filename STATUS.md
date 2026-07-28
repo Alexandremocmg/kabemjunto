@@ -23,6 +23,14 @@
 - 🔓 B24 (hardening) desbloqueada. Próximo: B24 → B25 → B26 → M22, nessa ordem (lock estrito sequencial).
 - ⚠️ Achado: spec de B24 assumia `@fastify/helmet@11.1.1`/`@fastify/rate-limit@9.1.0` (linha "Fastify 4"), mas o servidor já está em Fastify 5.10.0 desde B27. Vou usar as faixas compatíveis com Fastify 5 (`helmet@^12`, `rate-limit@^10`) na implementação de B24.
 
+### 2026-07-28 · Mavis — B24 aprovada (hardening do runtime)
+
+- ✅ B24 fechada: `config.ts` (Zod, fail-fast), Helmet, `@fastify/rate-limit` (120/min/IP), CORS por allowlist em produção, `bodyLimit` 32 KiB, `maxHttpBufferSize` 16 KiB, token bucket por socket (`socket-security.ts`), payloads validados antes do `RoomStore`, shutdown gracioso.
+- 🔧 Corrigidas as versões dos plugins Fastify pra série compatível com Fastify 5 (`helmet@^12`, `rate-limit@^10`) — a spec original assumia Fastify 4.
+- ✅ `npm run validate` 100% verde — 223/223 testes (25 novos cobrindo origem negada, allowlist em produção, payload inválido, limites de tamanho e flood).
+- 📄 Revisão completa em [`feedback/2026-07-28-b24-mavis.md`](./feedback/2026-07-28-b24-mavis.md).
+- 🔓 B25 (observabilidade) desbloqueada. Próximo: B25 → B26 → M22.
+
 ### Atualização técnica — TROCA_MAO
 
 - ✅ Motor implementa `TROCA_MAO` com alvo obrigatório, troca imutável e evento `MAO_TROCADA`.
