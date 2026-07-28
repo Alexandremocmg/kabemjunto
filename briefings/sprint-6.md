@@ -109,15 +109,18 @@ Uma partida Online deve sobreviver a restart do processo, operar com configuraç
 
 **Critério de pronto:**
 
-- configuração Zod com fail-fast;
-- CORS por allowlist; `origin: true` proibido em produção;
-- Helmet e limites de request ativos;
-- rate limit HTTP e por socket/evento;
-- payloads Socket.IO validados em runtime antes do `RoomStore`;
-- fixture E2E impossível em `NODE_ENV=production`;
+- configuração Zod falha cedo para env inválida;
+- produção aceita apenas `CORS_ORIGINS` explícitas; requests sem `Origin` continuam possíveis para health/probes;
+- headers Helmet ativos;
+- rate limit HTTP de 120 requisições/minuto/IP;
+- token bucket por socket: entrada/criação de sala 10/minuto, chat 10/10 segundos e ações de jogo 30/10 segundos;
+- `maxHttpBufferSize` do Socket.IO em 16 KiB e body HTTP máximo de 32 KiB;
+- payloads Socket.IO validados antes de chamar `RoomStore`;
+- usar `@fastify/helmet@11.1.1` e `@fastify/rate-limit@9.1.0`, compatíveis com Fastify 4;
+- fixture E2E impossível em produção;
 - shutdown gracioso em `SIGTERM`/`SIGINT`;
 - erros externos não incluem stack ou estado privado;
-- testes de origem negada, payload inválido e flood.
+- testes de origem negada, ausência de allowlist em produção, payload inválido, limites de tamanho e flood.
 
 ### B28 — Token seguro de retomada de sessão
 
