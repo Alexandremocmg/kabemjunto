@@ -160,6 +160,8 @@ Uma partida Online deve sobreviver a restart do processo, operar com configuraç
 
 - `apps/server/src/observability.ts` (novo)
 - `apps/server/src/observability.test.ts` (novo)
+- `apps/server/src/persistence.ts` somente para probe de gravabilidade/estado operacional
+- `apps/server/src/persistence.test.ts` para o probe
 - `apps/server/src/server.ts`
 - `apps/server/src/socket.ts`
 - `apps/server/package.json`
@@ -169,7 +171,7 @@ Uma partida Online deve sobreviver a restart do processo, operar com configuraç
 
 - Pino JSON em produção e pretty apenas em desenvolvimento;
 - `/live` comprova processo vivo;
-- `/ready` retorna 200 apenas após storage carregado e gravável;
+- `/ready` retorna 200 apenas após storage carregado e um probe atômico não destrutivo comprovar que o volume continua gravável;
 - `/metrics` em formato Prometheus, protegido por bearer token em produção;
 - métricas incluem conexões, salas por estado, eventos aceitos/rejeitados, latência e falhas de persistência;
 - labels são de baixa cardinalidade e não contêm nome, `salaId`, `jogadorId`, `socketId` ou conteúdo de chat;
