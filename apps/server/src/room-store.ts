@@ -3,6 +3,7 @@ import {
   Constants,
   comprarCartas,
   criarPartidaInicial,
+  executarDescarteMultiplo,
   executarJogada,
   penalizarQuebraSilencio,
   type Carta,
@@ -505,6 +506,41 @@ export class RoomStore {
       );
     }
     return this.saveState(session, novoEstado);
+  }
+
+  /** Executa um descarte múltiplo atomicamente, preservando a ordem enviada pelo jogador. */
+  playMultiple(salaId: string, jogadorId: JogadorId, cartaIds: ReadonlyArray<string>): RoomSession {
+    const session = this.requireActive(salaId);
+    if (session.estado.vezDe !== jogadorId) {
+      throw new RoomError('NAO_SUA_VEZ', 'Não é o seu turno.');
+    }
+    if (cartaIds.length < 2 || new Set(cartaIds).size !== cartaIds.length) {
+      throw new RoomError(
+        'JOGADA_INVALIDA',
+        'Descarte múltiplo requer ao menos duas cartas diferentes.',
+      );
+    }
+
+    const jogador = session.estado.jogadores.find((item) => item.id === jogadorId);
+    const cartaIndices = cartaIds.map(
+      (cartaId) => jogador?.mao.findIndex((carta) => carta.id === cartaId) ?? -1,
+    );
+    if (cartaIndices.some((index) => index < 0)) {
+      throw new RoomError('JOGADA_INVALIDA', 'Uma ou mais cartas não estão na sua mão.');
+    }
+
+    try {
+      const novoEstado = executarDescarteMultiplo({
+        estado: session.estado,
+        cartaIndices,
+      }).novoEstado;
+      return this.saveState(session, novoEstado);
+    } catch (error) {
+      throw new RoomError(
+        'JOGADA_INVALIDA',
+        error instanceof Error ? error.message : 'Jogada inválida.',
+      );
+    }
   }
 
   buy(salaId: string, jogadorId: JogadorId): RoomSession {

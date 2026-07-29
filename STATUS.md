@@ -357,3 +357,14 @@ Estado: documentação atualizada e Fase 1 autorizada para implementação.
 - Lobby Online mantém nome em `localStorage`, valida nome/código e oferece cópia do código com fallback para browsers sem Clipboard API.
 
 > Diário completo desta data: [`docs/CHANGELOG-2026-07-27.md`](./docs/CHANGELOG-2026-07-27.md).
+
+---
+
+## 🃏 Gameplay — Descarte Múltiplo V1 · 2026-07-29
+
+- Local e Online aceitam um lote atômico de 2+ cartas da mesma face: mesmo número, `+2`, Skip ou Reverse.
+- A primeira carta respeita a mesa; as restantes respeitam a face do lote; a última determina a cor ativa.
+- `+2` soma ataque, Skip acumula saltos e Reverse usa paridade; o turno avança uma única vez após o lote.
+- O servidor valida posse, turno, unicidade e regras antes de broadcastar estado público e mãos privadas.
+- A UI oferece seleção por mesma face, revisão acessível e confirmação no Local e Online.
+- +4, Silêncio, 0+, Troca Mão, Gira Mão e outras ações complexas permanecem fora do lote V1.

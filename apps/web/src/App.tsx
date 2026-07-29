@@ -212,6 +212,10 @@ function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
     online.jogarCarta(carta.id);
   }
 
+  function jogarDescarteMultiplo(cartas: ReadonlyArray<import('@kabemjunto/shared').Carta>): void {
+    online.jogarMultiplasCartas(cartas.map((carta) => carta.id));
+  }
+
   const utilidades = (
     <>
       <section>
@@ -393,6 +397,7 @@ function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
             jogadorId={online.jogadorId}
             selectedCardId={cartaSelecionada}
             onSelecionarCarta={selecionarCarta}
+            onPlayMultiple={jogarDescarteMultiplo}
             onComprarCarta={online.comprarCarta}
             onEnviarFalaRapida={enviarFalaRapida}
           />

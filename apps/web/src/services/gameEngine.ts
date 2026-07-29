@@ -17,6 +17,7 @@ import {
   criarPartidaInicial,
   validarJogada,
   executarJogada,
+  executarDescarteMultiplo,
   comprarCartas,
   executarTurnoBot,
   configureTelemetry,
@@ -98,6 +99,21 @@ export function jogarCarta(
     ...(corEscolhida ? { corEscolhida } : {}),
     ...(alvoTrocaId ? { alvoTrocaId } : {}),
   });
+  tocarSFX(resultado.sfx);
+  logEvents(resultado.eventos);
+  return resultado.novoEstado;
+}
+
+/** Executa um descarte múltiplo local pelo mesmo motor puro do modo Online. */
+export function jogarMultiplasCartas(
+  estado: EstadoPartida,
+  cartaIds: ReadonlyArray<string>,
+): EstadoPartida {
+  const jogador = estado.jogadores.find((item) => item.id === estado.vezDe);
+  const cartaIndices = cartaIds.map(
+    (cartaId) => jogador?.mao.findIndex((carta) => carta.id === cartaId) ?? -1,
+  );
+  const resultado = executarDescarteMultiplo({ estado, cartaIndices });
   tocarSFX(resultado.sfx);
   logEvents(resultado.eventos);
   return resultado.novoEstado;

@@ -1,7 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { Cor, EstadoPartida, Jogador, Carta } from '@kabemjunto/shared/types';
 import type { NivelBot } from '@kabemjunto/shared';
-import { validarJogada, comprar, criarPartida, jogarCarta, turnoBot } from './services/gameEngine';
+import {
+  validarJogada,
+  comprar,
+  criarPartida,
+  jogarCarta,
+  jogarMultiplasCartas,
+  turnoBot,
+} from './services/gameEngine';
 import { Lobby } from './components/Lobby';
 import { HUDJogador } from './components/HUDJogador';
 import { MesaDeJogo } from './components/MesaDeJogo';
@@ -229,6 +236,23 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleDescarteMultiplo = (cartas: ReadonlyArray<Carta>) => {
+    if (!estado) return;
+    const jogadorAtual = estado.jogadores.find((jogador) => jogador.id === estado.vezDe);
+    if (!jogadorAtual || jogadorAtual.isBot) return;
+    try {
+      const novoEstado = jogarMultiplasCartas(
+        estado,
+        cartas.map((carta) => carta.id),
+      );
+      registrarTransicao(estado, novoEstado, cartas[cartas.length - 1]!, jogadorAtual.nome);
+      setEstado(novoEstado);
+      mostrarFeedback({ tipo: 'sucesso', texto: `${jogadorAtual.nome} fez um descarte múltiplo.` });
+    } catch (err) {
+      mostrarFeedback({ tipo: 'erro', texto: err instanceof Error ? err.message : String(err) });
+    }
+  };
+
   const handleConfirmarCor = (cor: Exclude<Cor, 'NEUTRO'>) => {
     if (!estado || cartaIndexPendente === null) return;
     const jogadorAtual = estado.jogadores.find((j: Jogador) => j.id === estado.vezDe);
@@ -332,6 +356,7 @@ export const App: React.FC = () => {
       <MaoDoJogador
         estado={estado}
         onSelecionarCarta={handleSelecionarCarta}
+        onPlayMultiple={handleDescarteMultiplo}
         selectedIndex={selectedCardIndex}
         {...(shakeCartaKey !== null ? { shakeCartaKey } : {})}
       />

@@ -28,6 +28,11 @@ export interface ClientJogarEvent {
   gritandoUno?: boolean;
 }
 
+/** Jogador quer descartar um lote ordenado de duas ou mais cartas da mesma face. */
+export interface ClientDescarteMultiploEvent {
+  cartaIds: ReadonlyArray<string>;
+}
+
 /** Jogador quer comprar 1 carta do Monte de Compra. */
 export interface ClientComprarEvent {
   quantidade?: 1; // default 1; expansível para ataques no futuro
@@ -100,6 +105,12 @@ export interface ServerSessaoEmitidaEvent {
 /** Servidor confirma que a jogada do cliente foi aceita (efeito visual). */
 export interface ServerJogadaAceitaEvent {
   cartaId: string;
+  jogadorId: JogadorId;
+}
+
+/** Servidor confirma um lote inteiro aceito, preservando a ordem canônica. */
+export interface ServerDescarteMultiploAceitoEvent {
+  cartaIds: ReadonlyArray<string>;
   jogadorId: JogadorId;
 }
 
@@ -188,6 +199,7 @@ export interface ServerErroEvent {
 export interface SocketEventMap {
   // client → server
   'client:jogar': ClientJogarEvent;
+  'client:descarte:multiplo': ClientDescarteMultiploEvent;
   'client:comprar': ClientComprarEvent;
   'client:escolher:cor': ClientEscolherCorEvent;
   'client:silencio:quebrar': ClientSilencioQuebrarEvent;
@@ -201,6 +213,7 @@ export interface SocketEventMap {
   'server:estado:atualizado': ServerEstadoAtualizadoEvent;
   'server:sessao:emitida': ServerSessaoEmitidaEvent;
   'server:jogada:aceita': ServerJogadaAceitaEvent;
+  'server:descarte:multiplo:aceito': ServerDescarteMultiploAceitoEvent;
   'server:jogada:rejeitada': ServerJogadaRejeitadaEvent;
   'server:uno:declarado': ServerUnoDeclaradoEvent;
   'server:cor:trocada': ServerCorTrocadaEvent;

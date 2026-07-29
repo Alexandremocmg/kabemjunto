@@ -146,6 +146,49 @@ describe('RoomStore — básico', () => {
   });
 });
 
+describe('RoomStore — descarte múltiplo', () => {
+  it('encaminha dois +2 na ordem selecionada para o motor em uma única transição', () => {
+    const store = createStartedStore();
+    const session = store.get('KJTEST')!;
+    const estado = session.estado!;
+    const jogadorAtual = estado.jogadores.find((jogador) => jogador.id === estado.vezDe)!;
+    const maisDoisAzul = Constants.BARALHO_COMPLETO_108.find(
+      (carta) => carta.acao === 'MAIS_DOIS' && carta.cor === 'AZUL',
+    )!;
+    const maisDoisVerde = Constants.BARALHO_COMPLETO_108.find(
+      (carta) => carta.acao === 'MAIS_DOIS' && carta.cor === 'VERDE',
+    )!;
+    const topo = Constants.BARALHO_COMPLETO_108.find(
+      (carta) => carta.acao === 'MAIS_DOIS' && carta.cor === 'LARANJA',
+    )!;
+    session.estado = {
+      ...estado,
+      jogadores: estado.jogadores.map((jogador) =>
+        jogador.id === jogadorAtual.id
+          ? { ...jogador, mao: [maisDoisAzul, maisDoisVerde] }
+          : jogador,
+      ),
+      monteDescarte: [topo],
+      corAtiva: 'LARANJA',
+      ataqueAcumulado: 0,
+      ataqueStack: [],
+    };
+
+    const after = store.playMultiple('KJTEST', jogadorAtual.id, [
+      maisDoisVerde.id,
+      maisDoisAzul.id,
+    ]).estado!;
+
+    expect(after.monteDescarte.slice(-2).map((carta) => carta.id)).toEqual([
+      maisDoisVerde.id,
+      maisDoisAzul.id,
+    ]);
+    expect(after.ataqueAcumulado).toBe(4);
+    expect(after.ataqueStack).toEqual(['MAIS_DOIS', 'MAIS_DOIS']);
+    expect(after.jogadores.find((jogador) => jogador.id === jogadorAtual.id)?.mao).toEqual([]);
+  });
+});
+
 describe('RoomStore — salas públicas', () => {
   it('mantém salas privadas por padrão e só lista a pública aguardando com host conectado e vaga', () => {
     const store = new RoomStore();

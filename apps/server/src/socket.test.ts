@@ -2,9 +2,10 @@ import { createServer } from 'node:http';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Server } from 'socket.io';
 import { io as createClient, type Socket as ClientSocket } from 'socket.io-client';
-import type {
-  ServerChatEvent,
-  ServerErroEvent,
+import {
+  Constants,
+  type ServerChatEvent,
+  type ServerErroEvent,
   ServerSessaoEmitidaEvent,
   ServerSilencioQuebradoEvent,
 } from '@kabemjunto/shared';
@@ -244,5 +245,189 @@ describe('socket — Regra do 7 no chat', () => {
     await state;
     await hand;
     expect(store.get('RULE7')?.estado?.silencio.jogadoresQuebraram).toEqual(['player-1']);
+  });
+});
+
+describe('socket — descarte múltiplo', () => {
+  it('rejeita payload nulo sem derrubar o handler', async () => {
+    const { url } = await harness();
+    const socket = await connect(url);
+    const errorEvent = once<ServerErroEvent>(socket, 'server:erro');
+
+    socket.emit('client:descarte:multiplo', null as unknown as { cartaIds: string[] });
+
+    await expect(errorEvent).resolves.toEqual({
+      codigo: 'JOGADA_INVALIDA',
+      mensagem: 'Lote de descarte múltiplo inválido.',
+    });
+    expect(socket.connected).toBe(true);
+  });
+
+  it('rejeita payloads ausentes, não-objetos e cartaIds malformados sem lançar', async () => {
+    const { url } = await harness();
+    const socket = await connect(url);
+    const malformedPayloads: unknown[] = [
+      undefined,
+      7,
+      'cartas',
+      [],
+      {},
+      { cartaIds: ['carta-1', ''] },
+      { cartaIds: ['carta-1', 7] },
+    ];
+
+    for (const payload of malformedPayloads) {
+      const errorEvent = once<ServerErroEvent>(socket, 'server:erro');
+      socket.emit('client:descarte:multiplo', payload as { cartaIds: string[] });
+      await expect(errorEvent).resolves.toEqual({
+        codigo: 'JOGADA_INVALIDA',
+        mensagem: 'Lote de descarte múltiplo inválido.',
+      });
+    }
+    expect(socket.connected).toBe(true);
+  });
+
+  it('rejeita lotes maiores que o baralho canônico antes de consultar a sala', async () => {
+    const { url, store } = await harness();
+    const socket = await connect(url);
+    const errorEvent = once<ServerErroEvent>(socket, 'server:erro');
+    const cartaIds = Array.from({ length: 109 }, (_, index) => `carta-${index}`);
+
+    socket.emit('client:descarte:multiplo', { cartaIds });
+
+    await expect(errorEvent).resolves.toEqual({
+      codigo: 'JOGADA_INVALIDA',
+      mensagem: 'Lote de descarte múltiplo inválido.',
+    });
+    expect(store.get('MULTI1')).toBeUndefined();
+  });
+
+  it('rejeita ids duplicados antes de consultar a sala', async () => {
+    const { url, store } = await harness();
+    const socket = await connect(url);
+    const errorEvent = once<ServerErroEvent>(socket, 'server:erro');
+
+    socket.emit('client:descarte:multiplo', { cartaIds: ['carta-1', 'carta-1'] });
+
+    await expect(errorEvent).resolves.toEqual({
+      codigo: 'JOGADA_INVALIDA',
+      mensagem: 'Lote de descarte múltiplo inválido.',
+    });
+    expect(store.get('MULTI1')).toBeUndefined();
+  });
+
+  it('rejeita fora de turno e cartas de outro jogador sem emitir mãos privadas', async () => {
+    const { url, store } = await harness();
+    const host = await connect(url);
+    const guest = await connect(url);
+    const hostSession = once<ServerSessaoEmitidaEvent>(host, 'server:sessao:emitida');
+    host.emit('client:entrar:sala', { jogadorId: 'host', salaId: 'MULTI2', nome: 'Ana' });
+    await hostSession;
+    const guestSession = once<ServerSessaoEmitidaEvent>(guest, 'server:sessao:emitida');
+    guest.emit('client:entrar:sala', { jogadorId: 'guest', salaId: 'MULTI2', nome: 'Bia' });
+    await guestSession;
+    const initialHostHand = once(host, 'server:mao:atualizada');
+    const initialGuestHand = once(guest, 'server:mao:atualizada');
+    const started = once(host, 'server:estado:atualizado');
+    host.emit('client:iniciar:partida', {});
+    await started;
+    await Promise.all([initialHostHand, initialGuestHand]);
+
+    const session = store.get('MULTI2')!;
+    const estado = session.estado!;
+    const maisDois = Constants.BARALHO_COMPLETO_108.filter((carta) => carta.acao === 'MAIS_DOIS');
+    const [hostFirst, hostSecond, guestFirst, guestSecond, topo] = maisDois;
+    if (!hostFirst || !hostSecond || !guestFirst || !guestSecond || !topo) {
+      throw new Error('Fixture de descarte múltiplo incompleta.');
+    }
+    session.estado = {
+      ...estado,
+      vezDe: 'guest',
+      jogadores: estado.jogadores.map((jogador) => {
+        if (jogador.id === 'host') return { ...jogador, mao: [hostFirst, hostSecond] };
+        if (jogador.id === 'guest') return { ...jogador, mao: [guestFirst, guestSecond] };
+        return jogador;
+      }),
+      monteDescarte: [topo],
+      corAtiva: 'LARANJA',
+      ataqueAcumulado: 0,
+      ataqueStack: [],
+    };
+    let privateHandEvents = 0;
+    host.on('server:mao:atualizada', () => privateHandEvents++);
+    guest.on('server:mao:atualizada', () => privateHandEvents++);
+
+    const outsideTurn = once<ServerErroEvent>(host, 'server:erro');
+    host.emit('client:descarte:multiplo', { cartaIds: [hostFirst.id, hostSecond.id] });
+    await expect(outsideTurn).resolves.toMatchObject({ codigo: 'NAO_SUA_VEZ' });
+    expect(session.estado!.vezDe).toBe('guest');
+    expect(privateHandEvents).toBe(0);
+
+    session.estado = { ...session.estado!, vezDe: 'host' };
+    const notOwned = once<ServerErroEvent>(host, 'server:erro');
+    host.emit('client:descarte:multiplo', { cartaIds: [guestFirst.id, guestSecond.id] });
+    await expect(notOwned).resolves.toMatchObject({ codigo: 'JOGADA_INVALIDA' });
+    expect(session.estado!.vezDe).toBe('host');
+    expect(privateHandEvents).toBe(0);
+  });
+
+  it('aceita lote de +2, transmite estado público e mãos privadas sem vazamento', async () => {
+    const { url, store } = await harness();
+    const host = await connect(url);
+    const guest = await connect(url);
+    const hostSession = once<ServerSessaoEmitidaEvent>(host, 'server:sessao:emitida');
+    host.emit('client:entrar:sala', { jogadorId: 'host', salaId: 'MULTI1', nome: 'Ana' });
+    await hostSession;
+    const guestSession = once<ServerSessaoEmitidaEvent>(guest, 'server:sessao:emitida');
+    guest.emit('client:entrar:sala', { jogadorId: 'guest', salaId: 'MULTI1', nome: 'Bia' });
+    await guestSession;
+    const started = once(host, 'server:estado:atualizado');
+    host.emit('client:iniciar:partida', {});
+    await started;
+
+    const session = store.get('MULTI1')!;
+    const estado = session.estado!;
+    const maisDoisAzul = Constants.BARALHO_COMPLETO_108.find(
+      (carta) => carta.acao === 'MAIS_DOIS' && carta.cor === 'AZUL',
+    )!;
+    const maisDoisVerde = Constants.BARALHO_COMPLETO_108.find(
+      (carta) => carta.acao === 'MAIS_DOIS' && carta.cor === 'VERDE',
+    )!;
+    const topo = Constants.BARALHO_COMPLETO_108.find(
+      (carta) => carta.acao === 'MAIS_DOIS' && carta.cor === 'LARANJA',
+    )!;
+    session.estado = {
+      ...estado,
+      vezDe: 'host',
+      jogadores: estado.jogadores.map((jogador) =>
+        jogador.id === 'host' ? { ...jogador, mao: [maisDoisAzul, maisDoisVerde] } : jogador,
+      ),
+      monteDescarte: [topo],
+      corAtiva: 'LARANJA',
+      ataqueAcumulado: 0,
+      ataqueStack: [],
+    };
+
+    const accepted = once<{ cartaIds: string[]; jogadorId: string }>(
+      host,
+      'server:descarte:multiplo:aceito',
+    );
+    const publicState = once<{ estado: Record<string, unknown> }>(host, 'server:estado:atualizado');
+    const hostHand = once<{ mao: Array<{ id: string }> }>(host, 'server:mao:atualizada');
+    const guestHand = once<{ mao: Array<{ id: string }> }>(guest, 'server:mao:atualizada');
+
+    host.emit('client:descarte:multiplo', { cartaIds: [maisDoisVerde.id, maisDoisAzul.id] });
+
+    await expect(accepted).resolves.toEqual({
+      cartaIds: [maisDoisVerde.id, maisDoisAzul.id],
+      jogadorId: 'host',
+    });
+    await expect(publicState).resolves.toMatchObject({
+      estado: { ataqueAcumulado: 4, topo: { id: maisDoisAzul.id } },
+    });
+    await expect(hostHand).resolves.toEqual({ mao: [] });
+    await expect(guestHand).resolves.not.toMatchObject({
+      mao: expect.arrayContaining([expect.objectContaining({ id: maisDoisAzul.id })]),
+    });
   });
 });

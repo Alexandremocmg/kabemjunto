@@ -7,6 +7,13 @@ import type {
 } from '@kabemjunto/shared';
 import { PALETA_CORES } from '@kabemjunto/shared/constants/cards';
 import { CartaView } from './CartaView';
+import { ConfirmarDescarteMultiplo } from './ConfirmarDescarteMultiplo';
+import {
+  canSelectMultipleDiscardCard,
+  getSelectedMultipleDiscardCards,
+  temMesmaFace,
+  toggleMultipleDiscardSelection,
+} from './multipleDiscard';
 
 interface MesaOnlineProps {
   estado: EstadoPartidaPublico;
@@ -15,6 +22,8 @@ interface MesaOnlineProps {
   jogadorId?: string | undefined;
   selectedCardId?: string | undefined;
   onSelecionarCarta: (carta: Carta) => void;
+  /** Optional UI bridge for a future authoritative batch-play contract. */
+  onPlayMultiple?: (cartas: ReadonlyArray<Carta>) => void;
   onComprarCarta: () => void;
   onEnviarFalaRapida: (texto: string) => void;
 }
@@ -30,6 +39,13 @@ const FALAS_RAPIDAS = [
 const DURACAO_BALAO_FALA_MS = 5000;
 
 type BalaoFala = { chave: ServerChatEvent; texto: string };
+
+function isNormallyPlayableOnline(estado: EstadoPartidaPublico, carta: Carta): boolean {
+  if (estado.ataqueAcumulado > 0) return carta.acao === 'MAIS_DOIS';
+  return (
+    carta.cor === 'NEUTRO' || carta.cor === estado.corAtiva || temMesmaFace(carta, estado.topo)
+  );
+}
 
 function SentidoIcone({ sentido }: { sentido: number }) {
   return (
@@ -109,10 +125,17 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
   jogadorId,
   selectedCardId,
   onSelecionarCarta,
+  onPlayMultiple,
   onComprarCarta,
   onEnviarFalaRapida,
 }) => {
   const [falasRapidasAbertas, setFalasRapidasAbertas] = useState(false);
+  const [descarteMultiploAtivo, setDescarteMultiploAtivo] = useState(false);
+  const [confirmandoDescarteMultiplo, setConfirmandoDescarteMultiplo] = useState(false);
+  const [cartasSelecionadasParaDescarte, setCartasSelecionadasParaDescarte] = useState<
+    ReadonlyArray<string>
+  >([]);
+  const revisarDescarteMultiploRef = useRef<HTMLButtonElement>(null);
   const [baloesDeFala, setBaloesDeFala] = useState<ReadonlyMap<string, BalaoFala>>(new Map());
   const mensagensVistasRef = useRef(new WeakSet<ServerChatEvent>());
   const timersDeBalaoRef = useRef(new Map<string, number>());
@@ -122,7 +145,34 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
   const jogadoresRemotos = estado.jogadores.filter((jogador) => jogador.id !== jogadorId);
   const corAtiva = estado.corAtiva ?? 'LARANJA';
   const infoCor = PALETA_CORES[corAtiva] ?? PALETA_CORES.NEUTRO;
+  const cartasSelecionadas = getSelectedMultipleDiscardCards(mao, cartasSelecionadasParaDescarte);
   const balaoLocal = jogadorId ? baloesDeFala.get(jogadorId) : undefined;
+
+  function alternarDescarteMultiplo(): void {
+    setDescarteMultiploAtivo((ativo) => !ativo);
+    setConfirmandoDescarteMultiplo(false);
+    setCartasSelecionadasParaDescarte([]);
+  }
+
+  function selecionarCartaDaMao(carta: Carta, primeiraCartaJogavel: boolean): void {
+    if (!descarteMultiploAtivo) {
+      onSelecionarCarta(carta);
+      return;
+    }
+    setCartasSelecionadasParaDescarte((selecionadas) => {
+      if (!canSelectMultipleDiscardCard(selecionadas, carta, mao, primeiraCartaJogavel)) {
+        return selecionadas;
+      }
+      return toggleMultipleDiscardSelection(selecionadas, carta, mao);
+    });
+  }
+
+  function concluirDescarteMultiplo(cartas: ReadonlyArray<Carta>): void {
+    onPlayMultiple?.(cartas);
+    setConfirmandoDescarteMultiplo(false);
+    setDescarteMultiploAtivo(false);
+    setCartasSelecionadasParaDescarte([]);
+  }
 
   useEffect(() => {
     const ultimasMensagens = new Map<string, ServerChatEvent>();
@@ -277,6 +327,34 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
           </div>
           <strong>SUA MÃO</strong>
           <span>{mao.length} cartas</span>
+          <div className="multiple-discard-controls">
+            <button
+              type="button"
+              className="button button-secondary"
+              aria-pressed={descarteMultiploAtivo}
+              disabled={!minhaVez}
+              onClick={alternarDescarteMultiplo}
+            >
+              {descarteMultiploAtivo ? 'Cancelar descarte múltiplo' : 'Descarte múltiplo'}
+            </button>
+            {descarteMultiploAtivo && (
+              <>
+                <span role="status">
+                  {cartasSelecionadas.length} carta{cartasSelecionadas.length === 1 ? '' : 's'}{' '}
+                  selecionada{cartasSelecionadas.length === 1 ? '' : 's'}
+                </span>
+                <button
+                  ref={revisarDescarteMultiploRef}
+                  type="button"
+                  className="button button-primary"
+                  disabled={cartasSelecionadas.length < 2}
+                  onClick={() => setConfirmandoDescarteMultiplo(true)}
+                >
+                  Revisar descarte múltiplo
+                </button>
+              </>
+            )}
+          </div>
           <div className="quick-chat-control">
             {falasRapidasAbertas && (
               <div
@@ -304,26 +382,58 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
           </div>
         </div>
         <div className="hand-cards hand-fan" role="list">
-          {mao.map((carta, index) => (
-            <div
-              className={`hand-card-slot ${selectedCardId === carta.id ? 'selected-slot' : ''}`}
-              key={`${carta.id}_${index}`}
-              role="listitem"
-              style={{
-                transform: `rotate(${Math.max(-12, Math.min(12, (index - (mao.length - 1) / 2) * 4))}deg)`,
-              }}
-            >
-              <CartaView
-                carta={carta}
-                jogavel={minhaVez}
-                selecionada={selectedCardId === carta.id}
-                {...(!minhaVez ? { motivoBloqueio: 'Aguardando o seu turno.' } : {})}
-                onClick={() => minhaVez && onSelecionarCarta(carta)}
-              />
-            </div>
-          ))}
+          {mao.map((carta, index) => {
+            const primeiraCartaJogavel = isNormallyPlayableOnline(estado, carta);
+            const podeSelecionarNoDescarteMultiplo = canSelectMultipleDiscardCard(
+              cartasSelecionadasParaDescarte,
+              carta,
+              mao,
+              primeiraCartaJogavel,
+            );
+            const cartaJogavel =
+              minhaVez && (descarteMultiploAtivo ? podeSelecionarNoDescarteMultiplo : true);
+
+            return (
+              <div
+                className={`hand-card-slot ${
+                  (
+                    descarteMultiploAtivo
+                      ? cartasSelecionadasParaDescarte.includes(carta.id)
+                      : selectedCardId === carta.id
+                  )
+                    ? 'selected-slot'
+                    : ''
+                }`}
+                key={`${carta.id}_${index}`}
+                role="listitem"
+                style={{
+                  transform: `rotate(${Math.max(-12, Math.min(12, (index - (mao.length - 1) / 2) * 4))}deg)`,
+                }}
+              >
+                <CartaView
+                  carta={carta}
+                  jogavel={cartaJogavel}
+                  selecionada={
+                    descarteMultiploAtivo
+                      ? cartasSelecionadasParaDescarte.includes(carta.id)
+                      : selectedCardId === carta.id
+                  }
+                  {...(!minhaVez ? { motivoBloqueio: 'Aguardando o seu turno.' } : {})}
+                  onClick={() => cartaJogavel && selecionarCartaDaMao(carta, primeiraCartaJogavel)}
+                />
+              </div>
+            );
+          })}
         </div>
       </section>
+      {confirmandoDescarteMultiplo && (
+        <ConfirmarDescarteMultiplo
+          cartas={cartasSelecionadas}
+          onCancel={() => setConfirmandoDescarteMultiplo(false)}
+          triggerRef={revisarDescarteMultiploRef}
+          {...(onPlayMultiple ? { onPlayMultiple: concluirDescarteMultiplo } : {})}
+        />
+      )}
     </div>
   );
 };

@@ -4,6 +4,7 @@ import {
   logCustom,
   type Carta,
   type ClientChatEvent,
+  type ClientDescarteMultiploEvent,
   type ClientComprarEvent,
   type ClientEntrarSalaEvent,
   type ClientIniciarPartidaEvent,
@@ -31,6 +32,7 @@ type ClientEvents = {
   'client:entrar:sala': (payload: ClientEntrarSalaEvent) => void;
   'client:iniciar:partida': (payload: ClientIniciarPartidaEvent) => void;
   'client:jogar': (payload: ClientJogarEvent) => void;
+  'client:descarte:multiplo': (payload: ClientDescarteMultiploEvent) => void;
   'client:comprar': (payload: ClientComprarEvent) => void;
   'client:chat:msg': (payload: ClientChatEvent) => void;
   'client:sair:sala': (payload: Record<string, never>) => void;
@@ -192,6 +194,7 @@ export function useGameSocket(): {
     corEscolhida?: ClientJogarEvent['corEscolhida'],
     alvoTrocaId?: ClientJogarEvent['alvoTrocaId'],
   ) => void;
+  jogarMultiplasCartas: (cartaIds: ReadonlyArray<string>) => void;
   comprarCarta: () => void;
   enviarChat: (texto: string) => void;
   sair: () => void;
@@ -397,6 +400,10 @@ export function useGameSocket(): {
       }),
     [socket],
   );
+  const jogarMultiplasCartas = useCallback(
+    (cartaIds: ReadonlyArray<string>) => socket.emit('client:descarte:multiplo', { cartaIds }),
+    [socket],
+  );
   const comprarCarta = useCallback(() => socket.emit('client:comprar', {}), [socket]);
   const enviarChat = useCallback(
     (texto: string) => socket.emit('client:chat:msg', { texto: texto.trim() }),
@@ -448,6 +455,7 @@ export function useGameSocket(): {
       entrarSala,
       iniciarPartida,
       jogarCarta,
+      jogarMultiplasCartas,
       comprarCarta,
       enviarChat,
       sair,
@@ -464,6 +472,7 @@ export function useGameSocket(): {
       hostId,
       iniciarPartida,
       jogarCarta,
+      jogarMultiplasCartas,
       listarSalas,
       sair,
       socket,

@@ -161,7 +161,12 @@ Termos canônicos usados em todo o GDD. Cada termo mantém o mesmo significado e
 
 ### Fluxo de turno
 
-- Em seu turno, jogar 1 carta no Monte de Descarte
+- Em seu turno, jogar 1 carta no Monte de Descarte ou um **Descarte Múltiplo**
+  - o lote tem 2 ou mais cartas da mesma face: mesmo número, ou todas `+2`, todas Skip ou todas Reverse;
+  - a primeira deve ser válida contra a mesa; as seguintes só precisam ter a mesma face;
+  - a última carta define a nova cor ativa;
+  - os efeitos são agregados: `+2` soma, Skip pula N jogadores e Reverse inverte apenas se a quantidade for ímpar;
+  - +4, Silêncio, 0+, Troca Mão, Gira Mão e demais neutras/ações complexas não podem entrar em lote nesta versão.
 - Carta válida: mesma cor, mesmo número, ou neutra
 - Sem carta válida: comprar 1 do Monte de Compra
   - Se a carta comprada puder ser jogada, pode descartar imediatamente

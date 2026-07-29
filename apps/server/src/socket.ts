@@ -2,6 +2,7 @@ import type { Server, Socket } from 'socket.io';
 import type {
   ClientAbandonarPartidaEvent,
   ClientChatEvent,
+  ClientDescarteMultiploEvent,
   ClientEntrarSalaEvent,
   ClientEscolherCorEvent,
   ClientIniciarPartidaEvent,
@@ -10,6 +11,7 @@ import type {
   ClientListarSalasEvent,
   ClientSairSalaEvent,
   ServerChatEvent,
+  ServerDescarteMultiploAceitoEvent,
   ServerCorTrocadaEvent,
   ServerEstadoAtualizadoEvent,
   ServerErroEvent,
@@ -37,6 +39,7 @@ type ClientEvents = {
   'client:abandonar:partida': (payload: ClientAbandonarPartidaEvent) => void;
   'client:iniciar:partida': (payload: ClientIniciarPartidaEvent) => void;
   'client:jogar': (payload: ClientJogarEvent) => void;
+  'client:descarte:multiplo': (payload: ClientDescarteMultiploEvent) => void;
   'client:comprar': (payload: ClientComprarEvent) => void;
   'client:escolher:cor': (payload: ClientEscolherCorEvent) => void;
   'client:chat:msg': (payload: ClientChatEvent) => void;
@@ -46,6 +49,7 @@ type ServerEvents = {
   'server:estado:atualizado': (payload: ServerEstadoAtualizadoEvent) => void;
   'server:sessao:emitida': (payload: ServerSessaoEmitidaEvent) => void;
   'server:jogada:aceita': (payload: ServerJogadaAceitaEvent) => void;
+  'server:descarte:multiplo:aceito': (payload: ServerDescarteMultiploAceitoEvent) => void;
   'server:jogada:rejeitada': (payload: ServerJogadaRejeitadaEvent) => void;
   'server:sala:atualizada': (payload: ServerSalaAtualizadaEvent) => void;
   'server:salas:disponiveis': (payload: ServerSalasDisponiveisEvent) => void;
@@ -60,6 +64,7 @@ type GameServer = Server<ClientEvents, ServerEvents>;
 type GameSocket = Socket<ClientEvents, ServerEvents>;
 
 const EMPTY_EVENT: ClientIniciarPartidaEvent = {};
+const MAX_MULTIPLE_DISCARD_CARD_IDS = 108; // O baralho canônico não contém mais que 108 cartas.
 void EMPTY_EVENT;
 
 function emitError(socket: GameSocket, error: unknown): void {
@@ -275,6 +280,38 @@ export function registerSocketHandlers(
           motivo: roomError.message,
         });
         emitError(socket, roomError);
+      }
+    });
+
+    socket.on('client:descarte:multiplo', (payload) => {
+      if (!checkRateLimit(socket, 'jogo')) return;
+      if (
+        payload === null ||
+        typeof payload !== 'object' ||
+        !Array.isArray(payload.cartaIds) ||
+        payload.cartaIds.length < 2 ||
+        payload.cartaIds.length > MAX_MULTIPLE_DISCARD_CARD_IDS ||
+        new Set(payload.cartaIds).size !== payload.cartaIds.length ||
+        payload.cartaIds.some((cartaId) => !isNonEmptyString(cartaId, 128))
+      ) {
+        emitError(socket, new RoomError('JOGADA_INVALIDA', 'Lote de descarte múltiplo inválido.'));
+        return;
+      }
+      try {
+        const salaId = roomId(socket);
+        const jogadorId = jogadorIdFromSocket(socket);
+        if (!salaId || !jogadorId) {
+          throw new RoomError('SALA_INEXISTENTE', 'Entre em uma sala primeiro.');
+        }
+        const session = store.playMultiple(salaId, jogadorId, payload.cartaIds);
+        socket.emit('server:descarte:multiplo:aceito', { cartaIds: payload.cartaIds, jogadorId });
+        broadcastState(io, salaId, { estado: toPublicState(session.estado!) });
+        sendPrivateHands(io, session);
+        metrics.recordEventOutcome('jogo', 'accepted');
+      } catch (error) {
+        metrics.recordEventOutcome('jogo', 'rejected');
+        if (!(error instanceof RoomError)) metrics.recordPersistenceFailure();
+        emitError(socket, error);
       }
     });
 
