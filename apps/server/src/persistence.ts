@@ -178,6 +178,8 @@ function isRoom(value: unknown): value is Sala {
     value['maxJogadores'] >= 2 &&
     value['maxJogadores'] <= 10 &&
     isOneOf(value['modo'], MODES) &&
+    (value['visibilidade'] === undefined ||
+      isOneOf(value['visibilidade'], ['PRIVADA', 'PUBLICA'] as const)) &&
     isOneOf(value['status'], ROOM_STATUSES) &&
     hasOptionalString(value, 'partidaId')
   );
@@ -187,12 +189,9 @@ function isResumeTokenHashes(value: unknown, sala: Sala): value is Record<string
   if (!isRecord(value)) return false;
   const playerIds = new Set(sala.jogadores.map((player) => player.id));
   const entries = Object.entries(value);
-  return (
-    entries.length === playerIds.size &&
-    entries.every(
-      ([playerId, hash]) =>
-        playerIds.has(playerId) && typeof hash === 'string' && /^[a-f0-9]{64}$/.test(hash),
-    )
+  return entries.every(
+    ([playerId, hash]) =>
+      playerIds.has(playerId) && typeof hash === 'string' && /^[a-f0-9]{64}$/.test(hash),
   );
 }
 
@@ -283,7 +282,10 @@ function isGameState(value: unknown): value is EstadoPartida {
     value['ataqueStack'].every((action) => isOneOf(action, ACTIONS)) &&
     isRecord(silence) &&
     isBoolean(silence['ativo']) &&
-    hasOptionalString(silence, 'jogadorQuebrou') &&
+    (silence['jogadoresQuebraram'] === undefined
+      ? hasOptionalString(silence, 'jogadorQuebrou')
+      : Array.isArray(silence['jogadoresQuebraram']) &&
+        silence['jogadoresQuebraram'].every(isString)) &&
     Array.isArray(value['historico']) &&
     value['historico'].every(isGameEvent) &&
     isBoolean(value['finalizada']) &&
@@ -334,18 +336,30 @@ function validateSnapshot(value: unknown): RoomSnapshot {
         `Snapshot de salas inválido: partida não pertence à sala ${candidate['sala'].id}.`,
       );
     }
-    if (candidate['sala'].status === 'EM_PARTIDA' && state === undefined) {
+    const normalizedState =
+      state === undefined
+        ? undefined
+        : {
+            ...state,
+            silencio: {
+              ativo: state.silencio.ativo,
+              jogadoresQuebraram: Array.isArray(state.silencio.jogadoresQuebraram)
+                ? state.silencio.jogadoresQuebraram
+                : [],
+            },
+          };
+    if (candidate['sala'].status === 'EM_PARTIDA' && normalizedState === undefined) {
       throw new RoomSnapshotError(
         `Snapshot de salas inválido: sala ${candidate['sala'].id} sem partida ativa.`,
       );
     }
     roomIds.add(candidate['sala'].id);
     rooms.push(
-      state === undefined
+      normalizedState === undefined
         ? { sala: candidate['sala'], resumeTokenHashes: candidate['resumeTokenHashes'] }
         : {
             sala: candidate['sala'],
-            estado: state,
+            estado: normalizedState,
             resumeTokenHashes: candidate['resumeTokenHashes'],
           },
     );

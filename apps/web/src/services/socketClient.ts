@@ -17,8 +17,15 @@ import {
   type ServerJogadaRejeitadaEvent,
   type ServerMaoAtualizadaEvent,
   type ServerSalaAtualizadaEvent,
+  type ServerSalasDisponiveisEvent,
+  type ServerSalaDisponivel,
   type ServerSessaoEmitidaEvent,
 } from '@kabemjunto/shared';
+
+type RoomCreationOptions = {
+  nomeSala?: string;
+  visibilidade?: 'privada' | 'publica';
+};
 
 type ClientEvents = {
   'client:entrar:sala': (payload: ClientEntrarSalaEvent) => void;
@@ -26,6 +33,9 @@ type ClientEvents = {
   'client:jogar': (payload: ClientJogarEvent) => void;
   'client:comprar': (payload: ClientComprarEvent) => void;
   'client:chat:msg': (payload: ClientChatEvent) => void;
+  'client:sair:sala': (payload: Record<string, never>) => void;
+  'client:abandonar:partida': (payload: Record<string, never>) => void;
+  'client:listar:salas': (payload: Record<string, never>) => void;
 };
 
 type ServerEvents = {
@@ -40,6 +50,7 @@ type ServerEvents = {
   'server:jogada:aceita': (payload: ServerJogadaAceitaEvent) => void;
   'server:jogada:rejeitada': (payload: ServerJogadaRejeitadaEvent) => void;
   'server:mao:atualizada': (payload: ServerMaoAtualizadaEvent) => void;
+  'server:salas:disponiveis': (payload: ServerSalasDisponiveisEvent) => void;
 };
 
 export type GameSocket = Socket<ServerEvents, ClientEvents>;
@@ -55,6 +66,7 @@ export interface SocketGameState {
   cartaAceita: string | undefined;
   cartaRejeitada: string | undefined;
   mao: ReadonlyArray<Carta>;
+  salasPublicas: ReadonlyArray<ServerSalaDisponivel>;
 }
 
 const configuredSocketUrl = import.meta.env.VITE_SOCKET_URL?.trim();
@@ -63,7 +75,7 @@ const SOCKET_URL =
   (typeof window !== 'undefined' ? window.location.origin : 'http://127.0.0.1:3001');
 const SESSION_KEY = 'kabemjunto-online-session';
 
-export interface SessionCredentials {
+export interface SessionCredentials extends RoomCreationOptions {
   /** Identidade estável do jogador (UUID v4). Persistida entre reconexões. */
   jogadorId: string;
   salaId: string;
@@ -72,6 +84,19 @@ export interface SessionCredentials {
   criar?: boolean;
   /** Token opaco rotativo emitido pelo servidor. Nunca é enviado à telemetria/logs. */
   resumeToken?: string;
+}
+
+/** Converte as opções internas (lowercase) da UI para o contrato Socket.IO canônico. */
+export function toEntrarSalaEvent({
+  visibilidade,
+  ...credentials
+}: SessionCredentials): ClientEntrarSalaEvent {
+  return {
+    ...credentials,
+    ...(visibilidade === undefined
+      ? {}
+      : { visibilidade: visibilidade === 'publica' ? 'PUBLICA' : 'PRIVADA' }),
+  };
 }
 
 /**
@@ -108,6 +133,13 @@ export function readSession(): SessionCredentials | undefined {
         jogadorId: parsed.jogadorId,
         salaId: parsed.salaId,
         nome: parsed.nome,
+        ...('nomeSala' in parsed && typeof parsed.nomeSala === 'string'
+          ? { nomeSala: parsed.nomeSala }
+          : {}),
+        ...('visibilidade' in parsed &&
+        (parsed.visibilidade === 'privada' || parsed.visibilidade === 'publica')
+          ? { visibilidade: parsed.visibilidade }
+          : {}),
         ...('criar' in parsed && typeof parsed.criar === 'boolean' ? { criar: parsed.criar } : {}),
         ...('resumeToken' in parsed && typeof parsed.resumeToken === 'string'
           ? { resumeToken: parsed.resumeToken }
@@ -163,6 +195,8 @@ export function useGameSocket(): {
   comprarCarta: () => void;
   enviarChat: (texto: string) => void;
   sair: () => void;
+  abandonarPartida: () => void;
+  listarSalas: () => void;
 } {
   const socketRef = useRef<GameSocket>();
   if (!socketRef.current) socketRef.current = createSocket();
@@ -176,9 +210,11 @@ export function useGameSocket(): {
     cartaAceita: undefined,
     cartaRejeitada: undefined,
     mao: [],
+    salasPublicas: [],
   });
   const [credentials, setCredentials] = useState<SessionCredentials | undefined>(readSession);
   const [hostId, setHostId] = useState<string | undefined>();
+  const listRequestedRef = useRef(false);
   /** Timestamp do último `disconnect` (pra telemetria de duração da queda). */
   const disconnectAtRef = useRef<number | undefined>(undefined);
   /** Tentativa atual de reconexão (1, 2, 3, ...). Reseta ao conectar. */
@@ -208,7 +244,16 @@ export function useGameSocket(): {
       }
 
       const saved = credentials ?? readSession();
-      if (saved) socket.emit('client:entrar:sala', { ...saved, criar: saved.criar ?? false });
+      if (saved) {
+        socket.emit(
+          'client:entrar:sala',
+          toEntrarSalaEvent({ ...saved, criar: saved.criar ?? false }),
+        );
+      }
+      if (listRequestedRef.current) {
+        listRequestedRef.current = false;
+        socket.emit('client:listar:salas', {});
+      }
     };
     const onDisconnect = () => {
       setState((current) => ({ ...current, status: 'reconnecting', erro: undefined }));
@@ -263,6 +308,11 @@ export function useGameSocket(): {
     const onSessionIssued = (issued: ServerSessaoEmitidaEvent) => {
       setCredentials((current) => (current ? applyIssuedSession(current, issued) : current));
     };
+    const onAvailableRooms = (payload: ServerSalasDisponiveisEvent) =>
+      setState((current) => ({
+        ...current,
+        salasPublicas: payload.salas,
+      }));
 
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
@@ -277,6 +327,7 @@ export function useGameSocket(): {
     socket.on('server:jogada:aceita', onAccepted);
     socket.on('server:jogada:rejeitada', onRejected);
     socket.on('server:mao:atualizada', onHand);
+    socket.on('server:salas:disponiveis', onAvailableRooms);
 
     if (credentials && !socket.connected) {
       setState((current) => ({ ...current, status: 'connecting' }));
@@ -297,6 +348,7 @@ export function useGameSocket(): {
       socket.off('server:jogada:aceita', onAccepted);
       socket.off('server:jogada:rejeitada', onRejected);
       socket.off('server:mao:atualizada', onHand);
+      socket.off('server:salas:disponiveis', onAvailableRooms);
     };
   }, [credentials, socket]);
 
@@ -312,6 +364,12 @@ export function useGameSocket(): {
         salaId: nextCredentials.salaId.trim().toUpperCase(),
         nome: nextCredentials.nome.trim(),
         criar: nextCredentials.criar ?? false,
+        ...(nextCredentials.nomeSala === undefined
+          ? {}
+          : { nomeSala: nextCredentials.nomeSala.trim() }),
+        ...(nextCredentials.visibilidade === undefined
+          ? {}
+          : { visibilidade: nextCredentials.visibilidade }),
       };
       setCredentials(normalized);
       saveSession(normalized);
@@ -319,7 +377,7 @@ export function useGameSocket(): {
         setState((current) => ({ ...current, status: 'connecting', erro: undefined }));
         socket.connect();
       } else {
-        socket.emit('client:entrar:sala', normalized);
+        socket.emit('client:entrar:sala', toEntrarSalaEvent(normalized));
       }
     },
     [socket],
@@ -344,7 +402,7 @@ export function useGameSocket(): {
     (texto: string) => socket.emit('client:chat:msg', { texto: texto.trim() }),
     [socket],
   );
-  const sair = useCallback(() => {
+  const limparSessaoLocal = useCallback(() => {
     sessionStorage.removeItem(SESSION_KEY);
     setCredentials(undefined);
     setHostId(undefined);
@@ -358,7 +416,24 @@ export function useGameSocket(): {
       cartaAceita: undefined,
       cartaRejeitada: undefined,
       mao: [],
+      salasPublicas: [],
     });
+  }, [socket]);
+  const sair = useCallback(() => {
+    if (socket.connected) socket.emit('client:sair:sala', {});
+    limparSessaoLocal();
+  }, [limparSessaoLocal, socket]);
+  const abandonarPartida = useCallback(() => {
+    if (socket.connected) socket.emit('client:abandonar:partida', {});
+    limparSessaoLocal();
+  }, [limparSessaoLocal, socket]);
+  const listarSalas = useCallback(() => {
+    if (socket.connected) {
+      socket.emit('client:listar:salas', {});
+      return;
+    }
+    listRequestedRef.current = true;
+    socket.connect();
   }, [socket]);
 
   return useMemo(
@@ -376,8 +451,11 @@ export function useGameSocket(): {
       comprarCarta,
       enviarChat,
       sair,
+      abandonarPartida,
+      listarSalas,
     }),
     [
+      abandonarPartida,
       comprarCarta,
       credentials?.jogadorId,
       credentials?.salaId,
@@ -386,6 +464,7 @@ export function useGameSocket(): {
       hostId,
       iniciarPartida,
       jogarCarta,
+      listarSalas,
       sair,
       socket,
       state,

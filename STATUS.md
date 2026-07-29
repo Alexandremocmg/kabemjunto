@@ -15,6 +15,18 @@
 - Após `Deploy complete`, validar no domínio permanente: `/live`, `/ready`, `/health`, Engine.IO polling HTTP 200 e uma partida pública real de dois clientes. HTML 200 isolado não é evidência suficiente.
 - Se um link Railway estiver desatualizado após push, tratar como deployment pendente; identificar o deployment ativo/`Last-Modified`/assets antes de qualquer mudança de código.
 
+### Regra canônica permanente — Carta 7 / SILÊNCIO
+
+- SILÊNCIO não bloqueia chat escrito nem Falas rápidas. A primeira mensagem aceita de cada jogador na janela ativa é entregue e gera +2 cartas imediatas, aplicadas pelo servidor; mensagens posteriores do mesmo jogador não acumulam nova punição até outra carta 7 abrir nova janela.
+- A punição não passa turno, não altera ataques acumulados e precisa ser persistida/auditável como `SILENCIO_QUEBRADO` + compras `REGRA_DO_7`.
+- A implementação futura deve trocar a representação de um único `jogadorQuebrou` por um conjunto/lista de jogadores já punidos na janela e validar isso no servidor; o cliente apenas mostra feedback.
+
+### Atualização — salas públicas/privadas e saída online
+
+- ✅ Criação privada por padrão e criação pública opt-in integradas ponta a ponta; descoberta usa o contrato compartilhado `ServerSalaDisponivel` e mostra somente a projeção segura da sala aguardando.
+- ✅ `nomeSala` opcional via contrato compartilhado, validado/sanitizado pelo servidor e persistido em `Sala.nome`; cliente converte a escolha interna lowercase para `VisibilidadeSala` uppercase no emit.
+- ✅ Regras explícitas: desconexão preserva retomada; saída pré-jogo remove o jogador/realoca host; abandono confirmado em jogo finaliza com `ABANDONO` e invalida a retomada do abandonador.
+
 ### Sprint 6 — kickoff
 
 - ✅ M21: ADR-011 aprovada — snapshots JSON atômicos, instância única e container same-origin.

@@ -4,6 +4,7 @@ import {
   gerarJogadorId,
   readSession,
   saveSession,
+  toEntrarSalaEvent,
   type SessionCredentials,
 } from './socketClient';
 
@@ -75,6 +76,26 @@ describe('sessao estavel do jogador', () => {
 
     expect(updated.resumeToken).toBe('token-rotacionado');
     expect(readSession()).toEqual(updated);
+  });
+
+  it('normaliza a intenção interna do lobby para o contrato compartilhado ao criar', () => {
+    expect(
+      toEntrarSalaEvent({
+        jogadorId: 'jogador-teste-123',
+        salaId: 'K4B3MJ',
+        nome: 'Ana',
+        criar: true,
+        nomeSala: 'Mesa da Ana',
+        visibilidade: 'publica',
+      }),
+    ).toEqual({
+      jogadorId: 'jogador-teste-123',
+      salaId: 'K4B3MJ',
+      nome: 'Ana',
+      criar: true,
+      nomeSala: 'Mesa da Ana',
+      visibilidade: 'PUBLICA',
+    });
   });
 
   it('ignora sessao antiga sem jogadorId', () => {

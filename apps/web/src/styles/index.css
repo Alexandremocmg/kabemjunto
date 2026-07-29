@@ -2695,3 +2695,370 @@ h5 {
     -webkit-backdrop-filter: none;
   }
 }
+
+/* Chat contextual da mesa online: fala fica no assento e ações no dock local. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.online-silence-warning {
+  align-self: center;
+  margin: 0;
+  padding: 5px 9px;
+  color: #fff0bf;
+  background: rgba(103, 57, 20, 0.84);
+  border: 1px solid rgba(248, 197, 107, 0.62);
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.player-seat .chat-speech-bubble,
+.hand-local-player .chat-speech-bubble {
+  position: absolute;
+  z-index: 8;
+  width: min(190px, 44vw);
+  max-height: 3.1em;
+  overflow: hidden;
+  padding: 7px 9px;
+  color: #102017;
+  background: #f5fbf2;
+  border: 1px solid rgba(248, 197, 107, 0.88);
+  border-radius: 11px;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.34);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.35;
+  text-align: left;
+  text-overflow: ellipsis;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.player-seat .chat-speech-bubble {
+  bottom: calc(100% + 9px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.hand-local-player {
+  position: relative;
+}
+
+.hand-local-player .chat-speech-bubble {
+  bottom: calc(100% + 9px);
+  left: 0;
+}
+
+.player-seat .chat-speech-bubble::after,
+.hand-local-player .chat-speech-bubble::after {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  content: '';
+  background: #f5fbf2;
+  border-right: 1px solid rgba(248, 197, 107, 0.88);
+  border-bottom: 1px solid rgba(248, 197, 107, 0.88);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.hand-local-player .chat-speech-bubble::after {
+  left: 16px;
+}
+
+.quick-chat-control {
+  position: relative;
+  margin-left: auto;
+}
+
+.quick-chat-trigger,
+.quick-chat-tray button {
+  min-height: 30px;
+  border: 1px solid rgba(248, 197, 107, 0.5);
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.quick-chat-trigger {
+  padding: 5px 8px;
+  color: #fff0bf;
+  background: rgba(248, 197, 107, 0.16);
+  white-space: nowrap;
+}
+
+.quick-chat-tray {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 25;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(96px, 1fr));
+  gap: 5px;
+  width: min(230px, calc(100vw - 24px));
+  padding: 7px;
+  background: rgba(8, 18, 13, 0.97);
+  border: 1px solid rgba(248, 197, 107, 0.45);
+  border-radius: 12px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.42);
+}
+
+.quick-chat-tray button {
+  padding: 5px 6px;
+  color: #eaf7ed;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.quick-chat-trigger:hover,
+.quick-chat-tray button:hover {
+  background: rgba(248, 197, 107, 0.26);
+}
+
+.quick-chat-trigger:focus-visible,
+.quick-chat-tray button:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 2px;
+}
+
+@media (max-width: 600px) {
+  .online-match-layout .online-hand-container .hand-status {
+    gap: 6px;
+  }
+
+  .quick-chat-trigger {
+    min-height: 28px;
+    padding: 4px 6px;
+    font-size: 9px;
+  }
+
+  .quick-chat-tray {
+    grid-template-columns: 1fr;
+    width: 142px;
+  }
+
+  .player-seat .chat-speech-bubble,
+  .hand-local-player .chat-speech-bubble {
+    width: min(145px, 42vw);
+    font-size: 10px;
+  }
+}
+
+/* A fala local ocupa uma faixa de fluxo própria: resumo → fala → status/mão. */
+.online-match-layout .local-speech-lane {
+  display: flex;
+  min-height: 44px;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 2px 12px 0;
+}
+
+.online-match-layout .online-table-area,
+.online-match-layout .online-hand-container,
+.online-match-layout .online-hand-container .hand-cards {
+  min-width: 0;
+}
+
+.online-match-layout .local-speech-lane .chat-speech-bubble {
+  position: relative;
+  width: min(260px, calc(100vw - 48px));
+  max-height: 3.1em;
+  overflow: hidden;
+  padding: 7px 9px;
+  color: #102017;
+  background: #f5fbf2;
+  border: 1px solid rgba(248, 197, 107, 0.88);
+  border-radius: 11px;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.34);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.35;
+  text-align: left;
+}
+
+.online-match-layout .local-speech-lane .chat-speech-bubble::after {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  content: '';
+  background: #f5fbf2;
+  border-right: 1px solid rgba(248, 197, 107, 0.88);
+  border-bottom: 1px solid rgba(248, 197, 107, 0.88);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+/* Remotos apontam para fora do anel, nunca para o núcleo da mesa. */
+.online-play-stage .speech-outward-top .chat-speech-bubble {
+  right: 50%;
+  bottom: calc(100% + 9px);
+  left: auto;
+  transform: translateX(50%);
+}
+
+.online-play-stage .speech-outward-bottom .chat-speech-bubble {
+  top: calc(100% + 9px);
+  right: 50%;
+  bottom: auto;
+  left: auto;
+  transform: translateX(50%);
+}
+
+.online-play-stage .speech-outward-left .chat-speech-bubble {
+  top: 50%;
+  right: calc(100% + 9px);
+  bottom: auto;
+  left: auto;
+  transform: translateY(-50%);
+}
+
+.online-play-stage .speech-outward-right .chat-speech-bubble {
+  top: 50%;
+  right: auto;
+  bottom: auto;
+  left: calc(100% + 9px);
+  transform: translateY(-50%);
+}
+
+.online-play-stage .speech-outward-bottom .chat-speech-bubble::after {
+  top: -6px;
+  bottom: auto;
+  border-top: 1px solid rgba(248, 197, 107, 0.88);
+  border-right: 0;
+  border-bottom: 0;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.online-play-stage .speech-outward-left .chat-speech-bubble::after,
+.online-play-stage .speech-outward-right .chat-speech-bubble::after {
+  top: 50%;
+  bottom: auto;
+  left: auto;
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.online-play-stage .speech-outward-left .chat-speech-bubble::after {
+  right: -6px;
+  border-top: 1px solid rgba(248, 197, 107, 0.88);
+  border-right: 1px solid rgba(248, 197, 107, 0.88);
+  border-bottom: 0;
+}
+
+.online-play-stage .speech-outward-right .chat-speech-bubble::after {
+  left: -6px;
+  border-top: 0;
+  border-right: 0;
+  border-bottom: 1px solid rgba(248, 197, 107, 0.88);
+  border-left: 1px solid rgba(248, 197, 107, 0.88);
+}
+
+/* A seat transform creates a stacking context. Promote the ring only while it owns a
+   speech bubble; its pointer-events contract remains container-none / seat-auto. */
+.online-play-stage:has(.player-seat.has-speech) {
+  overflow: visible;
+}
+
+.online-play-stage .player-table:has(.player-seat.has-speech) {
+  z-index: 6;
+}
+
+.online-play-stage .player-seat.has-speech {
+  z-index: 1;
+}
+
+@media (max-width: 600px) {
+  .online-match-layout .online-hand-container .hand-cards {
+    width: 100%;
+    max-width: 100%;
+    justify-content: flex-start;
+    gap: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-padding-inline: 28px;
+    scroll-snap-type: x proximity;
+    touch-action: pan-x;
+  }
+
+  .online-match-layout .online-hand-container .hand-card-slot {
+    scroll-snap-align: center;
+    transform-origin: bottom center;
+  }
+
+  .online-match-layout .online-hand-container .hand-card-slot + .hand-card-slot {
+    margin-left: -18px;
+  }
+}
+
+.creation-dialog {
+  width: min(92vw, 440px);
+  padding: 24px;
+  display: grid;
+  gap: 18px;
+}
+
+.creation-dialog form {
+  display: grid;
+  gap: 16px;
+}
+
+.creation-dialog label,
+.public-room-card > div {
+  display: grid;
+  gap: 6px;
+}
+
+.creation-dialog input,
+.creation-dialog select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: rgba(11, 14, 20, 0.9);
+  color: #f0f6fc;
+}
+
+.public-rooms {
+  display: grid;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.public-rooms-heading,
+.public-room-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.public-room-list {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+}
+
+.public-room-card {
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(22, 27, 34, 0.75);
+}
+
+.public-room-card span,
+.public-room-card small {
+  color: #c9d7e5;
+}

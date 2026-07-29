@@ -716,59 +716,47 @@ update_silence(state, last_played_card):
 
 ## 8. Regra do 7 / Silêncio (detalhamento)
 
-### 8.1 Implementação
+### 8.1 Regra canônica e estado autoritativo
 
-- Servidor mantém `state.silence` (ou `null`).
-- Quando um jogador joga `7`:
-  1. `state.silence = { source, started_turn }`.
-  2. **Broadcast**: "Jogador X ativou silêncio — não falem até a próxima carta."
-- Em cada `FIM_TURNO`, o servidor checa a carta jogada:
-  - Se **não** for `7`, `state.silence = null`.
-  - Se **for** `7`, silêncio continua.
-- Enquanto `state.silence != null`:
-  - Qualquer infração (definida pelo produto) **aplica**: o infrator
-    recebe `+2` cartas no monte de descarte ou na mão (decisão de
-    produto).
-  - Decisão de jogo: **não** é turno forçado — o infrator paga e
-    **segue jogando normalmente** (a não ser que estivesse em estado
-    de ataque, onde a jogada de +2 é mecânica e não punição social).
-- Punição social pode ser **aplicada no próximo turno do infrator**,
-  ou **imediatamente** via notificação (escolha de produto).
+- Ao resolver uma carta `7`, o servidor abre uma **janela de SILÊNCIO**.
+- A janela termina somente quando qualquer carta posterior é descartada. Jogar outro `7` abre uma nova janela.
+- O estado canônico precisa registrar os jogadores já punidos na janela atual, por exemplo:
+  `silencio: { ativo: boolean, jogadoresQuebraram: ReadonlyArray<JogadorId> }`.
+  O campo legado de um único `jogadorQuebrou` não representa corretamente infrações de jogadores diferentes.
+- Chat escrito e Falas rápidas permanecem habilitados: SILÊNCIO não bloqueia a interface nem impede o envio.
+- Para cada jogador, a **primeira** mensagem aceita pelo servidor durante a mesma janela:
+  1. é entregue normalmente a toda a sala;
+  2. faz o remetente comprar exatamente 2 cartas na mão;
+  3. registra `SILENCIO_QUEBRADO` e as compras com origem `REGRA_DO_7` no histórico/replay;
+  4. inclui o remetente em `jogadoresQuebraram`;
+  5. mantém `vezDe`, `sentido`, `ataqueAcumulado`, `ataqueStack` e SILÊNCIO inalterados.
+- Mensagens posteriores do **mesmo** jogador, durante a mesma janela, continuam entregues e não geram punição adicional.
+- Outro jogador que falar na mesma janela recebe a sua própria primeira punição de +2.
+- A regra é executada pelo servidor no recebimento do evento; o cliente jamais decide se houve infração ou quais cartas foram compradas.
 
-### 8.2 Limites: o que conta como "falar" em modo digital?
+### 8.2 O que conta como "falar" em modo digital
 
-Recomendação para o time de produto (claro e auditável):
+| Ação | Conta como infração? | Justificativa |
+|---|---:|---|
+| Mensagem de texto no chat público da mesa | ✅ | É fala semântica no canal compartilhado. |
+| Fala rápida predefinida | ✅ | Continua sendo uma mensagem textual enviada à mesa. |
+| Reação visual/emoji sem texto | ❌ | Não comunica conteúdo semântico; não deve disparar a regra. |
+| Comando de jogo (`comprar`, jogar carta, escolher cor) | ❌ | É ação de jogo, não fala. |
+| Chat privado e áudio | Fora do escopo atual | Só contam se forem adicionados a um contrato explícito de produto e servidor. |
 
-| Ação                                     | Conta como infração? | Justificativa                                          |
-|------------------------------------------|----------------------|--------------------------------------------------------|
-| Mensagem de texto no chat da mesa        | ✅                   | É "falar" no sentido do jogo.                          |
-| Reação/emoji de chat                     | ❌ (recomendado)     | Não carrega conteúdo semântico; vira ruído.            |
-| Mensagem de texto em privado a outro jogador | ✅ (recomendado) | Coalizão é o ponto da regra do silêncio.               |
-| Comando de jogo (`/comprar`, `/pular`)   | ❌                   | É metalinguagem, não fala.                              |
-| Áudio de voz (PTT)                       | ✅                   | É literalmente falar.                                  |
-| Áudio pré-gravado                        | ❌ (recomendado)     | Não é em tempo real.                                    |
+### 8.3 Contrato de rede e feedback
 
-> Decisão de produto a documentar em `07-liveops.md`. Padrão sugerido:
-> texto no chat da mesa (público) é a única coisa que conta; áudio só
-> em servidores com Voice API explicitamente habilitada.
-
-### 8.3 Sugestão de produto
-
-- **Não** transforme silêncio em "auto-punição" sem feedback. O cliente
-  deve **anunciar** claramente: "Silêncio ativo. Fale e perca 2 cartas."
-- Oferecer ao jogador da vez um **botão "Denunciar infração"** que
-  envia log de chat ao servidor (anti-falso-positivo).
-- Implementar **período de carência de 1,5 s** entre o `7` ser jogado e
-  a contagem de silêncio iniciar — evita o "ops, eu já estava digitando".
-- Disponibilizar **mute toggle** no cliente: o jogador pode silenciar
-  o próprio chat por N turnos para evitar cair na própria armadilha.
+- `client:chat:msg` continua aceitando apenas o texto; a identidade do remetente é sempre derivada da sessão autenticada.
+- Ao detectar a primeira infração, o servidor persiste a compra, emite o estado público atualizado, envia a mão privada atualizada somente ao infrator e pode emitir `server:silencio:quebrado` para feedback da mesa.
+- A mensagem não é descartada pela punição: ela aparece no histórico e, quando houver balões de fala, também no balão temporário do avatar.
+- A UI pode indicar **"SILÊNCIO ATIVO · falar custa +2"**, mas nunca deve exibir comunicação bloqueada nem desabilitar chat/Falas rápidas.
+- Não há denúncia manual, período de carência ou auto-skip: a primeira mensagem recebida pelo servidor é a infração e a punição é imediata, preservando o turno.
 
 ### 8.4 Regras pendentes (decisões a formalizar)
 
 1. **`WILD4` com carta válida na mão** — bloquear ou permitir?
 2. **Coringas com escolha de cor obrigatória ou default** — UX de cor.
 3. **Chat privado entre jogadores** — permitir durante a partida?
-4. **Auto-skip após denúncia de infração** ou só punição social?
 
 ---
 

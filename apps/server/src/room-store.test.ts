@@ -146,6 +146,125 @@ describe('RoomStore — básico', () => {
   });
 });
 
+describe('RoomStore — salas públicas', () => {
+  it('mantém salas privadas por padrão e só lista a pública aguardando com host conectado e vaga', () => {
+    const store = new RoomStore();
+    store.join({
+      jogadorId: uuid(1),
+      salaId: 'PRIVATE',
+      nome: 'Privada',
+      socketId: 'private-host',
+    });
+    store.join({
+      jogadorId: uuid(2),
+      salaId: 'PUBLIC',
+      nome: 'Host público',
+      socketId: 'public-host',
+      visibilidade: 'PUBLICA',
+      nomeSala: ' < Mesa   pública > ',
+    });
+
+    expect(store.listAvailablePublicRooms()).toEqual([
+      {
+        id: 'PUBLIC',
+        nome: 'Mesa pública',
+        hostNome: 'Host público',
+        quantidadeJogadores: 1,
+        maxJogadores: 10,
+      },
+    ]);
+  });
+});
+
+describe('RoomStore — saída explícita', () => {
+  it('remove jogador aguardando, transfere host conectado e remove a sala quando fica vazia', () => {
+    const store = new RoomStore();
+    store.join({ jogadorId: uuid(1), salaId: 'LEAVE1', nome: 'Ana', socketId: 'socket-a' });
+    store.join({ jogadorId: uuid(2), salaId: 'LEAVE1', nome: 'Bia', socketId: 'socket-b' });
+
+    const afterHostLeaves = store.leaveWaitingRoom('LEAVE1', uuid(1));
+    expect(afterHostLeaves?.sala.hostId).toBe(uuid(2));
+    expect(afterHostLeaves?.sala.jogadores.map((player) => player.id)).toEqual([uuid(2)]);
+
+    expect(store.leaveWaitingRoom('LEAVE1', uuid(2))).toBeUndefined();
+    expect(store.get('LEAVE1')).toBeUndefined();
+  });
+});
+
+describe('RoomStore — abandono explícito', () => {
+  it('finaliza a partida para todos, registra ABANDONO e revoga a retomada do abandonador', () => {
+    const store = createStartedStore();
+    const session = store.get('KJTEST')!;
+    const abandoned = store.abandonGame('KJTEST', uuid(1));
+
+    expect(abandoned.estado?.finalizada).toBe(true);
+    expect(abandoned.sala.status).toBe('FINALIZADA');
+    expect(abandoned.estado?.historico.at(-1)).toMatchObject({
+      tipo: 'PARTIDA_FINALIZADA',
+      motivo: 'ABANDONO',
+    });
+    expect(abandoned.resumeTokenHashByPlayer.has(uuid(1))).toBe(false);
+    expect(() =>
+      store.join({
+        jogadorId: uuid(1),
+        salaId: 'KJTEST',
+        nome: 'Ana',
+        socketId: 'returning',
+        resumeToken: 'invalidated',
+      }),
+    ).toThrow('Credenciais de retomada inválidas');
+    expect(session.estado?.finalizada).toBe(false);
+  });
+});
+
+describe('RoomStore — Regra do 7 no chat', () => {
+  it('penaliza cada jogador uma única vez sem alterar a transição do jogo', () => {
+    const store = createStartedStore();
+    const session = store.get('KJTEST')!;
+    const before = {
+      ...session.estado!,
+      silencio: { ativo: true, jogadoresQuebraram: [] },
+      sentido: -1 as const,
+      ataqueAcumulado: 4,
+      ataqueStack: ['MAIS_QUATRO' as const],
+    };
+    session.estado = before;
+    const firstPlayer = before.jogadores[0]!;
+    const secondPlayer = before.jogadores[1]!;
+    const firstHandSize = firstPlayer.mao.length;
+    const secondHandSize = secondPlayer.mao.length;
+
+    const first = store.penalizeSilenceBreak('KJTEST', firstPlayer.id);
+    const repeated = store.penalizeSilenceBreak('KJTEST', firstPlayer.id);
+    const second = store.penalizeSilenceBreak('KJTEST', secondPlayer.id);
+
+    expect(first.penalized).toBe(true);
+    expect(repeated.penalized).toBe(false);
+    expect(second.penalized).toBe(true);
+    const after = second.session.estado!;
+    expect(after.jogadores.find((player) => player.id === firstPlayer.id)?.mao).toHaveLength(
+      firstHandSize + 2,
+    );
+    expect(after.jogadores.find((player) => player.id === secondPlayer.id)?.mao).toHaveLength(
+      secondHandSize + 2,
+    );
+    expect(after.silencio).toEqual({
+      ativo: true,
+      jogadoresQuebraram: [firstPlayer.id, secondPlayer.id],
+    });
+    expect(after.vezDe).toBe(before.vezDe);
+    expect(after.sentido).toBe(before.sentido);
+    expect(after.ataqueAcumulado).toBe(before.ataqueAcumulado);
+    expect(after.ataqueStack).toEqual(before.ataqueStack);
+    expect(after.historico.filter((event) => event.tipo === 'SILENCIO_QUEBRADO')).toHaveLength(2);
+    expect(
+      after.historico.filter(
+        (event) => event.tipo === 'CARTA_COMPRADA' && event.origem === 'REGRA_DO_7',
+      ),
+    ).toHaveLength(4);
+  });
+});
+
 describe('RoomStore — M14 (identidade estável + reconexão)', () => {
   it('rejeita jogadorId ausente', () => {
     const store = new RoomStore();

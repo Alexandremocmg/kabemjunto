@@ -296,7 +296,7 @@ describe('Regra do 7 (Silêncio)', () => {
     const estado = criarPartidaCustom({ baralho, totalJogadores: 2 });
     const estadoComSilencio: EstadoPartida = {
       ...estado,
-      silencio: { ativo: true },
+      silencio: { ativo: true, jogadoresQuebraram: ['j1'] },
       vezDe: 'j2',
       monteDescarte: [cartaNum('LARANJA', 0)],
     };
@@ -312,6 +312,7 @@ describe('Regra do 7 (Silêncio)', () => {
     };
     const r = executarJogada({ estado: novoEstado, cartaIndex: 0 });
     expect(r.novoEstado.silencio.ativo).toBe(false);
+    expect(r.novoEstado.silencio.jogadoresQuebraram).toEqual([]);
   });
 
   it('starter 7: silêncio ativo desde o início da partida', () => {

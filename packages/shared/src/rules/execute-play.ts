@@ -120,7 +120,7 @@ export function executarJogada(opcoes: ExecutarJogadaOpcoes): ResultadoJogada {
     jogadores: jogadoresSemCarta,
     monteDescarte: novoDescarte,
     corAtiva: novaCorAtiva,
-    silencio: { ativo: false }, // qualquer carta desativa silêncio
+    silencio: { ativo: false, jogadoresQuebraram: [] }, // qualquer carta desativa silêncio
     historico: [...estado.historico, ...eventos],
   };
 
@@ -245,7 +245,7 @@ function resolverAcao(
         { tipo: 'SILENCIO_ATIVADO', timestamp: ts, por: jogadorId },
       );
       return {
-        novoEstado: { ...estado, silencio: { ativo: true } },
+        novoEstado: { ...estado, silencio: { ativo: true, jogadoresQuebraram: [] } },
         sfx,
         eventos,
       };

@@ -37,6 +37,7 @@ function waitingRoom(): PersistedRoomSession {
     ],
     maxJogadores: 10,
     modo: 'ONLINE_PRIVADA',
+    visibilidade: 'PRIVADA',
     status: 'AGUARDANDO',
   };
   return {
@@ -106,6 +107,29 @@ describe('JsonRoomPersistence', () => {
     expect(JSON.parse(snapshotText)).toMatchObject({ version: 2, rooms });
     expect(snapshotText).not.toContain('token-bruto-proibido');
     expect(readdirSync(join(directory, 'nested'))).toEqual(['rooms.json']);
+  });
+
+  it('migra snapshot legado com jogadorQuebrou para a coleção vazia', () => {
+    const { directory, file } = temporaryFile();
+    const room = activeRoom();
+    const legacy = {
+      version: 2,
+      rooms: [
+        {
+          ...room,
+          estado: {
+            ...room.estado,
+            silencio: { ativo: true, jogadorQuebrou: room.estado!.jogadores[0]!.id },
+          },
+        },
+      ],
+    };
+    mkdirSync(join(directory, 'nested'), { recursive: true });
+    writeFileSync(file, JSON.stringify(legacy), 'utf8');
+
+    const restored = new JsonRoomPersistence(file).load();
+
+    expect(restored[0]?.estado?.silencio).toEqual({ ativo: true, jogadoresQuebraram: [] });
   });
 
   it.each([

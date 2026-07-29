@@ -1,11 +1,14 @@
 import type { Server, Socket } from 'socket.io';
 import type {
+  ClientAbandonarPartidaEvent,
   ClientChatEvent,
   ClientEntrarSalaEvent,
   ClientEscolherCorEvent,
   ClientIniciarPartidaEvent,
   ClientJogarEvent,
   ClientComprarEvent,
+  ClientListarSalasEvent,
+  ClientSairSalaEvent,
   ServerChatEvent,
   ServerCorTrocadaEvent,
   ServerEstadoAtualizadoEvent,
@@ -14,7 +17,9 @@ import type {
   ServerJogadaRejeitadaEvent,
   ServerMaoAtualizadaEvent,
   ServerSalaAtualizadaEvent,
+  ServerSalasDisponiveisEvent,
   ServerSessaoEmitidaEvent,
+  ServerSilencioQuebradoEvent,
   SocketEventMap,
 } from '@kabemjunto/shared';
 import { createNoopMetrics, type MetricsRegistry } from './observability.js';
@@ -27,6 +32,9 @@ import {
 
 type ClientEvents = {
   'client:entrar:sala': (payload: ClientEntrarSalaEvent) => void;
+  'client:listar:salas': (payload: ClientListarSalasEvent) => void;
+  'client:sair:sala': (payload: ClientSairSalaEvent) => void;
+  'client:abandonar:partida': (payload: ClientAbandonarPartidaEvent) => void;
   'client:iniciar:partida': (payload: ClientIniciarPartidaEvent) => void;
   'client:jogar': (payload: ClientJogarEvent) => void;
   'client:comprar': (payload: ClientComprarEvent) => void;
@@ -40,7 +48,9 @@ type ServerEvents = {
   'server:jogada:aceita': (payload: ServerJogadaAceitaEvent) => void;
   'server:jogada:rejeitada': (payload: ServerJogadaRejeitadaEvent) => void;
   'server:sala:atualizada': (payload: ServerSalaAtualizadaEvent) => void;
+  'server:salas:disponiveis': (payload: ServerSalasDisponiveisEvent) => void;
   'server:cor:trocada': (payload: ServerCorTrocadaEvent) => void;
+  'server:silencio:quebrado': (payload: ServerSilencioQuebradoEvent) => void;
   'server:chat:msg': (payload: ServerChatEvent) => void;
   'server:mao:atualizada': (payload: ServerMaoAtualizadaEvent) => void;
   'server:erro': (payload: ServerErroEvent) => void;
@@ -104,12 +114,20 @@ export function registerSocketHandlers(
   io.on('connection', (socket: GameSocket) => {
     metrics.recordConnection(1);
 
+    socket.on('client:listar:salas', () => {
+      socket.emit('server:salas:disponiveis', { salas: store.listAvailablePublicRooms() });
+    });
+
     socket.on('client:entrar:sala', (payload) => {
       if (!checkRateLimit(socket, 'sala')) return;
       if (
         !isNonEmptyString(payload.jogadorId, 128) ||
         !isNonEmptyString(payload.salaId, 32) ||
         !isNonEmptyString(payload.nome, 64) ||
+        (payload.nomeSala !== undefined && !isNonEmptyString(payload.nomeSala, 48)) ||
+        (payload.visibilidade !== undefined &&
+          payload.visibilidade !== 'PRIVADA' &&
+          payload.visibilidade !== 'PUBLICA') ||
         (payload.resumeToken !== undefined && !isNonEmptyString(payload.resumeToken, 256))
       ) {
         emitError(socket, new RoomError('INTERNAL', 'Payload inválido para entrar na sala.'));
@@ -122,6 +140,8 @@ export function registerSocketHandlers(
           nome: payload.nome,
           socketId: socket.id,
           ...(payload.criar !== undefined ? { criar: payload.criar } : {}),
+          ...(payload.nomeSala !== undefined ? { nomeSala: payload.nomeSala } : {}),
+          ...(payload.visibilidade !== undefined ? { visibilidade: payload.visibilidade } : {}),
           ...(payload.resumeToken !== undefined ? { resumeToken: payload.resumeToken } : {}),
         });
         socket.data.salaId = joined.session.sala.id;
@@ -158,6 +178,49 @@ export function registerSocketHandlers(
       } catch (error) {
         metrics.recordEventOutcome('sala', 'rejected');
         if (!(error instanceof RoomError)) metrics.recordPersistenceFailure();
+        emitError(socket, error);
+      }
+    });
+
+    socket.on('client:sair:sala', () => {
+      try {
+        const salaId = roomId(socket);
+        const jogadorId = jogadorIdFromSocket(socket);
+        if (!salaId || !jogadorId) {
+          throw new RoomError('SALA_INEXISTENTE', 'Entre em uma sala primeiro.');
+        }
+        const session = store.leaveWaitingRoom(salaId, jogadorId);
+        void socket.leave(salaId);
+        delete socket.data.salaId;
+        delete socket.data.jogadorId;
+        if (session) {
+          io.to(salaId).emit('server:sala:atualizada', {
+            hostId: session.sala.hostId,
+            jogadores: session.sala.jogadores,
+          });
+        }
+      } catch (error) {
+        emitError(socket, error);
+      }
+    });
+
+    socket.on('client:abandonar:partida', () => {
+      try {
+        const salaId = roomId(socket);
+        const jogadorId = jogadorIdFromSocket(socket);
+        if (!salaId || !jogadorId) {
+          throw new RoomError('SALA_INEXISTENTE', 'Entre em uma sala primeiro.');
+        }
+        const session = store.abandonGame(salaId, jogadorId);
+        broadcastState(io, salaId, { estado: toPublicState(session.estado!) });
+        io.to(salaId).emit('server:sala:atualizada', {
+          hostId: session.sala.hostId,
+          jogadores: session.sala.jogadores,
+        });
+        void socket.leave(salaId);
+        delete socket.data.salaId;
+        delete socket.data.jogadorId;
+      } catch (error) {
         emitError(socket, error);
       }
     });
@@ -250,8 +313,15 @@ export function registerSocketHandlers(
       }
       const texto = payload.texto.replace(/[<>]/g, '').trim().slice(0, 240);
       if (!texto) return;
+      const activeState = store.get(salaId)?.estado;
+      const silence = activeState ? store.penalizeSilenceBreak(salaId, jogadorId) : undefined;
       const message: ServerChatEvent = { jogadorId, texto, timestamp: Date.now() };
       io.to(salaId).emit('server:chat:msg', message);
+      if (silence?.penalized) {
+        io.to(salaId).emit('server:silencio:quebrado', { jogadorId, cartasCompradas: 2 });
+        broadcastState(io, salaId, { estado: toPublicState(silence.session.estado!) });
+        sendPrivateHands(io, silence.session);
+      }
     });
 
     socket.on('disconnect', () => {

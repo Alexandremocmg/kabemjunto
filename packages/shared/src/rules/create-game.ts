@@ -135,7 +135,10 @@ export function criarPartidaInicial(opcoes: CriarPartidaOpcoes): EstadoPartida {
     corAtiva,
     ataqueAcumulado: ataqueInicial.valor,
     ataqueStack: ataqueInicial.stack,
-    silencio: { ativo: starter.valor === 7 || starter.acao === 'SILENCIO' },
+    silencio: {
+      ativo: starter.valor === 7 || starter.acao === 'SILENCIO',
+      jogadoresQuebraram: [],
+    },
     historico: [],
     finalizada: false,
   };

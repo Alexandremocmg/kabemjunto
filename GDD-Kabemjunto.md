@@ -91,6 +91,12 @@
 - **Playtest fechado de ≥100 partidas** antes de balancear o 0+
 - **Tematização brasileira** como diferencial cultural vs UNO
 
+### Salas online — contrato aprovado
+
+- A criação é **privada** por padrão; o host pode escolher **pública**. Somente salas públicas em `AGUARDANDO`, com host conectado e vaga aparecem na descoberta, que expõe apenas `id`, nome sanitizado, nome do host e ocupação — nunca código, token, chat, mãos ou estado da partida.
+- O nome da sala é opcional, sanitizado e limitado no servidor; se ausente ou vazio, o servidor usa `Sala <id>`. A UI mantém `privada`/`publica` internamente, mas emite o enum canônico `PRIVADA`/`PUBLICA`.
+- Desconexão acidental **não é abandono**: mantém identidade, vaga e retomada autenticada durante a janela de reconexão. Saída voluntária antes do início remove o jogador (e transfere host ou remove sala vazia). Abandono durante a partida requer confirmação e evento explícito: finaliza a partida, registra `ABANDONO`, revoga a retomada do abandonador e notifica os restantes.
+
 ---
 
 ## 5. Glossário consolidado
@@ -176,7 +182,7 @@ Termos canônicos usados em todo o GDD. Cada termo mantém o mesmo significado e
 - **Troca Mão:** escolha um jogador e troque toda a sua mão com a dele
 - **Gira Mão:** escolha um sentido; todos passam suas mãos para o vizinho
 - **Coringa Simples:** altera a cor ativa do jogo
-- **Regra do 7 (Silêncio):** jogar 7 = todos em silêncio até a próxima carta. Quem falar paga +2 cartas
+- **Regra do 7 (Silêncio):** jogar 7 abre uma janela até a próxima carta. Chat escrito e Falas rápidas seguem disponíveis; a primeira mensagem de cada jogador na janela é entregue e gera +2 cartas imediatas, sem passar o turno. Novas mensagens daquele mesmo jogador não acumulam punição até outro 7 abrir uma nova janela.
 
 ### Fim de jogo
 
@@ -207,7 +213,7 @@ Para navegação rápida, cada seção tem um verbete com os pontos-chave que el
 - State machine formal: `INICIO_TURNO → ESPERAR_CARTA → VALIDAR → RESOLVER_ACAO → FIM_TURNO` (com `COMPRAR` intermediário)
 - 4 regras de acúmulo implementadas: `+2/+2 OK`, `+4/+2 OK`, `+2/+4 PROIBIDO`, `+4/+4 OK`
 - 0+ encerra pilha e não pode ser rebatido
-- Regra do 7 detalhada com implementação para modo digital (chat de texto conta como "falar"?)
+- Regra do 7 detalhada e decidida para modo digital: chat escrito e Falas rápidas contam como falar; punição autoritativa é uma vez por jogador em cada janela de SILÊNCIO.
 
 ### 8.3 [Seção 03 — Produção, Arte, UX e Implementação](./secoes/03-producao.md) (5.480 palavras)
 

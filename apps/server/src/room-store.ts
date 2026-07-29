@@ -4,6 +4,7 @@ import {
   comprarCartas,
   criarPartidaInicial,
   executarJogada,
+  penalizarQuebraSilencio,
   type Carta,
   type EstadoPartida,
   type EstadoPartidaPublico,
@@ -12,6 +13,8 @@ import {
   type ModoJogo,
   type Sala,
   type SalaId,
+  type ServerSalaDisponivel,
+  type VisibilidadeSala,
 } from '@kabemjunto/shared';
 import type { PersistedRoomSession, RoomPersistence } from './persistence.js';
 
@@ -31,6 +34,10 @@ export interface JoinRoomInput {
   nome: string;
   socketId: string;
   criar?: boolean;
+  /** Só é aplicado na criação; o servidor normaliza antes de persistir. */
+  nomeSala?: string;
+  /** Só é aplicada na criação; omitida cria uma sala privada. */
+  visibilidade?: VisibilidadeSala;
   resumeToken?: string;
 }
 
@@ -71,6 +78,11 @@ export class RoomError extends Error {
 function sanitizeName(name: string): string {
   const normalized = name.replace(/[<>]/g, '').trim().slice(0, 24);
   return normalized || 'Jogador';
+}
+
+function sanitizeRoomName(name: string | undefined, salaId: string): string {
+  const normalized = name?.replace(/[<>]/g, '').trim().replace(/\s+/g, ' ').slice(0, 48);
+  return normalized || `Sala ${salaId}`;
 }
 
 const AUTH_REQUIRED_MESSAGE = 'Credenciais de retomada inválidas.';
@@ -170,6 +182,7 @@ export class RoomStore {
     for (const room of rooms) {
       const sala = {
         ...room.sala,
+        visibilidade: room.sala.visibilidade ?? 'PRIVADA',
         jogadores: room.sala.jogadores.map((player) => ({ ...player, conectado: false })),
       };
       const estado =
@@ -236,13 +249,14 @@ export class RoomStore {
       const sala: Sala = {
         id: salaId,
         codigo: salaId,
-        nome: `Sala ${salaId}`,
+        nome: sanitizeRoomName(input.nomeSala, salaId),
         // hostId é o jogadorId do primeiro jogador (identidade estável).
         // O socketId muda a cada reconexão, mas o jogadorId não.
         hostId: input.jogadorId,
         jogadores: [],
         maxJogadores: 10,
-        modo: 'ONLINE_PRIVADA',
+        modo: input.visibilidade === 'PUBLICA' ? 'ONLINE_PUBLICA' : 'ONLINE_PRIVADA',
+        visibilidade: input.visibilidade ?? 'PRIVADA',
         status: 'AGUARDANDO',
       };
       session = {
@@ -329,6 +343,65 @@ export class RoomStore {
     };
     this.commit(next);
     return { session: next, jogadorId, reconectado: false, resumeToken: issued.raw };
+  }
+
+  listAvailablePublicRooms(): ServerSalaDisponivel[] {
+    return [...this.rooms.values()].flatMap((session) => {
+      const host = session.sala.jogadores.find((player) => player.id === session.sala.hostId);
+      if (
+        session.sala.visibilidade !== 'PUBLICA' ||
+        session.sala.status !== 'AGUARDANDO' ||
+        !host?.conectado ||
+        session.sala.jogadores.length >= session.sala.maxJogadores
+      ) {
+        return [];
+      }
+      return [
+        {
+          id: session.sala.id,
+          nome: session.sala.nome,
+          hostNome: host.nome,
+          quantidadeJogadores: session.sala.jogadores.length,
+          maxJogadores: session.sala.maxJogadores,
+        },
+      ];
+    });
+  }
+
+  leaveWaitingRoom(salaId: string, jogadorId: JogadorId): RoomSession | undefined {
+    const session = this.require(salaId);
+    if (session.sala.status !== 'AGUARDANDO') {
+      throw new RoomError('INTERNAL', 'Não é possível sair depois que a partida começou.');
+    }
+    if (!session.sala.jogadores.some((player) => player.id === jogadorId)) {
+      throw new RoomError('AUTH_REQUIRED', AUTH_REQUIRED_MESSAGE);
+    }
+    const jogadores = session.sala.jogadores.filter((player) => player.id !== jogadorId);
+    if (jogadores.length === 0) {
+      if (this.persistence) {
+        this.persistence.save(
+          this.exportState().filter((room) => room.sala.id !== session.sala.id),
+        );
+      }
+      this.rooms.delete(session.sala.id);
+      return undefined;
+    }
+    const hostId =
+      session.sala.hostId === jogadorId
+        ? (jogadores.find((player) => player.conectado) ?? jogadores[0])!.id
+        : session.sala.hostId;
+    const socketByPlayer = new Map(session.socketByPlayer);
+    socketByPlayer.delete(jogadorId);
+    const resumeTokenHashByPlayer = new Map(session.resumeTokenHashByPlayer);
+    resumeTokenHashByPlayer.delete(jogadorId);
+    const next: RoomSession = {
+      ...session,
+      sala: { ...session.sala, hostId, jogadores },
+      socketByPlayer,
+      resumeTokenHashByPlayer,
+    };
+    this.commit(next);
+    return next;
   }
 
   get(salaId: string): RoomSession | undefined {
@@ -443,6 +516,44 @@ export class RoomStore {
     return this.saveState(session, resultado.novoEstado);
   }
 
+  penalizeSilenceBreak(
+    salaId: string,
+    jogadorId: JogadorId,
+  ): { session: RoomSession; penalized: boolean } {
+    const session = this.requireActive(salaId);
+    const resultado = penalizarQuebraSilencio(session.estado, jogadorId);
+    if (!resultado.penalizado) return { session, penalized: false };
+    return { session: this.saveState(session, resultado.novoEstado), penalized: true };
+  }
+
+  abandonGame(salaId: string, jogadorId: JogadorId): RoomSession {
+    const session = this.requireActive(salaId);
+    if (!session.sala.jogadores.some((player) => player.id === jogadorId)) {
+      throw new RoomError('AUTH_REQUIRED', AUTH_REQUIRED_MESSAGE);
+    }
+    const estado: EstadoPartida = {
+      ...session.estado,
+      finalizada: true,
+      historico: [
+        ...session.estado.historico,
+        { tipo: 'PARTIDA_FINALIZADA', timestamp: Date.now(), motivo: 'ABANDONO' },
+      ],
+    };
+    const resumeTokenHashByPlayer = new Map(session.resumeTokenHashByPlayer);
+    resumeTokenHashByPlayer.delete(jogadorId);
+    const socketByPlayer = new Map(session.socketByPlayer);
+    socketByPlayer.delete(jogadorId);
+    const next: RoomSession = {
+      ...session,
+      sala: { ...session.sala, status: 'FINALIZADA' },
+      estado,
+      socketByPlayer,
+      resumeTokenHashByPlayer,
+    };
+    this.commit(next);
+    return next;
+  }
+
   prepareDeterministicVictoryFixture(salaId: string): {
     session: RoomSession & { estado: EstadoPartida };
     fixture: DeterministicVictoryFixture;
@@ -543,7 +654,7 @@ export class RoomStore {
       corAtiva: cartaVencedora.cor === 'NEUTRO' ? estado.corAtiva : cartaVencedora.cor,
       ataqueAcumulado: 0,
       ataqueStack: [],
-      silencio: { ativo: false },
+      silencio: { ativo: false, jogadoresQuebraram: [] },
       historico: estado.historico,
       finalizada: false,
     };

@@ -18,6 +18,7 @@ export {
   type SfxEvent,
 } from './execute-play.js';
 export { comprarCartas, type ComprarOpcoes, type ResultadoCompra } from './buy-cards.js';
+export { penalizarQuebraSilencio, type ResultadoQuebraSilencio } from './silence.js';
 export { executarTurnoBot, type BotOpcoes, type NivelBot, type ResultadoBot } from './bot-turn.js';
 export {
   transicionar,

@@ -13,7 +13,7 @@
 
 import type { Carta, Cor, Acao } from './card.js';
 import type { JogadorId, JogadorPublico } from './player.js';
-import type { EstadoPartidaPublico } from './game.js';
+import type { EstadoPartidaPublico, SalaId, VisibilidadeSala } from './game.js';
 
 // ─── Cliente → Servidor ────────────────────────────────────────────
 
@@ -61,11 +61,24 @@ export interface ClientEntrarSalaEvent {
   jogadorId: string;
   salaId: string;
   nome: string;
+  /** Nome público da sala, aplicado somente quando a criação é autorizada. */
+  nomeSala?: string;
   /** Token opaco emitido pelo servidor para retomar uma identidade existente. */
   resumeToken?: string;
   /** `true` cria a sala; `false` exige que a sala já exista. */
   criar?: boolean;
+  /** Só é usada na criação; omitida cria uma sala privada. */
+  visibilidade?: VisibilidadeSala;
 }
+
+/** Solicita a lista sanitizada de salas públicas disponíveis. */
+export type ClientListarSalasEvent = Record<string, never>;
+
+/** Sai explicitamente de uma sala antes de a partida iniciar. */
+export type ClientSairSalaEvent = Record<string, never>;
+
+/** Abandona explicitamente a partida em andamento, sem possibilidade de retomada. */
+export type ClientAbandonarPartidaEvent = Record<string, never>;
 
 /** Host quer iniciar a partida. */
 export type ClientIniciarPartidaEvent = Record<string, never>;
@@ -138,6 +151,19 @@ export interface ServerMaoAtualizadaEvent {
   mao: ReadonlyArray<Carta>;
 }
 
+/** Salas públicas visíveis no lobby, deliberadamente sem código, tokens ou estado de jogo. */
+export interface ServerSalaDisponivel {
+  id: SalaId;
+  nome: string;
+  hostNome: string;
+  quantidadeJogadores: number;
+  maxJogadores: number;
+}
+
+export interface ServerSalasDisponiveisEvent {
+  salas: ReadonlyArray<ServerSalaDisponivel>;
+}
+
 /** Jogador entrou/saiu da sala. */
 export interface ServerSalaAtualizadaEvent {
   /** Identidade estável do jogador que criou a sala. */
@@ -167,6 +193,9 @@ export interface SocketEventMap {
   'client:silencio:quebrar': ClientSilencioQuebrarEvent;
   'client:chat:msg': ClientChatEvent;
   'client:entrar:sala': ClientEntrarSalaEvent;
+  'client:listar:salas': ClientListarSalasEvent;
+  'client:sair:sala': ClientSairSalaEvent;
+  'client:abandonar:partida': ClientAbandonarPartidaEvent;
   'client:iniciar:partida': ClientIniciarPartidaEvent;
   // server → client
   'server:estado:atualizado': ServerEstadoAtualizadoEvent;
@@ -177,6 +206,7 @@ export interface SocketEventMap {
   'server:cor:trocada': ServerCorTrocadaEvent;
   'server:silencio:quebrado': ServerSilencioQuebradoEvent;
   'server:chat:msg': ServerChatEvent;
+  'server:salas:disponiveis': ServerSalasDisponiveisEvent;
   'server:sala:atualizada': ServerSalaAtualizadaEvent;
   'server:mao:atualizada': ServerMaoAtualizadaEvent;
   'server:erro': ServerErroEvent;

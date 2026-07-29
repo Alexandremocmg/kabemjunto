@@ -170,7 +170,7 @@ Termos canônicos usados em todo o GDD. Cada termo mantém o mesmo significado e
 - **Troca Mão:** escolha um jogador e troque toda a sua mão com a dele
 - **Gira Mão:** escolha um sentido; todos passam suas mãos para o vizinho
 - **Coringa Simples:** altera a cor ativa do jogo
-- **Regra do 7 (Silêncio):** jogar 7 = todos em silêncio até a próxima carta. Quem falar paga +2 cartas
+- **Regra do 7 (Silêncio):** jogar 7 abre uma janela até a próxima carta; chat escrito e Falas rápidas seguem disponíveis. A primeira mensagem de cada jogador na janela é entregue e gera +2 cartas imediatas, sem passar o turno; novas mensagens daquele mesmo jogador não acumulam punição até outro 7 abrir nova janela.
 
 ### Fim de jogo
 - Vence quem descartar a última carta da mão
@@ -200,7 +200,7 @@ Para navegação rápida, cada seção tem um verbete com os pontos-chave que el
 - State machine formal: `INICIO_TURNO → ESPERAR_CARTA → VALIDAR → RESOLVER_ACAO → FIM_TURNO` (com `COMPRAR` intermediário)
 - 4 regras de acúmulo implementadas: `+2/+2 OK`, `+4/+2 OK`, `+2/+4 PROIBIDO`, `+4/+4 OK`
 - 0+ encerra pilha e não pode ser rebatido
-- Regra do 7 detalhada com implementação para modo digital (chat de texto conta como "falar"?)
+- Regra do 7 detalhada e decidida para modo digital: chat escrito e Falas rápidas contam como falar; punição autoritativa é uma vez por jogador em cada janela de SILÊNCIO.
 
 ### 8.3 [Seção 03 — Produção, Arte, UX e Implementação](./secoes/03-producao.md) (5.480 palavras)
 

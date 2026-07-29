@@ -1,35 +1,34 @@
-/**
- * LobbyOnline — tela de entrada na sala.
- *
- * Sprint 4 polish (B12) + Melhores práticas UX (Sprint 5).
- * - Persistência de nome via localStorage.
- * - Validação clara de formulário (nome e código de sala).
- * - Acessibilidade completa (ARIA, focus-visible).
- */
-
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
+import type { ServerSalaDisponivel } from '@kabemjunto/shared';
 
 const PLAYER_NAME_KEY = 'kabemjunto-player-name';
 
 export interface LobbyOnlineCredentials {
   salaId: string;
   nome: string;
+  nomeSala?: string;
+  visibilidade?: 'privada' | 'publica';
 }
 
 export interface LobbyOnlineProps {
-  /** Callback chamado quando o usuário clica "Entrar em sala" ou "Criar sala". */
   onEntrar: (credentials: LobbyOnlineCredentials & { criar: boolean }) => void;
-  /** Mensagem de erro atual (vinda do servidor ou validação local). */
   erro?: string | undefined;
-  /** Se true, desabilita os controles (ex: enquanto tenta conectar). */
   desabilitado?: boolean;
+  salasPublicas?: ReadonlyArray<ServerSalaDisponivel>;
+  onListarSalas?: () => void;
 }
 
 function gerarCodigo(): string {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
 
-export const LobbyOnline: React.FC<LobbyOnlineProps> = ({ onEntrar, erro, desabilitado }) => {
+export const LobbyOnline: React.FC<LobbyOnlineProps> = ({
+  onEntrar,
+  erro,
+  desabilitado,
+  salasPublicas = [],
+  onListarSalas = () => undefined,
+}) => {
   const [salaInput, setSalaInput] = useState('');
   const [nomeInput, setNomeInput] = useState(() => {
     try {
@@ -39,28 +38,42 @@ export const LobbyOnline: React.FC<LobbyOnlineProps> = ({ onEntrar, erro, desabi
     }
   });
   const [validationError, setValidationError] = useState<string | undefined>();
+  const [criacaoAberta, setCriacaoAberta] = useState(false);
+  const [nomeSalaInput, setNomeSalaInput] = useState('');
+  const [visibilidade, setVisibilidade] = useState<'privada' | 'publica'>('privada');
   const nomeInputRef = useRef<HTMLInputElement>(null);
   const errorId = useId();
   const errorMessage = validationError ?? erro;
+  const temNome = Boolean(nomeInput.trim());
 
   useEffect(() => {
     nomeInputRef.current?.focus();
   }, []);
 
-  function salvarNome(nome: string) {
+  useEffect(() => {
+    if (temNome) onListarSalas();
+  }, [onListarSalas, temNome]);
+
+  function salvarNome(nome: string): void {
     try {
       localStorage.setItem(PLAYER_NAME_KEY, nome);
     } catch {
-      // Ignore quota error
+      // localStorage may be unavailable in restricted contexts.
     }
   }
 
-  function entrar(criar: boolean): void {
+  function validarNome(): string | undefined {
     const nomeLimpo = nomeInput.trim();
     if (!nomeLimpo) {
       setValidationError('Informe seu nome antes de continuar.');
-      return;
+      return undefined;
     }
+    return nomeLimpo;
+  }
+
+  function entrar(criar: boolean): void {
+    const nomeLimpo = validarNome();
+    if (!nomeLimpo) return;
 
     if (
       !criar &&
@@ -72,15 +85,40 @@ export const LobbyOnline: React.FC<LobbyOnlineProps> = ({ onEntrar, erro, desabi
 
     setValidationError(undefined);
     salvarNome(nomeLimpo);
-
     const salaId = criar ? gerarCodigo() : salaInput.trim().toUpperCase();
     setSalaInput(salaId);
     onEntrar({ salaId, nome: nomeLimpo, criar });
   }
 
+  function abrirCriacao(): void {
+    if (!validarNome()) return;
+    setValidationError(undefined);
+    setCriacaoAberta(true);
+  }
+
+  function criarSala(event: FormEvent<HTMLFormElement>): void {
+    event.preventDefault();
+    const nomeLimpo = validarNome();
+    if (!nomeLimpo) return;
+
+    const salaId = gerarCodigo();
+    const nomeSala = nomeSalaInput.trim() || `Sala de ${nomeLimpo}`;
+    salvarNome(nomeLimpo);
+    setCriacaoAberta(false);
+    onEntrar({ salaId, nome: nomeLimpo, criar: true, nomeSala, visibilidade });
+  }
+
   function entrarExistente(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
     entrar(false);
+  }
+
+  function entrarNaSalaPublica(salaId: string): void {
+    const nomeLimpo = validarNome();
+    if (!nomeLimpo) return;
+    setSalaInput(salaId);
+    salvarNome(nomeLimpo);
+    onEntrar({ salaId, nome: nomeLimpo, criar: false });
   }
 
   return (
@@ -128,19 +166,99 @@ export const LobbyOnline: React.FC<LobbyOnlineProps> = ({ onEntrar, erro, desabi
           <button
             type="button"
             className="button button-primary"
-            onClick={() => entrar(true)}
+            onClick={abrirCriacao}
             disabled={desabilitado}
           >
             Criar sala
           </button>
         </div>
       </form>
+      {temNome && (
+        <section className="public-rooms" aria-labelledby="public-rooms-title">
+          <div className="public-rooms-heading">
+            <h3 id="public-rooms-title">Salas públicas</h3>
+            <button type="button" className="button button-secondary" onClick={onListarSalas}>
+              Atualizar
+            </button>
+          </div>
+          {salasPublicas.length === 0 ? (
+            <p className="muted">Nenhuma sala pública disponível agora.</p>
+          ) : (
+            <ul className="public-room-list">
+              {salasPublicas.map((sala) => (
+                <li key={sala.id} className="public-room-card">
+                  <div>
+                    <strong>{sala.nome}</strong>
+                    <span>Criada por {sala.hostNome}</span>
+                    <small>
+                      {sala.quantidadeJogadores}/{sala.maxJogadores} jogadores
+                    </small>
+                  </div>
+                  <button
+                    type="button"
+                    className="button button-primary"
+                    onClick={() => entrarNaSalaPublica(sala.id)}
+                  >
+                    Entrar
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
       {errorMessage && (
         <p id={errorId} className="error-message" aria-live="polite">
           {errorMessage}
         </p>
       )}
       <p className="lobby-hint">A conexão começa ao criar ou entrar em uma sala.</p>
+      {criacaoAberta && (
+        <div className="modal-overlay" role="presentation">
+          <section
+            className="creation-dialog glass-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-room-title"
+          >
+            <h2 id="create-room-title">Criar sala</h2>
+            <form onSubmit={criarSala}>
+              <label>
+                Nome da sala
+                <input
+                  value={nomeSalaInput}
+                  onChange={(event) => setNomeSalaInput(event.target.value)}
+                  maxLength={48}
+                  placeholder="Ex: Mesa da galera"
+                  autoFocus
+                />
+              </label>
+              <label>
+                Visibilidade
+                <select
+                  value={visibilidade}
+                  onChange={(event) => setVisibilidade(event.target.value as 'privada' | 'publica')}
+                >
+                  <option value="privada">Privada</option>
+                  <option value="publica">Pública</option>
+                </select>
+              </label>
+              <div className="form-actions">
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  onClick={() => setCriacaoAberta(false)}
+                >
+                  Cancelar
+                </button>
+                <button type="submit" className="button button-primary">
+                  {visibilidade === 'privada' ? 'Criar sala privada' : 'Criar sala pública'}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
     </section>
   );
 };

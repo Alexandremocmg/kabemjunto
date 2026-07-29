@@ -25,6 +25,9 @@ export type PartidaId = string;
  */
 export type ModoJogo = 'HOTSEAT' | 'BOTS' | 'ONLINE_PRIVADA' | 'ONLINE_PUBLICA';
 
+/** Uma sala privada só pode ser acessada pelo código; uma pública pode entrar no lobby. */
+export type VisibilidadeSala = 'PRIVADA' | 'PUBLICA';
+
 /** Estado de uma sala (antes da partida começar). */
 export interface Sala {
   id: SalaId;
@@ -38,6 +41,8 @@ export interface Sala {
   maxJogadores: 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
   /** Modo de jogo. */
   modo: ModoJogo;
+  /** Privada por padrão; somente salas públicas podem aparecer no lobby. */
+  visibilidade: VisibilidadeSala;
   status: 'AGUARDANDO' | 'EM_PARTIDA' | 'FINALIZADA';
   /** ID da partida atual (se status === 'EM_PARTIDA'). */
   partidaId?: PartidaId;
@@ -97,8 +102,8 @@ export interface EstadoPartida {
    */
   silencio: {
     ativo: boolean;
-    /** Jogador que falou durante o silêncio e levou +2. */
-    jogadorQuebrou?: JogadorId;
+    /** Jogadores já penalizados por falar na janela atual de silêncio. */
+    jogadoresQuebraram: ReadonlyArray<JogadorId>;
   };
   /** Log de eventos para replay e auditoria (anti-cheat). */
   historico: ReadonlyArray<EventoPartida>;

@@ -101,6 +101,7 @@ function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
   const [copiedCode, setCopiedCode] = useState(false);
   const [copyError, setCopyError] = useState(false);
   const [utilityOpen, setUtilityOpen] = useState(false);
+  const [confirmarAbandono, setConfirmarAbandono] = useState(false);
   const utilityTriggerRef = useRef<HTMLButtonElement>(null);
   const utilityCloseRef = useRef<HTMLButtonElement>(null);
   const utilityDrawerRef = useRef<HTMLElement>(null);
@@ -157,6 +158,10 @@ function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
     if (!chatInput.trim()) return;
     online.enviarChat(chatInput);
     setChatInput('');
+  }
+
+  function enviarFalaRapida(texto: string): void {
+    online.enviarChat(texto);
   }
 
   async function copiarCodigoSala(): Promise<void> {
@@ -231,11 +236,16 @@ function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
       <section className="chat-panel">
         <h2>Chat</h2>
         <div className="chat-messages" aria-live="polite">
-          {online.state.mensagens.map((message, index) => (
-            <p key={`${message.timestamp}-${index}`}>
-              <strong>{message.jogadorId.slice(0, 6)}:</strong> {message.texto}
-            </p>
-          ))}
+          {online.state.mensagens.map((message, index) => {
+            const nomeRemetente =
+              online.state.jogadores.find((jogador) => jogador.id === message.jogadorId)?.nome ??
+              'Jogador';
+            return (
+              <p key={`${message.timestamp}-${index}`}>
+                <strong>{nomeRemetente}:</strong> {message.texto}
+              </p>
+            );
+          })}
         </div>
         <form onSubmit={enviarChat} className="chat-form">
           <input
@@ -288,9 +298,11 @@ function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
         />
       ) : !entrouNaSala ? (
         <LobbyOnline
-          onEntrar={({ salaId, nome, criar }) => online.entrarSala({ salaId, nome, criar })}
+          onEntrar={(credentials) => online.entrarSala(credentials)}
           erro={online.state.erro}
           desabilitado={online.state.status === 'connecting'}
+          salasPublicas={online.state.salasPublicas}
+          onListarSalas={online.listarSalas}
         />
       ) : !partidaIniciada ? (
         <section className="room-layout">
@@ -365,7 +377,11 @@ function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
             >
               ☰ <span>Menu</span>
             </button>
-            <button type="button" className="online-exit-trigger" onClick={online.sair}>
+            <button
+              type="button"
+              className="online-exit-trigger"
+              onClick={() => setConfirmarAbandono(true)}
+            >
               Sair
             </button>
           </header>
@@ -373,10 +389,12 @@ function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
           <MesaOnline
             estado={online.state.estado!}
             mao={online.state.mao}
+            mensagens={online.state.mensagens}
             jogadorId={online.jogadorId}
             selectedCardId={cartaSelecionada}
             onSelecionarCarta={selecionarCarta}
             onComprarCarta={online.comprarCarta}
+            onEnviarFalaRapida={enviarFalaRapida}
           />
 
           {utilityOpen && (
@@ -409,6 +427,40 @@ function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
         </section>
       )}
 
+      {confirmarAbandono && (
+        <div className="modal-overlay" role="presentation">
+          <section
+            className="creation-dialog glass-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="abandon-match-title"
+          >
+            <h2 id="abandon-match-title">Abandonar partida?</h2>
+            <p className="muted">
+              Você sairá desta partida. Esta ação será confirmada pelo servidor.
+            </p>
+            <div className="form-actions">
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={() => setConfirmarAbandono(false)}
+              >
+                Continuar
+              </button>
+              <button
+                type="button"
+                className="button button-primary"
+                onClick={() => {
+                  setConfirmarAbandono(false);
+                  online.abandonarPartida();
+                }}
+              >
+                Abandonar
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
       {online.state.cartaAceita && (
         <p className="toast-feedback sucesso" role="status">
           Jogada aceita: {online.state.cartaAceita}
