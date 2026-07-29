@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { Carta } from '@kabemjunto/shared/types';
 import {
+  appendCardToMultipleDiscardStack,
+  canActivateMultipleDiscardStack,
   canSelectMultipleDiscardCard,
+  createMultipleDiscardStack,
   getSelectedMultipleDiscardCards,
+  getMultipleDiscardStackHint,
   isEligibleForMultipleDiscard,
   toggleMultipleDiscardSelection,
 } from './multipleDiscard';
@@ -20,6 +24,52 @@ function carta(overrides: Partial<Carta> & Pick<Carta, 'tipo'>): Carta {
 }
 
 describe('Descarte múltiplo — seleção de faces permitidas', () => {
+  it('cria uma pilha ordenada quando a âncora jogável é arrastada sobre a mesma face', () => {
+    const seteAzul = carta({ id: 'sete-azul', tipo: 'NUMERADA', valor: 7, cor: 'AZUL' });
+    const seteVerde = carta({ id: 'sete-verde', tipo: 'NUMERADA', valor: 7, cor: 'VERDE' });
+    const mao = [seteAzul, seteVerde];
+
+    expect(createMultipleDiscardStack(seteAzul, seteVerde, mao, true)).toEqual([
+      'sete-azul',
+      'sete-verde',
+    ]);
+  });
+
+  it('não cria ou amplia uma pilha ao soltar sobre uma face inválida', () => {
+    const seteAzul = carta({ id: 'sete-azul', tipo: 'NUMERADA', valor: 7, cor: 'AZUL' });
+    const oitoAzul = carta({ id: 'oito-azul', tipo: 'NUMERADA', valor: 8, cor: 'AZUL' });
+    const mao = [seteAzul, oitoAzul];
+
+    expect(createMultipleDiscardStack(seteAzul, oitoAzul, mao, true)).toEqual([]);
+    expect(appendCardToMultipleDiscardStack(['sete-azul'], oitoAzul, mao)).toEqual(['sete-azul']);
+  });
+
+  it('mantém a primeira carta normalmente jogável, mas permite acrescentar a mesma face', () => {
+    const seteAzul = carta({ id: 'sete-azul', tipo: 'NUMERADA', valor: 7, cor: 'AZUL' });
+    const seteVerde = carta({ id: 'sete-verde', tipo: 'NUMERADA', valor: 7, cor: 'VERDE' });
+    const mao = [seteAzul, seteVerde];
+
+    expect(createMultipleDiscardStack(seteAzul, seteVerde, mao, false)).toEqual([]);
+    expect(appendCardToMultipleDiscardStack(['sete-azul'], seteVerde, mao)).toEqual([
+      'sete-azul',
+      'sete-verde',
+    ]);
+  });
+
+  it('expõe uma dica temporária só para uma pilha pronta para jogar diretamente', () => {
+    expect(getMultipleDiscardStackHint(1, true)).toBeUndefined();
+    expect(getMultipleDiscardStackHint(2, false)).toBeUndefined();
+    expect(getMultipleDiscardStackHint(2, true)).toBe(
+      'Pilha pronta — toque para descartar 2 cartas',
+    );
+  });
+
+  it('habilita a ativação direta apenas para uma pilha pronta com handler de jogada', () => {
+    expect(canActivateMultipleDiscardStack(['sete-azul'], true)).toBe(false);
+    expect(canActivateMultipleDiscardStack(['sete-azul', 'sete-verde'], false)).toBe(false);
+    expect(canActivateMultipleDiscardStack(['sete-azul', 'sete-verde'], true)).toBe(true);
+  });
+
   it.each([
     carta({ id: 'numerada', tipo: 'NUMERADA', valor: 8 }),
     carta({ id: 'mais-dois', tipo: 'ACAO', acao: 'MAIS_DOIS' }),

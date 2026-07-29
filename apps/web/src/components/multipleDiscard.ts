@@ -39,6 +39,46 @@ export function canSelectMultipleDiscardCard(
   return primeiraSelecionada !== undefined && temMesmaFace(primeiraSelecionada, carta);
 }
 
+/** Creates the ordered two-card stack produced by a pointer drag. */
+export function createMultipleDiscardStack(
+  anchor: Carta,
+  target: Carta,
+  mao: ReadonlyArray<Carta>,
+  anchorIsNormallyPlayable: boolean,
+): ReadonlyArray<string> {
+  if (anchor.id === target.id) return [];
+  if (!canSelectMultipleDiscardCard([], anchor, mao, anchorIsNormallyPlayable)) return [];
+  if (!canSelectMultipleDiscardCard([anchor.id], target, mao, false)) return [];
+  return [anchor.id, target.id];
+}
+
+/** Appends a matching card while preserving the order in which it joined the stack. */
+export function appendCardToMultipleDiscardStack(
+  selectedCardIds: ReadonlyArray<string>,
+  carta: Carta,
+  mao: ReadonlyArray<Carta>,
+): ReadonlyArray<string> {
+  if (selectedCardIds.includes(carta.id)) return selectedCardIds;
+  return canSelectMultipleDiscardCard(selectedCardIds, carta, mao, false)
+    ? [...selectedCardIds, carta.id]
+    : selectedCardIds;
+}
+
+export function getMultipleDiscardStackHint(
+  stackSize: number,
+  shouldShow: boolean,
+): string | undefined {
+  if (!shouldShow || stackSize < 2) return undefined;
+  return `Pilha pronta — toque para descartar ${stackSize} cartas`;
+}
+
+export function canActivateMultipleDiscardStack(
+  selectedCardIds: ReadonlyArray<string>,
+  hasPlayMultipleHandler: boolean,
+): boolean {
+  return selectedCardIds.length >= 2 && hasPlayMultipleHandler;
+}
+
 export function toggleMultipleDiscardSelection(
   selectedCardIds: ReadonlyArray<string>,
   carta: Carta,

@@ -7,12 +7,14 @@ import type {
 } from '@kabemjunto/shared';
 import { PALETA_CORES } from '@kabemjunto/shared/constants/cards';
 import { CartaView } from './CartaView';
-import { ConfirmarDescarteMultiplo } from './ConfirmarDescarteMultiplo';
 import {
+  appendCardToMultipleDiscardStack,
+  canActivateMultipleDiscardStack,
   canSelectMultipleDiscardCard,
+  createMultipleDiscardStack,
+  getMultipleDiscardStackHint,
   getSelectedMultipleDiscardCards,
   temMesmaFace,
-  toggleMultipleDiscardSelection,
 } from './multipleDiscard';
 
 interface MesaOnlineProps {
@@ -130,12 +132,10 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
   onEnviarFalaRapida,
 }) => {
   const [falasRapidasAbertas, setFalasRapidasAbertas] = useState(false);
-  const [descarteMultiploAtivo, setDescarteMultiploAtivo] = useState(false);
-  const [confirmandoDescarteMultiplo, setConfirmandoDescarteMultiplo] = useState(false);
-  const [cartasSelecionadasParaDescarte, setCartasSelecionadasParaDescarte] = useState<
-    ReadonlyArray<string>
-  >([]);
-  const revisarDescarteMultiploRef = useRef<HTMLButtonElement>(null);
+  const [stackIds, setStackIds] = useState<ReadonlyArray<string>>([]);
+  const [showStackHint, setShowStackHint] = useState(false);
+  const dragAnchorRef = useRef<{ carta: Carta; primeiraCartaJogavel: boolean }>();
+  const suppressNextClickRef = useRef(false);
   const [baloesDeFala, setBaloesDeFala] = useState<ReadonlyMap<string, BalaoFala>>(new Map());
   const mensagensVistasRef = useRef(new WeakSet<ServerChatEvent>());
   const timersDeBalaoRef = useRef(new Map<string, number>());
@@ -145,33 +145,59 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
   const jogadoresRemotos = estado.jogadores.filter((jogador) => jogador.id !== jogadorId);
   const corAtiva = estado.corAtiva ?? 'LARANJA';
   const infoCor = PALETA_CORES[corAtiva] ?? PALETA_CORES.NEUTRO;
-  const cartasSelecionadas = getSelectedMultipleDiscardCards(mao, cartasSelecionadasParaDescarte);
+  const cartasSelecionadas = getSelectedMultipleDiscardCards(mao, stackIds);
   const balaoLocal = jogadorId ? baloesDeFala.get(jogadorId) : undefined;
+  const stackHint = getMultipleDiscardStackHint(cartasSelecionadas.length, showStackHint);
 
-  function alternarDescarteMultiplo(): void {
-    setDescarteMultiploAtivo((ativo) => !ativo);
-    setConfirmandoDescarteMultiplo(false);
-    setCartasSelecionadasParaDescarte([]);
-  }
+  useEffect(() => {
+    if (stackIds.length < 2) return undefined;
+    setShowStackHint(true);
+    const timeout = window.setTimeout(() => setShowStackHint(false), 2600);
+    return () => window.clearTimeout(timeout);
+  }, [stackIds.length]);
 
-  function selecionarCartaDaMao(carta: Carta, primeiraCartaJogavel: boolean): void {
-    if (!descarteMultiploAtivo) {
-      onSelecionarCarta(carta);
-      return;
-    }
-    setCartasSelecionadasParaDescarte((selecionadas) => {
-      if (!canSelectMultipleDiscardCard(selecionadas, carta, mao, primeiraCartaJogavel)) {
-        return selecionadas;
+  function adicionarPorTeclado(carta: Carta, primeiraCartaJogavel: boolean): void {
+    setStackIds((atuais) => {
+      if (atuais.length === 0) {
+        return canSelectMultipleDiscardCard([], carta, mao, primeiraCartaJogavel)
+          ? [carta.id]
+          : atuais;
       }
-      return toggleMultipleDiscardSelection(selecionadas, carta, mao);
+      return appendCardToMultipleDiscardStack(atuais, carta, mao);
     });
   }
 
-  function concluirDescarteMultiplo(cartas: ReadonlyArray<Carta>): void {
-    onPlayMultiple?.(cartas);
-    setConfirmandoDescarteMultiplo(false);
-    setDescarteMultiploAtivo(false);
-    setCartasSelecionadasParaDescarte([]);
+  function iniciarArrasto(carta: Carta, primeiraCartaJogavel: boolean): void {
+    if (
+      minhaVez &&
+      (stackIds.length > 0 || canSelectMultipleDiscardCard([], carta, mao, primeiraCartaJogavel))
+    ) {
+      dragAnchorRef.current = { carta, primeiraCartaJogavel };
+    }
+  }
+
+  function soltarNaCarta(target: Carta): void {
+    const drag = dragAnchorRef.current;
+    dragAnchorRef.current = undefined;
+    if (!drag || drag.carta.id === target.id) return;
+    setStackIds((atuais) => {
+      const proximas =
+        atuais.length === 0
+          ? createMultipleDiscardStack(drag.carta, target, mao, drag.primeiraCartaJogavel)
+          : temMesmaFace(drag.carta, target)
+            ? appendCardToMultipleDiscardStack(atuais, drag.carta, mao)
+            : atuais;
+      if (proximas !== atuais && proximas.length > atuais.length)
+        suppressNextClickRef.current = true;
+      return proximas;
+    });
+  }
+
+  function jogarPilha(): void {
+    if (canActivateMultipleDiscardStack(stackIds, onPlayMultiple !== undefined)) {
+      onPlayMultiple?.(cartasSelecionadas);
+      setStackIds([]);
+    }
   }
 
   useEffect(() => {
@@ -327,34 +353,15 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
           </div>
           <strong>SUA MÃO</strong>
           <span>{mao.length} cartas</span>
-          <div className="multiple-discard-controls">
+          {stackIds.length > 0 && (
             <button
               type="button"
-              className="button button-secondary"
-              aria-pressed={descarteMultiploAtivo}
-              disabled={!minhaVez}
-              onClick={alternarDescarteMultiplo}
+              className="multiple-discard-clear"
+              onClick={() => setStackIds([])}
             >
-              {descarteMultiploAtivo ? 'Cancelar descarte múltiplo' : 'Descarte múltiplo'}
+              Limpar pilha
             </button>
-            {descarteMultiploAtivo && (
-              <>
-                <span role="status">
-                  {cartasSelecionadas.length} carta{cartasSelecionadas.length === 1 ? '' : 's'}{' '}
-                  selecionada{cartasSelecionadas.length === 1 ? '' : 's'}
-                </span>
-                <button
-                  ref={revisarDescarteMultiploRef}
-                  type="button"
-                  className="button button-primary"
-                  disabled={cartasSelecionadas.length < 2}
-                  onClick={() => setConfirmandoDescarteMultiplo(true)}
-                >
-                  Revisar descarte múltiplo
-                </button>
-              </>
-            )}
-          </div>
+          )}
           <div className="quick-chat-control">
             {falasRapidasAbertas && (
               <div
@@ -381,59 +388,70 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
             </button>
           </div>
         </div>
+        {canActivateMultipleDiscardStack(stackIds, onPlayMultiple !== undefined) && (
+          <button
+            type="button"
+            className={`multiple-discard-stack ${stackHint ? 'multiple-discard-stack-hint' : ''}`}
+            aria-label={`Jogar pilha de descarte múltiplo com ${cartasSelecionadas.length} cartas, na ordem selecionada`}
+            onClick={jogarPilha}
+          >
+            <span className="multiple-discard-stack-cards" aria-hidden="true">
+              {cartasSelecionadas.map((carta, index) => (
+                <span key={carta.id} style={{ '--stack-index': index } as React.CSSProperties}>
+                  <CartaView carta={carta} jogavel={false} />
+                </span>
+              ))}
+            </span>
+            <span className="multiple-discard-stack-label">{stackHint ?? 'Pilha pronta'}</span>
+          </button>
+        )}
         <div className="hand-cards hand-fan" role="list">
           {mao.map((carta, index) => {
             const primeiraCartaJogavel = isNormallyPlayableOnline(estado, carta);
-            const podeSelecionarNoDescarteMultiplo = canSelectMultipleDiscardCard(
-              cartasSelecionadasParaDescarte,
-              carta,
-              mao,
-              primeiraCartaJogavel,
-            );
-            const cartaJogavel =
-              minhaVez && (descarteMultiploAtivo ? podeSelecionarNoDescarteMultiplo : true);
+            const cartaJogavel = minhaVez;
+            const inStack = stackIds.includes(carta.id);
 
             return (
               <div
-                className={`hand-card-slot ${
-                  (
-                    descarteMultiploAtivo
-                      ? cartasSelecionadasParaDescarte.includes(carta.id)
-                      : selectedCardId === carta.id
-                  )
-                    ? 'selected-slot'
-                    : ''
-                }`}
+                className={`hand-card-slot ${inStack || selectedCardId === carta.id ? 'selected-slot' : ''}`}
                 key={`${carta.id}_${index}`}
                 role="listitem"
                 style={{
                   transform: `rotate(${Math.max(-12, Math.min(12, (index - (mao.length - 1) / 2) * 4))}deg)`,
                 }}
+                onPointerDown={() => iniciarArrasto(carta, primeiraCartaJogavel)}
+                onPointerUp={() => soltarNaCarta(carta)}
+                onClickCapture={(event) => {
+                  if (suppressNextClickRef.current) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    suppressNextClickRef.current = false;
+                  }
+                }}
+                onKeyDownCapture={(event) => {
+                  if (event.altKey && (event.key === 'Enter' || event.key === ' ')) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    adicionarPorTeclado(carta, primeiraCartaJogavel);
+                  }
+                }}
               >
                 <CartaView
                   carta={carta}
                   jogavel={cartaJogavel}
-                  selecionada={
-                    descarteMultiploAtivo
-                      ? cartasSelecionadasParaDescarte.includes(carta.id)
-                      : selectedCardId === carta.id
-                  }
+                  selecionada={inStack || selectedCardId === carta.id}
                   {...(!minhaVez ? { motivoBloqueio: 'Aguardando o seu turno.' } : {})}
-                  onClick={() => cartaJogavel && selecionarCartaDaMao(carta, primeiraCartaJogavel)}
+                  onClick={() => cartaJogavel && onSelecionarCarta(carta)}
                 />
               </div>
             );
           })}
         </div>
+        <p className="multiple-discard-keyboard-hint">
+          Para montar uma pilha com teclado, use Alt+Enter em uma carta jogável e depois em cartas
+          da mesma face.
+        </p>
       </section>
-      {confirmandoDescarteMultiplo && (
-        <ConfirmarDescarteMultiplo
-          cartas={cartasSelecionadas}
-          onCancel={() => setConfirmandoDescarteMultiplo(false)}
-          triggerRef={revisarDescarteMultiploRef}
-          {...(onPlayMultiple ? { onPlayMultiple: concluirDescarteMultiplo } : {})}
-        />
-      )}
     </div>
   );
 };

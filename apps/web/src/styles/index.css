@@ -3062,3 +3062,93 @@ h5 {
 .public-room-card small {
   color: #c9d7e5;
 }
+
+/* Descarte múltiplo — a pilha aparece apenas depois do gesto de arrastar. */
+.multiple-discard-clear {
+  border: 1px solid rgba(248, 197, 107, 0.6);
+  border-radius: 999px;
+  background: rgba(9, 13, 19, 0.86);
+  color: #f8c56b;
+  cursor: pointer;
+  font: inherit;
+  padding: 4px 8px;
+}
+
+.multiple-discard-clear:focus-visible,
+.multiple-discard-stack:focus-visible {
+  outline: 3px solid #f8c56b;
+  outline-offset: 3px;
+}
+
+.multiple-discard-stack {
+  display: grid;
+  justify-items: center;
+  width: min(240px, calc(100% - 32px));
+  min-height: 86px;
+  margin: 4px auto 0;
+  padding: 6px 12px 5px;
+  border: 1px solid rgba(116, 235, 144, 0.8);
+  border-radius: 14px;
+  background: rgba(5, 20, 13, 0.9);
+  box-shadow: 0 0 16px rgba(116, 235, 144, 0.28);
+  color: #e7f8e9;
+  cursor: pointer;
+}
+
+.multiple-discard-stack-cards {
+  display: flex;
+  align-items: center;
+  height: 55px;
+  overflow: hidden;
+}
+
+.multiple-discard-stack-cards > span {
+  display: block;
+  width: 38px;
+  transform: translateX(calc(var(--stack-index) * -8px)) rotate(calc(var(--stack-index) * 2deg));
+}
+
+.multiple-discard-stack-cards .card-wrapper {
+  width: 39px !important;
+  height: 55px !important;
+  transform-origin: bottom center;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.65);
+}
+
+.multiple-discard-stack-cards .card-center-val {
+  font-size: 18px !important;
+}
+
+.multiple-discard-stack-cards .card-corner {
+  font-size: 8px !important;
+}
+
+.multiple-discard-stack-label {
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.multiple-discard-stack-hint {
+  animation: multiple-discard-stack-glow 900ms ease-in-out 2;
+}
+
+.multiple-discard-keyboard-hint {
+  width: min(540px, calc(100% - 28px));
+  margin: 3px auto 0;
+  color: #b9c9be;
+  font-size: 10px;
+  text-align: center;
+}
+
+@keyframes multiple-discard-stack-glow {
+  50% {
+    box-shadow: 0 0 26px rgba(248, 197, 107, 0.86);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .multiple-discard-stack-hint {
+    animation: none;
+  }
+}
