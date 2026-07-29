@@ -12,7 +12,6 @@ import {
   canActivateMultipleDiscardStack,
   canSelectMultipleDiscardCard,
   createMultipleDiscardStack,
-  getMultipleDiscardStackHint,
   getSelectedMultipleDiscardCards,
   temMesmaFace,
 } from './multipleDiscard';
@@ -133,7 +132,6 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
 }) => {
   const [falasRapidasAbertas, setFalasRapidasAbertas] = useState(false);
   const [stackIds, setStackIds] = useState<ReadonlyArray<string>>([]);
-  const [showStackHint, setShowStackHint] = useState(false);
   const dragAnchorRef = useRef<{ carta: Carta; primeiraCartaJogavel: boolean }>();
   const suppressNextClickRef = useRef(false);
   const [baloesDeFala, setBaloesDeFala] = useState<ReadonlyMap<string, BalaoFala>>(new Map());
@@ -146,15 +144,8 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
   const corAtiva = estado.corAtiva ?? 'LARANJA';
   const infoCor = PALETA_CORES[corAtiva] ?? PALETA_CORES.NEUTRO;
   const cartasSelecionadas = getSelectedMultipleDiscardCards(mao, stackIds);
+  const pilhaPronta = canActivateMultipleDiscardStack(stackIds, onPlayMultiple !== undefined);
   const balaoLocal = jogadorId ? baloesDeFala.get(jogadorId) : undefined;
-  const stackHint = getMultipleDiscardStackHint(cartasSelecionadas.length, showStackHint);
-
-  useEffect(() => {
-    if (stackIds.length < 2) return undefined;
-    setShowStackHint(true);
-    const timeout = window.setTimeout(() => setShowStackHint(false), 2600);
-    return () => window.clearTimeout(timeout);
-  }, [stackIds.length]);
 
   function adicionarPorTeclado(carta: Carta, primeiraCartaJogavel: boolean): void {
     setStackIds((atuais) => {
@@ -353,15 +344,6 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
           </div>
           <strong>SUA MÃO</strong>
           <span>{mao.length} cartas</span>
-          {stackIds.length > 0 && (
-            <button
-              type="button"
-              className="multiple-discard-clear"
-              onClick={() => setStackIds([])}
-            >
-              Limpar pilha
-            </button>
-          )}
           <div className="quick-chat-control">
             {falasRapidasAbertas && (
               <div
@@ -388,28 +370,14 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
             </button>
           </div>
         </div>
-        {canActivateMultipleDiscardStack(stackIds, onPlayMultiple !== undefined) && (
-          <button
-            type="button"
-            className={`multiple-discard-stack ${stackHint ? 'multiple-discard-stack-hint' : ''}`}
-            aria-label={`Jogar pilha de descarte múltiplo com ${cartasSelecionadas.length} cartas, na ordem selecionada`}
-            onClick={jogarPilha}
-          >
-            <span className="multiple-discard-stack-cards" aria-hidden="true">
-              {cartasSelecionadas.map((carta, index) => (
-                <span key={carta.id} style={{ '--stack-index': index } as React.CSSProperties}>
-                  <CartaView carta={carta} jogavel={false} />
-                </span>
-              ))}
-            </span>
-            <span className="multiple-discard-stack-label">{stackHint ?? 'Pilha pronta'}</span>
-          </button>
-        )}
         <div className="hand-cards hand-fan" role="list">
           {mao.map((carta, index) => {
             const primeiraCartaJogavel = isNormallyPlayableOnline(estado, carta);
             const cartaJogavel = minhaVez;
             const inStack = stackIds.includes(carta.id);
+            const isStackAnchor = pilhaPronta && carta.id === stackIds[0];
+
+            if (inStack && !isStackAnchor) return null;
 
             return (
               <div
@@ -422,11 +390,14 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
                 onPointerDown={() => iniciarArrasto(carta, primeiraCartaJogavel)}
                 onPointerUp={() => soltarNaCarta(carta)}
                 onClickCapture={(event) => {
-                  if (suppressNextClickRef.current) {
+                  const clicouNaPilha =
+                    event.target instanceof Element &&
+                    event.target.closest('.multiple-discard-inline-stack') !== null;
+                  if (suppressNextClickRef.current && !clicouNaPilha) {
                     event.preventDefault();
                     event.stopPropagation();
-                    suppressNextClickRef.current = false;
                   }
+                  suppressNextClickRef.current = false;
                 }}
                 onKeyDownCapture={(event) => {
                   if (event.altKey && (event.key === 'Enter' || event.key === ' ')) {
@@ -436,13 +407,41 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
                   }
                 }}
               >
-                <CartaView
-                  carta={carta}
-                  jogavel={cartaJogavel}
-                  selecionada={inStack || selectedCardId === carta.id}
-                  {...(!minhaVez ? { motivoBloqueio: 'Aguardando o seu turno.' } : {})}
-                  onClick={() => cartaJogavel && onSelecionarCarta(carta)}
-                />
+                {isStackAnchor ? (
+                  <div
+                    className="multiple-discard-inline-stack"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Jogar pilha de descarte múltiplo com ${cartasSelecionadas.length} cartas, na ordem selecionada`}
+                    onClick={jogarPilha}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        jogarPilha();
+                      }
+                    }}
+                    style={{ '--stack-count': cartasSelecionadas.length } as React.CSSProperties}
+                  >
+                    {cartasSelecionadas.map((cartaDaPilha, stackIndex) => (
+                      <span
+                        key={cartaDaPilha.id}
+                        className="multiple-discard-inline-stack-card"
+                        style={{ '--stack-index': stackIndex } as React.CSSProperties}
+                        aria-hidden="true"
+                      >
+                        <CartaView carta={cartaDaPilha} jogavel={false} />
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <CartaView
+                    carta={carta}
+                    jogavel={cartaJogavel}
+                    selecionada={inStack || selectedCardId === carta.id}
+                    {...(!minhaVez ? { motivoBloqueio: 'Aguardando o seu turno.' } : {})}
+                    onClick={() => cartaJogavel && onSelecionarCarta(carta)}
+                  />
+                )}
               </div>
             );
           })}

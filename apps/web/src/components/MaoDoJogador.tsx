@@ -7,7 +7,6 @@ import {
   canActivateMultipleDiscardStack,
   canSelectMultipleDiscardCard,
   createMultipleDiscardStack,
-  getMultipleDiscardStackHint,
   getSelectedMultipleDiscardCards,
   temMesmaFace,
 } from './multipleDiscard';
@@ -29,17 +28,9 @@ export const MaoDoJogador: React.FC<MaoDoJogadorProps> = ({
   shakeCartaKey = null,
 }) => {
   const [stackIds, setStackIds] = React.useState<ReadonlyArray<string>>([]);
-  const [showStackHint, setShowStackHint] = React.useState(false);
   const dragAnchorRef = React.useRef<{ carta: Carta; primeiraCartaJogavel: boolean }>();
   const suppressNextClickRef = React.useRef(false);
   const jogadorAtual = estado.jogadores.find((j) => j.id === estado.vezDe);
-
-  React.useEffect(() => {
-    if (stackIds.length < 2) return undefined;
-    setShowStackHint(true);
-    const timeout = window.setTimeout(() => setShowStackHint(false), 2600);
-    return () => window.clearTimeout(timeout);
-  }, [stackIds.length]);
 
   if (!jogadorAtual) return null;
 
@@ -48,7 +39,7 @@ export const MaoDoJogador: React.FC<MaoDoJogadorProps> = ({
   const cartasJogaveis = mao.filter(
     (carta) => validarJogada(estado, carta, jogadorAtual.id).valida,
   ).length;
-  const stackHint = getMultipleDiscardStackHint(cartasSelecionadas.length, showStackHint);
+  const pilhaPronta = canActivateMultipleDiscardStack(stackIds, onPlayMultiple !== undefined);
 
   function adicionarPorTeclado(carta: Carta, primeiraCartaJogavel: boolean): void {
     setStackIds((atuais) => {
@@ -106,39 +97,19 @@ export const MaoDoJogador: React.FC<MaoDoJogadorProps> = ({
             ? 'Bot em turno automático'
             : `${cartasJogaveis} carta${cartasJogaveis === 1 ? '' : 's'} disponível${cartasJogaveis === 1 ? '' : 'is'}`}
         </span>
-        {stackIds.length > 0 && (
-          <button type="button" className="multiple-discard-clear" onClick={() => setStackIds([])}>
-            Limpar pilha
-          </button>
-        )}
       </div>
-
-      {canActivateMultipleDiscardStack(stackIds, onPlayMultiple !== undefined) && (
-        <button
-          type="button"
-          className={`multiple-discard-stack ${stackHint ? 'multiple-discard-stack-hint' : ''}`}
-          aria-label={`Jogar pilha de descarte múltiplo com ${cartasSelecionadas.length} cartas, na ordem selecionada`}
-          onClick={jogarPilha}
-        >
-          <span className="multiple-discard-stack-cards" aria-hidden="true">
-            {cartasSelecionadas.map((carta, index) => (
-              <span key={carta.id} style={{ '--stack-index': index } as React.CSSProperties}>
-                <CartaView carta={carta} jogavel={false} />
-              </span>
-            ))}
-          </span>
-          <span className="multiple-discard-stack-label">{stackHint ?? 'Pilha pronta'}</span>
-        </button>
-      )}
 
       <div className="hand-cards hand-fan" aria-label={`Sua mão: ${mao.length} cartas`} role="list">
         {mao.map((carta, index) => {
           const res = validarJogada(estado, carta, jogadorAtual.id);
           const jogavel = res.valida && !jogadorAtual.isBot;
           const inStack = stackIds.includes(carta.id);
+          const isStackAnchor = pilhaPronta && carta.id === stackIds[0];
           const isShaking = shakeCartaKey !== null && shakeCartaKey.startsWith(`${carta.id}-`);
           const center = (mao.length - 1) / 2;
           const angle = Math.max(-12, Math.min(12, (index - center) * 4));
+
+          if (inStack && !isStackAnchor) return null;
 
           return (
             <div
@@ -149,11 +120,14 @@ export const MaoDoJogador: React.FC<MaoDoJogadorProps> = ({
               onPointerDown={() => iniciarArrasto(carta, res.valida)}
               onPointerUp={() => soltarNaCarta(carta)}
               onClickCapture={(event) => {
-                if (suppressNextClickRef.current) {
+                const clicouNaPilha =
+                  event.target instanceof Element &&
+                  event.target.closest('.multiple-discard-inline-stack') !== null;
+                if (suppressNextClickRef.current && !clicouNaPilha) {
                   event.preventDefault();
                   event.stopPropagation();
-                  suppressNextClickRef.current = false;
                 }
+                suppressNextClickRef.current = false;
               }}
               onKeyDownCapture={(event) => {
                 if (event.altKey && (event.key === 'Enter' || event.key === ' ')) {
@@ -163,18 +137,46 @@ export const MaoDoJogador: React.FC<MaoDoJogadorProps> = ({
                 }
               }}
             >
-              <CartaView
-                carta={carta}
-                jogavel={jogavel}
-                selecionada={inStack || selectedIndex === index}
-                {...(jogadorAtual.isBot
-                  ? { motivoBloqueio: 'Aguardando o bot jogar.' }
-                  : res.motivo
-                    ? { motivoBloqueio: res.motivo }
-                    : {})}
-                onClick={() => jogavel && onSelecionarCarta(index)}
-                shaking={isShaking}
-              />
+              {isStackAnchor ? (
+                <div
+                  className="multiple-discard-inline-stack"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Jogar pilha de descarte múltiplo com ${cartasSelecionadas.length} cartas, na ordem selecionada`}
+                  onClick={jogarPilha}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      jogarPilha();
+                    }
+                  }}
+                  style={{ '--stack-count': cartasSelecionadas.length } as React.CSSProperties}
+                >
+                  {cartasSelecionadas.map((cartaDaPilha, stackIndex) => (
+                    <span
+                      key={cartaDaPilha.id}
+                      className="multiple-discard-inline-stack-card"
+                      style={{ '--stack-index': stackIndex } as React.CSSProperties}
+                      aria-hidden="true"
+                    >
+                      <CartaView carta={cartaDaPilha} jogavel={false} />
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <CartaView
+                  carta={carta}
+                  jogavel={jogavel}
+                  selecionada={inStack || selectedIndex === index}
+                  {...(jogadorAtual.isBot
+                    ? { motivoBloqueio: 'Aguardando o bot jogar.' }
+                    : res.motivo
+                      ? { motivoBloqueio: res.motivo }
+                      : {})}
+                  onClick={() => jogavel && onSelecionarCarta(index)}
+                  shaking={isShaking}
+                />
+              )}
             </div>
           );
         })}

@@ -64,14 +64,6 @@ export function appendCardToMultipleDiscardStack(
     : selectedCardIds;
 }
 
-export function getMultipleDiscardStackHint(
-  stackSize: number,
-  shouldShow: boolean,
-): string | undefined {
-  if (!shouldShow || stackSize < 2) return undefined;
-  return `Pilha pronta — toque para descartar ${stackSize} cartas`;
-}
-
 export function canActivateMultipleDiscardStack(
   selectedCardIds: ReadonlyArray<string>,
   hasPlayMultipleHandler: boolean,

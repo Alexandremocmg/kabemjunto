@@ -6,7 +6,6 @@ import {
   canSelectMultipleDiscardCard,
   createMultipleDiscardStack,
   getSelectedMultipleDiscardCards,
-  getMultipleDiscardStackHint,
   isEligibleForMultipleDiscard,
   toggleMultipleDiscardSelection,
 } from './multipleDiscard';
@@ -54,14 +53,6 @@ describe('Descarte múltiplo — seleção de faces permitidas', () => {
       'sete-azul',
       'sete-verde',
     ]);
-  });
-
-  it('expõe uma dica temporária só para uma pilha pronta para jogar diretamente', () => {
-    expect(getMultipleDiscardStackHint(1, true)).toBeUndefined();
-    expect(getMultipleDiscardStackHint(2, false)).toBeUndefined();
-    expect(getMultipleDiscardStackHint(2, true)).toBe(
-      'Pilha pronta — toque para descartar 2 cartas',
-    );
   });
 
   it('habilita a ativação direta apenas para uma pilha pronta com handler de jogada', () => {
