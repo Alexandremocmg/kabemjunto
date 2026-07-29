@@ -33,6 +33,6 @@
     "socket.io-client": "^4.7.5",
     "tsx": "^4.7.0",
     "typescript": "^5.4.0",
-    "vitest": "^1.6.0"
+    "vitest": "^4.1.10"
   }
 }
