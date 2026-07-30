@@ -124,14 +124,17 @@ export function criarPartidaInicial(opcoes: CriarPartidaOpcoes): EstadoPartida {
   // 6. Calcular ataque inicial se starter for +2 ou +4
   const ataqueInicial = calcularAtaqueInicial(starter);
 
+  // 7. Starter Skip/Reverse age sobre o primeiro jogador (GDD §10.7)
+  const abertura = calcularAbertura(starter, jogadoresComMao.length);
+
   return {
     partidaId: opcoes.partidaId ?? `game_${Date.now()}`,
     salaId: opcoes.salaId ?? 'sala_local',
     jogadores: jogadoresComMao,
     monteCompra: monteCompraSemStarter,
     monteDescarte: [starter],
-    vezDe: jogadoresComMao[0]!.id,
-    sentido: 1,
+    vezDe: jogadoresComMao[abertura.indiceInicial]!.id,
+    sentido: abertura.sentido,
     corAtiva,
     ataqueAcumulado: ataqueInicial.valor,
     ataqueStack: ataqueInicial.stack,
@@ -153,4 +156,32 @@ function calcularAtaqueInicial(starter: Carta): { valor: number; stack: Acao[] }
   if (starter.acao === 'MAIS_DOIS') return { valor: 2, stack: ['MAIS_DOIS'] };
   if (starter.acao === 'MAIS_QUATRO') return { valor: 4, stack: ['MAIS_QUATRO'] };
   return { valor: 0, stack: [] };
+}
+
+/**
+ * Quem abre a partida e em que sentido, considerando o efeito da starter.
+ * GDD §10.7: o efeito da primeira carta virada recai sobre o primeiro
+ * jogador.
+ *
+ * - `SKIP`: o primeiro jogador perde a vez, começa o segundo.
+ * - `REVERSE` com 3+ jogadores: inverte o sentido, então o "primeiro" passa
+ *   a ser o último da lista.
+ * - `REVERSE` com 2 jogadores: equivale a Skip e devolve a vez ao primeiro
+ *   (com 2 jogadores o sentido é indiferente para a ordem de turno).
+ * - `+2` mantém a vez no primeiro jogador, que precisa cobrir ou comprar
+ *   (o ataque inicial é calculado em `calcularAtaqueInicial`).
+ */
+function calcularAbertura(
+  starter: Carta,
+  totalJogadores: number,
+): { indiceInicial: number; sentido: 1 | -1 } {
+  if (starter.acao === 'SKIP') {
+    return { indiceInicial: 1 % totalJogadores, sentido: 1 };
+  }
+  if (starter.acao === 'REVERSE') {
+    return totalJogadores === 2
+      ? { indiceInicial: 0, sentido: 1 }
+      : { indiceInicial: totalJogadores - 1, sentido: -1 };
+  }
+  return { indiceInicial: 0, sentido: 1 };
 }

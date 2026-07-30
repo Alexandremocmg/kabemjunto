@@ -308,13 +308,16 @@ export const App: React.FC = () => {
     if (!estado) return;
     const jogadorAtual = estado.jogadores.find((j: Jogador) => j.id === estado.vezDe);
     try {
-      const novoState = comprar(estado);
+      const { estado: novoState, turnoMantido } = comprar(estado);
       const quantidade = estado.ataqueAcumulado > 0 ? estado.ataqueAcumulado : 1;
+      const nome = jogadorAtual?.nome ?? 'Jogador';
       const eventoCompra: EventoVisual = {
         id: `compra-${Date.now()}`,
         tipo: 'COMPRA',
         titulo: `Compra +${quantidade}`,
-        detalhe: `${jogadorAtual?.nome ?? 'Jogador'} recebeu ${quantidade} carta${quantidade === 1 ? '' : 's'}.`,
+        detalhe: turnoMantido
+          ? `${nome} comprou uma carta jogável e continua na vez.`
+          : `${nome} recebeu ${quantidade} carta${quantidade === 1 ? '' : 's'}.`,
       };
       setEventQueue((atual) => [...atual, eventoCompra]);
       setEventHistory((atual) => [...atual, eventoCompra].slice(-5));

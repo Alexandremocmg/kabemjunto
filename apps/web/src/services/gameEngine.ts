@@ -121,12 +121,18 @@ export function jogarMultiplasCartas(
 
 /**
  * Compra cartas e toca o SFX de compra.
+ *
+ * `turnoMantido` indica que a carta comprada é jogável e o jogador segue na
+ * vez (GDD §7), para a UI não anunciar passagem de turno indevidamente.
  */
-export function comprar(estado: EstadoPartida): EstadoPartida {
+export function comprar(estado: EstadoPartida): {
+  estado: EstadoPartida;
+  turnoMantido: boolean;
+} {
   const resultado = comprarCartas({ estado });
   tocarSFX(resultado.sfx);
   logEvents(resultado.eventos);
-  return resultado.novoEstado;
+  return { estado: resultado.novoEstado, turnoMantido: resultado.turnoMantido };
 }
 
 /**

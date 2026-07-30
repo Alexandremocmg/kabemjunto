@@ -7,6 +7,16 @@
 **Branch:** `main`
 **Sprint atual:** Sprint 6 — **EM ANDAMENTO** — persistência, produção e operação v0.5.0
 
+### 2026-07-30 · Mavis — revisão do motor vs. GDD (2 divergências de regra corrigidas)
+
+- 🐛 **Comprar 1 carta sempre perdia o turno**, contra `GDD §7` e a state machine `§5.2` (`COMPRAR (1 carta) → ESPERAR_CARTA`). Valia em Local e Online. Agora: pagar ataque perde o turno; comprar 1 carta **jogável** mantém o turno; carta não jogável ou monte esgotado passa a vez. `comprarCartas` expõe `turnoMantido`.
+- 🐛 **Starter Skip/Reverse não tinha efeito** (`GDD §10.7`): `vezDe` era sempre o jogador 0 e `sentido` sempre 1. Agora Skip pula o primeiro, Reverse com 3+ inverte e começa no último, Reverse com 2 devolve ao primeiro.
+- 🤖 Bot atualizado: com o turno mantido, joga a carta comprada na mesma ação (senão entraria em laço).
+- 🧪 9 testes novos em `gdd-turn-conformance.test.ts` (8/9 vermelhos antes das correções). Corrigido também um teste **flaky latente** do servidor que usava o baralho real sem seed.
+- ✅ `npm run validate` 327/327 + `npx playwright test` 26/26.
+- 📄 Relatório completo, com 6 propostas menores (state machine morta, `STALEMATE` nunca emitido, inconsistências de doc): [`feedback/2026-07-30-revisao-motor-vs-gdd-mavis.md`](./feedback/2026-07-30-revisao-motor-vs-gdd-mavis.md).
+- ⚠️ Ainda **não publicado** em produção: aguarda decisão de deploy.
+
 ### Regra operacional permanente — GitHub → Railway
 
 - `git push origin main` **não** publica automaticamente no Railway neste projeto: não há workflow GitHub de deploy nem source/autodeploy Railway conectado.

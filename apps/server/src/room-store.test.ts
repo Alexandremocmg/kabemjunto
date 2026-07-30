@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { Constants, type JogadorId } from '@kabemjunto/shared';
+import { Constants, validarJogada, type JogadorId } from '@kabemjunto/shared';
 import {
   JsonRoomPersistence,
   type PersistedRoomSession,
@@ -134,15 +134,30 @@ describe('RoomStore — básico', () => {
     expect(after.jogadores.find((jogador) => jogador.id === alvo.id)?.mao).toHaveLength(1);
     expect(after.historico.some((evento) => evento.tipo === 'MAO_TROCADA')).toBe(true);
   });
-  it('calcula a compra no servidor e passa o turno', () => {
+  it('calcula a compra no servidor e aplica a posse de turno canônica (GDD §7)', () => {
     const store = createStartedStore();
     const before = store.get('KJTEST')!.estado!;
     const currentPlayer = before.vezDe;
+    const maoAntes = before.jogadores.find((item) => item.id === currentPlayer)!.mao.length;
+    const ataque = before.ataqueAcumulado;
+    const esperadasCompradas = ataque > 0 ? ataque : 1;
 
     const after = store.buy('KJTEST', currentPlayer).estado!;
-    const boughtCount = after.jogadores.find((item) => item.id === currentPlayer)?.mao.length ?? 0;
-    expect(boughtCount).toBeGreaterThanOrEqual(8);
-    expect(after.vezDe).not.toBe(currentPlayer);
+    const maoDepois = after.jogadores.find((item) => item.id === currentPlayer)!.mao;
+    expect(maoDepois).toHaveLength(maoAntes + esperadasCompradas);
+
+    // O baralho de `createStartedStore` é embaralhado de verdade, então a
+    // carta comprada varia entre execuções. Em vez de fixar um resultado,
+    // afirmamos a regra: o turno só permanece com quem comprou se a compra
+    // foi voluntária (sem ataque) e a carta é jogável.
+    const comprada = maoDepois.at(-1)!;
+    const jogavel = validarJogada(
+      { ...after, vezDe: currentPlayer },
+      comprada,
+      currentPlayer,
+    ).valida;
+    const deveManterTurno = ataque === 0 && jogavel;
+    expect(after.vezDe === currentPlayer).toBe(deveManterTurno);
   });
 });
 

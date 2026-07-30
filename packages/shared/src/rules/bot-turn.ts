@@ -58,11 +58,48 @@ export function executarTurnoBot(opcoes: BotOpcoes): ResultadoBot {
 
   if (validas.length === 0) {
     const r = comprarCartas({ estado, rng });
+    // GDD §7: se a carta comprada é jogável, o turno continua com o bot.
+    // Ele precisa jogá-la agora — senão o loop de turno nunca avançaria.
+    if (!r.turnoMantido) {
+      return {
+        novoEstado: r.novoEstado,
+        acao: 'COMPROU',
+        sfx: r.sfx,
+        eventos: [...eventos, ...r.eventos],
+      };
+    }
+
+    const estadoPosCompra = r.novoEstado;
+    const botPosCompra = estadoPosCompra.jogadores.find((j) => j.id === bot.id);
+    const validasPosCompra: Array<{ index: number; carta: Carta }> = [];
+    botPosCompra?.mao.forEach((carta, index) => {
+      if (validarJogada(estadoPosCompra, carta, bot.id).valida) {
+        validasPosCompra.push({ index, carta });
+      }
+    });
+    const escolhaPosCompra =
+      escolherCartaBot(validasPosCompra, estadoPosCompra, nivel) ?? validasPosCompra[0];
+    if (!escolhaPosCompra) {
+      // Defensivo: `turnoMantido` implica jogada válida, mas nunca deixamos
+      // o bot preso — se algo divergir, apenas encerra como compra.
+      return {
+        novoEstado: estadoPosCompra,
+        acao: 'COMPROU',
+        sfx: r.sfx,
+        eventos: [...eventos, ...r.eventos],
+      };
+    }
+
+    const jogada = executarJogadaComoBot(
+      estadoPosCompra,
+      escolhaPosCompra.index,
+      escolhaPosCompra.carta,
+      rng,
+    );
     return {
-      novoEstado: r.novoEstado,
-      acao: 'COMPROU',
-      sfx: r.sfx,
-      eventos: [...eventos, ...r.eventos],
+      ...jogada,
+      sfx: [...r.sfx, ...jogada.sfx],
+      eventos: [...eventos, ...r.eventos, ...jogada.eventos],
     };
   }
 

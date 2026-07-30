@@ -82,7 +82,12 @@ function criarPartidaCustom(modos: {
     idsCustomizados: modos.totalJogadores === 2 ? ['j1', 'j2'] : ['j1', 'j2', 'j3'],
     rng: () => 0, // determinístico
   };
-  return criarPartidaInicial(opcoes);
+  // Normaliza a abertura em `j1`/sentido 1. Vários cenários abaixo usam
+  // baralhos inteiros de Skip/Reverse só para controlar a mesa, e a starter
+  // desses baralhos legitimamente desloca quem abre (GDD §10.7). Aqui o foco
+  // é 0+/Silêncio, então a abertura é fixada; o efeito da starter tem
+  // cobertura dedicada em `gdd-turn-conformance.test.ts`.
+  return { ...criarPartidaInicial(opcoes), vezDe: 'j1', sentido: 1 };
 }
 
 // ─────────────────────────────────────────────────────────────────────

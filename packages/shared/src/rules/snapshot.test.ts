@@ -27,7 +27,23 @@ function criarEstadoBase(): EstadoPartida {
     modo: 'HOTSEAT',
     totalJogadores: 2,
     idsCustomizados: ['j1', 'j2'],
+    // Sem rng explícito o setup usaria Math.random e o baralho resultante
+    // mudaria a cada execução, tornando flaky qualquer asserção sobre a
+    // carta comprada.
+    rng: () => 0.5,
   });
+}
+
+/** Adiciona `quantidade` cartas do monte à mão de `j1`, sem depender das regras de turno. */
+function comprarParaJogador1(estado: EstadoPartida, quantidade: number): EstadoPartida {
+  const compradas = estado.monteCompra.slice(-quantidade);
+  return {
+    ...estado,
+    monteCompra: estado.monteCompra.slice(0, -quantidade),
+    jogadores: estado.jogadores.map((jogador, index) =>
+      index === 0 ? { ...jogador, mao: [...jogador.mao, ...compradas] } : jogador,
+    ),
+  };
 }
 
 function criarEstadoBaseSemAtaque(): EstadoPartida {
@@ -109,7 +125,7 @@ describe('snapshotToJSON() / snapshotFromJSON()', () => {
 describe('diff()', () => {
   it('detecta mudança em vezDe', () => {
     const a = criarEstadoBaseSemAtaque();
-    const b = comprarCartas({ estado: a }).novoEstado;
+    const b: EstadoPartida = { ...a, vezDe: 'j2' };
     const changes = diff(a, b);
     expect(changes).toContain('vezDe');
   });
@@ -168,19 +184,19 @@ describe('SnapshotStack (undo/redo)', () => {
 
   it('undo e redo navegam no histórico', () => {
     const stack = new SnapshotStack();
-    const a = criarEstadoBaseSemAtaque();
-    const b = comprarCartas({ estado: a }).novoEstado;
-    const c = comprarCartas({ estado: b }).novoEstado;
+    const a = criarEstadoBaseSemAtaque(); // j1 = 7 cartas
+    const b = comprarParaJogador1(a, 1); // j1 = 8 cartas
+    const c = comprarParaJogador1(b, 1); // j1 = 9 cartas
     stack.push(a);
     stack.push(b);
     stack.push(c);
-    expect(stack.current()?.jogadores[0]?.mao.length).toBe(8); // c: j1=8, j2=8
+    expect(stack.current()?.jogadores[0]?.mao.length).toBe(9);
     const back1 = stack.undo();
-    expect(back1?.jogadores[0]?.mao.length).toBe(8); // b: mao=8
+    expect(back1?.jogadores[0]?.mao.length).toBe(8);
     const back2 = stack.undo();
-    expect(back2?.jogadores[0]?.mao.length).toBe(7); // a: mao=7
+    expect(back2?.jogadores[0]?.mao.length).toBe(7);
     const forward = stack.redo();
-    expect(forward?.jogadores[0]?.mao.length).toBe(8); // b: mao=8
+    expect(forward?.jogadores[0]?.mao.length).toBe(8);
   });
 
   it('push após undo trunca o future', () => {
