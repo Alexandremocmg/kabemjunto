@@ -16,8 +16,8 @@
  * - Reverse: inverte sentido (em 2 jogadores, vira Skip)
  * - +2 / +4: acumula ataque
  * - +2 sobre +4: PROIBIDO (rejeitado em validarJogada)
- * - 0+ (Zero Mais): se há ataque acumulado, reflete para o último
- *   atacante; senão, só gira a mão entre todos
+ * - 0+ (Zero Mais): sem ataque é um coringa neutro; com ataque, força o
+ *   último atacante a comprar toda a pilha e encerra a resposta
  * - Regra do 7 (Silêncio): ativa silêncio até próxima carta
  * - Coringa Simples: muda cor ativa
  * - Troca Mão / Gira Mão: troca ou rotaciona mãos de forma imutável
@@ -27,6 +27,7 @@ import type { Carta, Cor, Acao } from '../types/card.js';
 import type { EstadoPartida, EventoPartida } from '../types/game.js';
 import type { Jogador, JogadorId } from '../types/player.js';
 import { validarJogada } from './validate-play.js';
+import { comprarCartas } from './buy-cards.js';
 
 /** SFX que o wrapper frontend deve tocar. */
 export type SfxEvent =
@@ -125,9 +126,11 @@ export function executarJogada(opcoes: ExecutarJogadaOpcoes): ResultadoJogada {
   };
 
   // 3a. Efeitos de cada tipo de ação
+  let turnoJaAvancado = false;
   if (carta.acao !== undefined) {
     const r = resolverAcao(novoEstado, carta, jogadorId, rng, opcoes.alvoTrocaId);
     novoEstado = r.novoEstado;
+    turnoJaAvancado = r.turnoJaAvancado ?? false;
     sfx.push(...r.sfx);
     eventos.push(...r.eventos);
   } else {
@@ -143,7 +146,7 @@ export function executarJogada(opcoes: ExecutarJogadaOpcoes): ResultadoJogada {
       ...novoEstado,
       finalizada: true,
       vencedor: jogadorId,
-      historico: [...novoEstado.historico, ...eventos],
+      historico: [...estado.historico, ...eventos],
     };
     return { novoEstado, sfx, eventos };
   }
@@ -151,8 +154,8 @@ export function executarJogada(opcoes: ExecutarJogadaOpcoes): ResultadoJogada {
   // 5. Avançar turno
   novoEstado = {
     ...novoEstado,
-    vezDe: calcularProximoTurno(novoEstado, carta),
-    historico: [...novoEstado.historico, ...eventos],
+    vezDe: turnoJaAvancado ? novoEstado.vezDe : calcularProximoTurno(novoEstado, carta),
+    historico: [...estado.historico, ...eventos],
   };
 
   return { novoEstado, sfx, eventos };
@@ -166,6 +169,8 @@ interface ResultadoAcao {
   novoEstado: EstadoPartida;
   sfx: SfxEvent[];
   eventos: EventoPartida[];
+  /** A ação já aplicou uma compra obrigatória e avançou a partir do alvo. */
+  turnoJaAvancado?: boolean;
 }
 
 function resolverAcao(
@@ -257,39 +262,48 @@ function resolverAcao(
 
       // Se há ataque acumulado, reflete para o último atacante
       if (estado.ataqueAcumulado > 0) {
-        const idx = estado.jogadores.findIndex((j) => j.id === estado.vezDe);
-        // Último atacante = jogador anterior no sentido atual
-        const idxUltimo =
-          (idx - estado.sentido + estado.jogadores.length) % estado.jogadores.length;
-        const ultimoAtacante = estado.jogadores[idxUltimo]!;
+        const ultimoAtacanteId = encontrarUltimoAtacante(estado, jogadorId);
+        const cartasDevolvidas = estado.ataqueAcumulado;
+
+        // A compra refletida é uma transação: antes de alterar qualquer estado
+        // verificamos se o monte + descarte reciclável consegue pagar tudo.
+        // O descarte já contém o 0+ no topo, que nunca pode ser reciclado.
+        const cartasDisponiveis =
+          estado.monteCompra.length + Math.max(estado.monteDescarte.length - 1, 0);
+        if (cartasDisponiveis < cartasDevolvidas) {
+          throw new Error(
+            `Não há cartas suficientes para refletir o ataque de ${cartasDevolvidas} cartas.`,
+          );
+        }
+
+        // Reutiliza a mecânica canônica de compra, mas faz o último atacante
+        // comprar agora. `comprarCartas` também limpa a pilha e passa o turno
+        // a partir do alvo, impedindo qualquer resposta/rebote ao reflexo.
+        const compra = comprarCartas({
+          estado: { ...estado, vezDe: ultimoAtacanteId },
+          quantidade: cartasDevolvidas,
+          rng,
+        });
+        sfx.push(...compra.sfx);
+        eventos.push(...compra.eventos);
         eventos.push({
           tipo: 'ATAQUE_REFLETIDO_ZERO_MAIS',
           timestamp: ts,
           origem: jogadorId,
-          alvo: ultimoAtacante.id,
-          cartasDevolvidas: estado.ataqueAcumulado,
+          alvo: ultimoAtacanteId,
+          cartasDevolvidas,
         });
         return {
-          novoEstado: {
-            ...estado,
-            // O alvo do reflexo compra (lógica de compra será chamada depois)
-            // Por enquanto só resetamos o ataque
-            ataqueAcumulado: 0,
-            ataqueStack: [],
-          },
+          novoEstado: compra.novoEstado,
           sfx,
           eventos,
+          turnoJaAvancado: true,
         };
       }
 
-      // Sem ataque acumulado: só gira a mão
-      eventos.push({ tipo: 'MAO_GIRADA', timestamp: ts, sentido: estado.sentido });
-      const maosGiradas = girarMaos(estado.jogadores, estado.sentido, rng);
-      return {
-        novoEstado: { ...estado, jogadores: maosGiradas },
-        sfx,
-        eventos,
-      };
+      // Sem ataque acumulado, 0+ é somente um coringa: a cor já foi
+      // escolhida acima e não há troca/giro de mãos nem evento adicional.
+      return { novoEstado: estado, sfx, eventos };
     }
 
     case 'CORINGA_SIMPLES': {
@@ -348,22 +362,41 @@ function resolverAcao(
   }
 }
 
+/** Encontra a origem canônica do último ataque acumulado. */
+function encontrarUltimoAtacante(estado: EstadoPartida, jogadorId: JogadorId): JogadorId {
+  // A origem canônica é a CARTA_JOGADA que antecedeu o último registro de
+  // ATAQUE_ACUMULADO. O histórico recebido aqui também contém a jogada do 0+,
+  // então buscamos estritamente antes do ataque, não a última jogada global.
+  for (let i = estado.historico.length - 1; i >= 0; i--) {
+    if (estado.historico[i]!.tipo !== 'ATAQUE_ACUMULADO') continue;
+    for (let j = i - 1; j >= 0; j--) {
+      const evento = estado.historico[j]!;
+      if (
+        evento.tipo === 'CARTA_JOGADA' &&
+        estado.jogadores.some((p) => p.id === evento.jogadorId)
+      ) {
+        return evento.jogadorId;
+      }
+    }
+    break;
+  }
+
+  // Estados legados/seedados sem histórico de ataque ainda são jogáveis. A
+  // geometria é apenas fallback; nunca vence uma origem explicitamente logada.
+  const idx = estado.jogadores.findIndex((j) => j.id === jogadorId);
+  if (idx < 0) throw new Error(`Jogador da vez não encontrado: ${jogadorId}`);
+  const idxUltimo = (idx - estado.sentido + estado.jogadores.length) % estado.jogadores.length;
+  return estado.jogadores[idxUltimo]!.id;
+}
+
 /**
- * Calcula o próximo jogador da vez, considerando:
- * - Sentido (1 ou -1)
- * - Skip (pula +1 a mais)
- * - Reverse em 2 jogadores = Skip (regra do UNO clássico)
- * - 0+ que refletiu ataque (fica onde está — quem recebe compra)
+ * Calcula o próximo jogador da vez, considerando sentido, Skip e Reverse em 2 jogadores.
  */
 function calcularProximoTurno(estado: EstadoPartida, cartaJogada: Carta): JogadorId {
   const idx = estado.jogadores.findIndex((j) => j.id === estado.vezDe);
   if (idx < 0) throw new Error('Jogador da vez não encontrado');
 
   const n = estado.jogadores.length;
-
-  // Se 0+ refletiu ataque (ataqueAcumulado virou 0 mas havia ataque antes),
-  // o "próximo" é o último atacante (que vai comprar)
-  // Essa lógica está acima em resolverAcao; aqui só avançamos normalmente.
 
   let passos = 1;
 
@@ -375,15 +408,6 @@ function calcularProximoTurno(estado: EstadoPartida, cartaJogada: Carta): Jogado
   // REVERSE em 2 jogadores: vira SKIP
   if (cartaJogada.acao === 'REVERSE' && n === 2) {
     passos = 2;
-  }
-
-  // 0+ com ataque refletido: fica onde está
-  if (
-    cartaJogada.acao === 'ZERO_MAIS' &&
-    estado.ataqueAcumulado === 0 &&
-    estado.historico.at(-1)?.tipo === 'ATAQUE_REFLETIDO_ZERO_MAIS'
-  ) {
-    return estado.vezDe;
   }
 
   const prox = (idx + passos * estado.sentido + n) % n;

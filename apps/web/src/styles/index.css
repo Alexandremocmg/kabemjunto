@@ -3064,9 +3064,19 @@ h5 {
 }
 
 /* Descarte múltiplo — a pilha ocupa a posição original da carta-âncora na mão. */
+.multiple-discard-touch-feedback {
+  min-height: 1.2em;
+  margin: 0 auto;
+  color: #f8c56b;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
+
 .multiple-discard-inline-stack {
   --inline-card-width: 130px;
   --inline-card-height: 185px;
+  --stack-strip-height: 10px;
   position: relative;
   width: var(--inline-card-width);
   height: var(--inline-card-height);
@@ -3084,8 +3094,12 @@ h5 {
   inset: 0;
   display: block;
   z-index: calc(var(--stack-index) + 1);
-  transform: translateY(calc((var(--stack-count) - var(--stack-index) - 1) * -10px));
+  transform: translateY(max(-56px, calc((var(--stack-count) - var(--stack-index) - 1) * -10px)));
   transition: transform 180ms ease;
+}
+
+.multiple-discard-inline-stack-card:not(:last-child) .card-wrapper {
+  clip-path: inset(0 0 calc(100% - var(--stack-strip-height)) 0 round 12px);
 }
 
 .multiple-discard-inline-stack-card .card-wrapper {
@@ -3101,10 +3115,25 @@ h5 {
   --inline-card-height: 132px;
 }
 
-.multiple-discard-keyboard-hint {
-  width: min(540px, calc(100% - 28px));
-  margin: 3px auto 0;
-  color: #b9c9be;
-  font-size: 10px;
-  text-align: center;
+@media (max-width: 600px) {
+  .hand-container .hand-cards,
+  .online-hand-container .hand-cards {
+    min-height: 218px;
+    padding-top: 64px;
+    overflow-y: visible;
+    scroll-padding-inline: max(28px, calc((100vw - 112px) / 2));
+  }
+
+  .hand-container .multiple-discard-inline-stack,
+  .online-hand-container .multiple-discard-inline-stack {
+    --stack-strip-height: 9px;
+  }
+
+  .multiple-discard-inline-stack-card {
+    transform: translateY(max(-48px, calc((var(--stack-count) - var(--stack-index) - 1) * -9px)));
+  }
+
+  .online-hand-container {
+    min-height: 250px;
+  }
 }

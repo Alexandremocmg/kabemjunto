@@ -90,26 +90,33 @@ function criarPartidaCustom(modos: {
 // ─────────────────────────────────────────────────────────────────────
 
 describe('0+ (Zero Mais) — sem ataque acumulado', () => {
-  it('gira a mão entre todos os jogadores', () => {
+  it('age só como coringa neutro: mantém as mãos, aplica a cor e passa normalmente', () => {
     const estado = criarPartidaCustom({
       baralho: Array.from({ length: 20 }, () => cartaAcao('LARANJA', 'SKIP')),
       totalJogadores: 2,
     });
     const j1 = estado.jogadores[0]!;
+    const j2 = estado.jogadores[1]!;
     const j1ComZero: typeof j1 = {
       ...j1,
       mao: [cartaNeutra('ZERO_MAIS'), ...j1.mao.slice(1)],
     };
     const estadoComZero: EstadoPartida = {
       ...estado,
-      jogadores: [j1ComZero, ...estado.jogadores.slice(1)],
+      jogadores: [j1ComZero, j2],
     };
 
     const r = executarJogada({ estado: estadoComZero, cartaIndex: 0, corEscolhida: 'AZUL' });
 
     expect(r.novoEstado.ataqueAcumulado).toBe(0);
-    const temGirou = r.eventos.some((e) => e.tipo === 'MAO_GIRADA');
-    expect(temGirou).toBe(true);
+    expect(r.novoEstado.corAtiva).toBe('AZUL');
+    expect(r.novoEstado.vezDe).toBe('j2');
+    expect(r.novoEstado.jogadores[0]!.mao.map((c) => c.id)).toEqual(
+      j1ComZero.mao.slice(1).map((c) => c.id),
+    );
+    expect(r.novoEstado.jogadores[1]!.mao.map((c) => c.id)).toEqual(j2.mao.map((c) => c.id));
+    expect(r.eventos.some((e) => e.tipo === 'MAO_GIRADA')).toBe(false);
+    expect(r.eventos.some((e) => e.tipo === 'ATAQUE_REFLETIDO_ZERO_MAIS')).toBe(false);
   });
 
   it('não emite evento de reflexo quando não há ataque', () => {
@@ -184,6 +191,154 @@ describe('0+ (Zero Mais) — com ataque acumulado', () => {
     expect(r.novoEstado.ataqueAcumulado).toBe(0);
     expect(r.novoEstado.ataqueStack).toEqual([]);
   });
+
+  it('compra exatamente o ataque no último atacante, registra cada compra e avança após a compra forçada em 2 jogadores', () => {
+    const estado = criarPartidaCustom({
+      baralho: Array.from({ length: 20 }, () => cartaAcao('LARANJA', 'SKIP')),
+      totalJogadores: 2,
+    });
+    const atacante = estado.jogadores[0]!;
+    const defensor = estado.jogadores[1]!;
+    const compras = [cartaNum('AZUL', 1), cartaNum('VERDE', 2), cartaNum('PRETO', 3)];
+    const estadoComAtaque: EstadoPartida = {
+      ...estado,
+      jogadores: [
+        atacante,
+        { ...defensor, mao: [cartaNeutra('ZERO_MAIS'), ...defensor.mao.slice(1)] },
+      ],
+      vezDe: 'j2',
+      ataqueAcumulado: 2,
+      ataqueStack: ['MAIS_DOIS'],
+      monteCompra: compras,
+      monteDescarte: [cartaAcao('LARANJA', 'MAIS_DOIS')],
+      historico: [
+        { tipo: 'CARTA_JOGADA', timestamp: 1, jogadorId: 'j1', cartaId: 'MAIS_DOIS-LARANJA' },
+        { tipo: 'ATAQUE_ACUMULADO', timestamp: 1, novo: 2, stack: ['MAIS_DOIS'] },
+      ],
+    };
+
+    const r = executarJogada({ estado: estadoComAtaque, cartaIndex: 0, corEscolhida: 'AZUL' });
+
+    expect(r.novoEstado.jogadores[0]!.mao.map((c) => c.id)).toEqual([
+      ...atacante.mao.map((c) => c.id),
+      '3-PRETO',
+      '2-VERDE',
+    ]);
+    expect(r.novoEstado.monteCompra.map((c) => c.id)).toEqual(['1-AZUL']);
+    expect(r.novoEstado.ataqueAcumulado).toBe(0);
+    expect(r.novoEstado.ataqueStack).toEqual([]);
+    expect(r.novoEstado.vezDe).toBe('j2');
+    expect(r.eventos.filter((e) => e.tipo === 'CARTA_COMPRADA')).toMatchObject([
+      { jogadorId: 'j1', cartaId: '3-PRETO', origem: 'ATAQUE' },
+      { jogadorId: 'j1', cartaId: '2-VERDE', origem: 'ATAQUE' },
+    ]);
+    expect(r.eventos).toContainEqual(
+      expect.objectContaining({
+        tipo: 'ATAQUE_REFLETIDO_ZERO_MAIS',
+        origem: 'j2',
+        alvo: 'j1',
+        cartasDevolvidas: 2,
+      }),
+    );
+  });
+
+  it('usa a origem de ataque no histórico, não o jogador geometricamente anterior, e avança após a compra em 3 jogadores', () => {
+    const estado = criarPartidaCustom({
+      baralho: Array.from({ length: 24 }, () => cartaAcao('LARANJA', 'SKIP')),
+      totalJogadores: 3,
+    });
+    const [j1, j2, j3] = estado.jogadores;
+    const estadoComAtaque: EstadoPartida = {
+      ...estado,
+      jogadores: [j1!, { ...j2!, mao: [cartaNeutra('ZERO_MAIS'), ...j2!.mao.slice(1)] }, j3!],
+      vezDe: 'j2',
+      ataqueAcumulado: 2,
+      ataqueStack: ['MAIS_DOIS'],
+      monteCompra: [cartaNum('AZUL', 4), cartaNum('VERDE', 5)],
+      monteDescarte: [cartaAcao('LARANJA', 'MAIS_DOIS')],
+      historico: [
+        { tipo: 'CARTA_JOGADA', timestamp: 1, jogadorId: 'j3', cartaId: 'MAIS_DOIS-LARANJA' },
+        { tipo: 'ATAQUE_ACUMULADO', timestamp: 1, novo: 2, stack: ['MAIS_DOIS'] },
+      ],
+    };
+
+    const r = executarJogada({ estado: estadoComAtaque, cartaIndex: 0, corEscolhida: 'VERDE' });
+
+    expect(r.novoEstado.jogadores[2]!.mao.slice(-2).map((c) => c.id)).toEqual([
+      '5-VERDE',
+      '4-AZUL',
+    ]);
+    expect(r.novoEstado.jogadores[0]!.mao.map((c) => c.id)).toEqual(j1!.mao.map((c) => c.id));
+    expect(r.novoEstado.vezDe).toBe('j1');
+    expect(r.eventos).toContainEqual(
+      expect.objectContaining({ tipo: 'ATAQUE_REFLETIDO_ZERO_MAIS', alvo: 'j3' }),
+    );
+  });
+
+  it('reutiliza deterministamente o descarte para completar a compra refletida', () => {
+    const estado = criarPartidaCustom({
+      baralho: Array.from({ length: 20 }, () => cartaAcao('LARANJA', 'SKIP')),
+      totalJogadores: 2,
+    });
+    const [j1, j2] = estado.jogadores;
+    const estadoComAtaque: EstadoPartida = {
+      ...estado,
+      jogadores: [j1!, { ...j2!, mao: [cartaNeutra('ZERO_MAIS'), ...j2!.mao.slice(1)] }],
+      vezDe: 'j2',
+      ataqueAcumulado: 2,
+      ataqueStack: ['MAIS_DOIS'],
+      monteCompra: [],
+      monteDescarte: [cartaNum('AZUL', 8), cartaNum('VERDE', 9)],
+      historico: [
+        { tipo: 'CARTA_JOGADA', timestamp: 1, jogadorId: 'j1', cartaId: 'MAIS_DOIS-LARANJA' },
+        { tipo: 'ATAQUE_ACUMULADO', timestamp: 1, novo: 2, stack: ['MAIS_DOIS'] },
+      ],
+    };
+
+    const r = executarJogada({
+      estado: estadoComAtaque,
+      cartaIndex: 0,
+      corEscolhida: 'AZUL',
+      rng: () => 0,
+    });
+
+    const compras = r.eventos
+      .filter((evento) => evento.tipo === 'CARTA_COMPRADA')
+      .map((evento) => evento.cartaId)
+      .sort();
+    expect(compras).toEqual(['8-AZUL', '9-VERDE']);
+    expect(r.novoEstado.jogadores[0]!.mao).toHaveLength(j1!.mao.length + 2);
+    expect(r.novoEstado.monteCompra).toEqual([]);
+    expect(r.novoEstado.monteDescarte.map((c) => c.id)).toEqual(['ZERO_MAIS-NEUTRO']);
+    expect(r.eventos.filter((e) => e.tipo === 'CARTA_COMPRADA')).toHaveLength(2);
+  });
+
+  it('falha antes de alterar o estado se não há cartas suficientes para refletir o ataque inteiro', () => {
+    const estado = criarPartidaCustom({
+      baralho: Array.from({ length: 20 }, () => cartaAcao('LARANJA', 'SKIP')),
+      totalJogadores: 2,
+    });
+    const [j1, j2] = estado.jogadores;
+    const estadoComAtaque: EstadoPartida = {
+      ...estado,
+      jogadores: [j1!, { ...j2!, mao: [cartaNeutra('ZERO_MAIS'), ...j2!.mao.slice(1)] }],
+      vezDe: 'j2',
+      ataqueAcumulado: 2,
+      ataqueStack: ['MAIS_DOIS'],
+      monteCompra: [],
+      monteDescarte: [cartaAcao('LARANJA', 'MAIS_DOIS')],
+      historico: [
+        { tipo: 'CARTA_JOGADA', timestamp: 1, jogadorId: 'j1', cartaId: 'MAIS_DOIS-LARANJA' },
+        { tipo: 'ATAQUE_ACUMULADO', timestamp: 1, novo: 2, stack: ['MAIS_DOIS'] },
+      ],
+    };
+    const antes = structuredClone(estadoComAtaque);
+
+    expect(() =>
+      executarJogada({ estado: estadoComAtaque, cartaIndex: 0, corEscolhida: 'AZUL' }),
+    ).toThrow(/cartas suficientes/i);
+    expect(estadoComAtaque).toEqual(antes);
+  });
 });
 
 describe('0+ (Zero Mais) — edge case: último atacante é o próprio jogador', () => {
@@ -231,7 +386,7 @@ describe('0+ (Zero Mais) — edge case: último atacante é o próprio jogador',
 });
 
 describe('0+ (Zero Mais) — partida de 2 jogadores', () => {
-  it('gira a mão entre 2 jogadores: cada um recebe a mão do outro', () => {
+  it('sem ataque não gira as mãos', () => {
     // Em 2 jogadores, "girar a mão" = trocar as mãos entre os 2
     const baralho: Carta[] = Array.from({ length: 20 }, () => cartaAcao('LARANJA', 'SKIP'));
     const estado = criarPartidaCustom({ baralho, totalJogadores: 2 });
@@ -257,10 +412,9 @@ describe('0+ (Zero Mais) — partida de 2 jogadores', () => {
     // j1 (que jogou 0+) recebe a mão do j2 (swap = 2 jogadores)
     const novaMaoJ1 = r.novoEstado.jogadores[0]!.mao.map((c) => c.id);
     const novaMaoJ2 = r.novoEstado.jogadores[1]!.mao.map((c) => c.id);
-    // j1 recebe a mão do j2 (7 cartas)
-    expect(novaMaoJ1).toEqual(maoJ2Original);
-    // j2 recebe a mão do j1 (sem o 0+ descartado: 6 cartas)
-    expect(novaMaoJ2).toEqual(maoJ1Original.slice(1));
+    // A mão de quem jogou só perde o 0+; a outra permanece intocada.
+    expect(novaMaoJ1).toEqual(maoJ1Original.slice(1));
+    expect(novaMaoJ2).toEqual(maoJ2Original);
   });
 });
 

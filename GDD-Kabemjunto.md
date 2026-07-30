@@ -183,7 +183,7 @@ Termos canônicos usados em todo o GDD. Cada termo mantém o mesmo significado e
   - +4 sobre +2: OK (soma +6)
   - +2 sobre +4: **PROIBIDO**
   - +4 sobre +4: OK (soma +8)
-- **0+ (Zero Mais):** reflete o ataque acumulado para o último atacante; quem recebe o reflexo não pode rebater
+- **0+ (Zero Mais):** sem ataque acumulado, é somente um coringa neutro: escolhe a cor ativa e o turno segue normalmente, sem giro/troca de mãos. Com ataque acumulado, identifica o último atacante pelo histórico canônico, obriga-o a comprar integralmente a pilha (reciclando o descarte quando necessário), encerra a pilha e passa o turno a partir desse alvo; quem recebe o reflexo não pode rebater.
 - **Troca Mão:** escolha um jogador e troque toda a sua mão com a dele
 - **Gira Mão:** escolha um sentido; todos passam suas mãos para o vizinho
 - **Coringa Simples:** altera a cor ativa do jogo

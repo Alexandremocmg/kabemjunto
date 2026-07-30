@@ -132,8 +132,17 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
 }) => {
   const [falasRapidasAbertas, setFalasRapidasAbertas] = useState(false);
   const [stackIds, setStackIds] = useState<ReadonlyArray<string>>([]);
-  const dragAnchorRef = useRef<{ carta: Carta; primeiraCartaJogavel: boolean }>();
+  const [stackFeedback, setStackFeedback] = useState('');
+  const dragAnchorRef = useRef<{
+    carta: Carta;
+    primeiraCartaJogavel: boolean;
+    x: number;
+    y: number;
+  }>();
+  const longPressTimerRef = useRef<number>();
+  const longPressCardIdRef = useRef<string>();
   const suppressNextClickRef = useRef(false);
+  const ultimoPonteiroFoiToqueRef = useRef(false);
   const [baloesDeFala, setBaloesDeFala] = useState<ReadonlyMap<string, BalaoFala>>(new Map());
   const mensagensVistasRef = useRef(new WeakSet<ServerChatEvent>());
   const timersDeBalaoRef = useRef(new Map<string, number>());
@@ -158,19 +167,76 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
     });
   }
 
-  function iniciarArrasto(carta: Carta, primeiraCartaJogavel: boolean): void {
+  function iniciarArrasto(
+    event: React.PointerEvent<HTMLDivElement>,
+    carta: Carta,
+    primeiraCartaJogavel: boolean,
+  ): void {
+    ultimoPonteiroFoiToqueRef.current = event.pointerType === 'touch';
     if (
       minhaVez &&
       (stackIds.length > 0 || canSelectMultipleDiscardCard([], carta, mao, primeiraCartaJogavel))
     ) {
-      dragAnchorRef.current = { carta, primeiraCartaJogavel };
+      dragAnchorRef.current = { carta, primeiraCartaJogavel, x: event.clientX, y: event.clientY };
+      if (event.pointerType === 'touch') {
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+        longPressTimerRef.current = window.setTimeout(() => {
+          longPressCardIdRef.current = carta.id;
+          setStackFeedback('Carta selecionada para a jogada normal.');
+          onSelecionarCarta(carta);
+        }, 500);
+      }
     }
   }
 
-  function soltarNaCarta(target: Carta): void {
+  function tocarCarta(carta: Carta, primeiraCartaJogavel: boolean): void {
+    if (!minhaVez || !onPlayMultiple) return;
+    setStackIds((atuais) => {
+      if (atuais.length === 0) {
+        if (!canSelectMultipleDiscardCard([], carta, mao, primeiraCartaJogavel)) return atuais;
+        setStackFeedback(
+          'Pilha armada: toque outra carta de mesma face ou segure para jogar normalmente.',
+        );
+        return [carta.id];
+      }
+      if (atuais.includes(carta.id)) {
+        const proximas = atuais.filter((id) => id !== carta.id);
+        setStackFeedback(proximas.length ? 'Carta removida da pilha.' : 'Pilha cancelada.');
+        return proximas;
+      }
+      const proximas = appendCardToMultipleDiscardStack(atuais, carta, mao);
+      setStackFeedback(
+        proximas === atuais
+          ? 'Essa carta não tem a mesma face da pilha.'
+          : `Pilha com ${proximas.length} cartas. Toque a pilha para descartar.`,
+      );
+      return proximas;
+    });
+  }
+
+  function soltarNaCarta(event: React.PointerEvent<HTMLDivElement>, fallbackTarget: Carta): void {
+    if (longPressTimerRef.current !== undefined) window.clearTimeout(longPressTimerRef.current);
     const drag = dragAnchorRef.current;
     dragAnchorRef.current = undefined;
-    if (!drag || drag.carta.id === target.id) return;
+    if (!drag || longPressCardIdRef.current === drag.carta.id) {
+      if (drag) suppressNextClickRef.current = true;
+      longPressCardIdRef.current = undefined;
+      return;
+    }
+    if (Math.hypot(event.clientX - drag.x, event.clientY - drag.y) <= 8) return;
+    const cardIdAtExpandedPointer = Array.from(
+      document.querySelectorAll<HTMLElement>('[data-card-id]'),
+    ).find((element) => {
+      const rect = element.getBoundingClientRect();
+      return (
+        event.clientX >= rect.left - 32 &&
+        event.clientX <= rect.right + 32 &&
+        event.clientY >= rect.top - 32 &&
+        event.clientY <= rect.bottom + 32
+      );
+    })?.dataset.cardId;
+    const target = mao.find((carta) => carta.id === cardIdAtExpandedPointer) ?? fallbackTarget;
+    if (drag.carta.id === target.id) return;
     setStackIds((atuais) => {
       const proximas =
         atuais.length === 0
@@ -178,8 +244,10 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
           : temMesmaFace(drag.carta, target)
             ? appendCardToMultipleDiscardStack(atuais, drag.carta, mao)
             : atuais;
-      if (proximas !== atuais && proximas.length > atuais.length)
+      if (proximas !== atuais && proximas.length > atuais.length) {
         suppressNextClickRef.current = true;
+        setStackFeedback(`Pilha com ${proximas.length} cartas. Toque a pilha para descartar.`);
+      }
       return proximas;
     });
   }
@@ -370,6 +438,9 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
             </button>
           </div>
         </div>
+        <p className="multiple-discard-touch-feedback" role="status" aria-live="polite">
+          {stackFeedback}
+        </p>
         <div className="hand-cards hand-fan" role="list">
           {mao.map((carta, index) => {
             const primeiraCartaJogavel = isNormallyPlayableOnline(estado, carta);
@@ -384,18 +455,30 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
                 className={`hand-card-slot ${inStack || selectedCardId === carta.id ? 'selected-slot' : ''}`}
                 key={`${carta.id}_${index}`}
                 role="listitem"
+                data-card-id={carta.id}
                 style={{
                   transform: `rotate(${Math.max(-12, Math.min(12, (index - (mao.length - 1) / 2) * 4))}deg)`,
                 }}
-                onPointerDown={() => iniciarArrasto(carta, primeiraCartaJogavel)}
-                onPointerUp={() => soltarNaCarta(carta)}
+                onPointerDown={(event) => iniciarArrasto(event, carta, primeiraCartaJogavel)}
+                onPointerUp={(event) => soltarNaCarta(event, carta)}
                 onClickCapture={(event) => {
                   const clicouNaPilha =
                     event.target instanceof Element &&
                     event.target.closest('.multiple-discard-inline-stack') !== null;
-                  if (suppressNextClickRef.current && !clicouNaPilha) {
+                  const suppressClick = suppressNextClickRef.current;
+                  if (suppressClick && !clicouNaPilha) {
                     event.preventDefault();
                     event.stopPropagation();
+                  }
+                  if (
+                    !suppressClick &&
+                    !clicouNaPilha &&
+                    ultimoPonteiroFoiToqueRef.current &&
+                    onPlayMultiple
+                  ) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    tocarCarta(carta, primeiraCartaJogavel);
                   }
                   suppressNextClickRef.current = false;
                 }}
@@ -446,10 +529,6 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
             );
           })}
         </div>
-        <p className="multiple-discard-keyboard-hint">
-          Para montar uma pilha com teclado, use Alt+Enter em uma carta jogável e depois em cartas
-          da mesma face.
-        </p>
       </section>
     </div>
   );
