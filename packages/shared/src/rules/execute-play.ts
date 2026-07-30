@@ -86,6 +86,12 @@ export function executarJogada(opcoes: ExecutarJogadaOpcoes): ResultadoJogada {
     throw new Error(validacao.motivo ?? 'Jogada inválida');
   }
 
+  const venceAntesDeEfeitoDeMao =
+    jogador.mao.length === 1 && (carta.acao === 'TROCA_MAO' || carta.acao === 'GIRA_MAO');
+  if (carta.tipo === 'NEUTRA' && corEscolhida === undefined && !venceAntesDeEfeitoDeMao) {
+    throw new Error('Cartas neutras requerem corEscolhida.');
+  }
+
   // Construir novo estado (imutável)
   const eventos: EventoPartida[] = [];
   const sfx: SfxEvent[] = [];
@@ -124,6 +130,22 @@ export function executarJogada(opcoes: ExecutarJogadaOpcoes): ResultadoJogada {
     silencio: { ativo: false, jogadoresQuebraram: [] }, // qualquer carta desativa silêncio
     historico: [...estado.historico, ...eventos],
   };
+
+  // Cartas que redistribuem mãos não executam o efeito quando são a última
+  // carta: a vitória acontece no instante do descarte.
+  if (venceAntesDeEfeitoDeMao) {
+    sfx.push('vitoria');
+    eventos.push({ tipo: 'VITORIA', timestamp: Date.now(), vencedorId: jogadorId });
+    novoEstado = {
+      ...novoEstado,
+      ataqueAcumulado: 0,
+      ataqueStack: [],
+      finalizada: true,
+      vencedor: jogadorId,
+      historico: [...estado.historico, ...eventos],
+    };
+    return { novoEstado, sfx, eventos };
+  }
 
   // 3a. Efeitos de cada tipo de ação
   let turnoJaAvancado = false;
@@ -216,7 +238,13 @@ function resolverAcao(
       const novoStack: Acao[] = [...estado.ataqueStack, 'MAIS_DOIS'];
       eventos.push(
         { tipo: 'ACAO_RESOLVIDA', timestamp: ts, acao: 'MAIS_DOIS' },
-        { tipo: 'ATAQUE_ACUMULADO', timestamp: ts, novo: novoAtaque, stack: novoStack },
+        {
+          tipo: 'ATAQUE_ACUMULADO',
+          timestamp: ts,
+          novo: novoAtaque,
+          stack: novoStack,
+          origem: jogadorId,
+        },
       );
       return {
         novoEstado: {
@@ -235,7 +263,13 @@ function resolverAcao(
       const novoStack: Acao[] = [...estado.ataqueStack, 'MAIS_QUATRO'];
       eventos.push(
         { tipo: 'ACAO_RESOLVIDA', timestamp: ts, acao: 'MAIS_QUATRO' },
-        { tipo: 'ATAQUE_ACUMULADO', timestamp: ts, novo: novoAtaque, stack: novoStack },
+        {
+          tipo: 'ATAQUE_ACUMULADO',
+          timestamp: ts,
+          novo: novoAtaque,
+          stack: novoStack,
+          origem: jogadorId,
+        },
       );
       return {
         novoEstado: {
@@ -270,20 +304,18 @@ function resolverAcao(
         const ultimoAtacanteId = encontrarUltimoAtacante(estado, jogadorId);
         const cartasDevolvidas = estado.ataqueAcumulado;
 
-        // A compra refletida é uma transação: antes de alterar qualquer estado
-        // verificamos se o monte + descarte reciclável consegue pagar tudo.
-        // O descarte já contém o 0+ no topo, que nunca pode ser reciclado.
-        const cartasDisponiveis =
-          estado.monteCompra.length + Math.max(estado.monteDescarte.length - 1, 0);
-        if (cartasDisponiveis < cartasDevolvidas) {
-          throw new Error(
-            `Não há cartas suficientes para refletir o ataque de ${cartasDevolvidas} cartas.`,
-          );
+        // A starter inicia uma pilha sem que qualquer jogador tenha atacado.
+        // Nesse caso o 0+ encerra o ataque, mas não inventa um alvo humano.
+        if (ultimoAtacanteId === 'STARTER') {
+          return {
+            novoEstado: { ...estado, ataqueAcumulado: 0, ataqueStack: [] },
+            sfx,
+            eventos,
+          };
         }
 
-        // Reutiliza a mecânica canônica de compra, mas faz o último atacante
-        // comprar agora. `comprarCartas` também limpa a pilha e passa o turno
-        // a partir do alvo, impedindo qualquer resposta/rebote ao reflexo.
+        // Reutiliza a mecânica canônica de compra, que recicla o descarte,
+        // compra integralmente ou encerra por menor mão sem compra parcial.
         const compra = comprarCartas({
           estado: { ...estado, vezDe: ultimoAtacanteId },
           quantidade: cartasDevolvidas,
@@ -368,12 +400,17 @@ function resolverAcao(
 }
 
 /** Encontra a origem canônica do último ataque acumulado. */
-function encontrarUltimoAtacante(estado: EstadoPartida, jogadorId: JogadorId): JogadorId {
+function encontrarUltimoAtacante(
+  estado: EstadoPartida,
+  jogadorId: JogadorId,
+): JogadorId | 'STARTER' {
   // A origem canônica é a CARTA_JOGADA que antecedeu o último registro de
-  // ATAQUE_ACUMULADO. O histórico recebido aqui também contém a jogada do 0+,
-  // então buscamos estritamente antes do ataque, não a última jogada global.
+  // ATAQUE_ACUMULADO. Snapshots novos registram a origem diretamente; os
+  // legados continuam aceitos pelo caminho de reconstrução abaixo.
   for (let i = estado.historico.length - 1; i >= 0; i--) {
-    if (estado.historico[i]!.tipo !== 'ATAQUE_ACUMULADO') continue;
+    const ataque = estado.historico[i]!;
+    if (ataque.tipo !== 'ATAQUE_ACUMULADO') continue;
+    if (ataque.origem !== undefined) return ataque.origem;
     for (let j = i - 1; j >= 0; j--) {
       const evento = estado.historico[j]!;
       if (

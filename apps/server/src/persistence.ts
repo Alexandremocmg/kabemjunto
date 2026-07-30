@@ -14,7 +14,10 @@ import { randomUUID } from 'node:crypto';
 import { dirname } from 'node:path';
 import type { Carta, EstadoPartida, Jogador, JogadorPublico, Sala } from '@kabemjunto/shared';
 
-export const ROOM_SNAPSHOT_VERSION = 2 as const;
+export const ROOM_SNAPSHOT_VERSION = 3 as const;
+const LEGACY_ROOM_SNAPSHOT_VERSION = 2 as const;
+type ReadableRoomSnapshotVersion =
+  typeof LEGACY_ROOM_SNAPSHOT_VERSION | typeof ROOM_SNAPSHOT_VERSION;
 
 export interface PersistedRoomSession {
   sala: Sala;
@@ -196,7 +199,11 @@ function isResumeTokenHashes(value: unknown, sala: Sala): value is Record<string
   );
 }
 
-function isGameEvent(value: unknown): boolean {
+function isGameEvent(
+  value: unknown,
+  snapshotVersion: ReadableRoomSnapshotVersion,
+  playerIds: ReadonlySet<string>,
+): boolean {
   if (
     !isRecord(value) ||
     !isOneOf(value['tipo'], EVENT_TYPES) ||
@@ -225,13 +232,18 @@ function isGameEvent(value: unknown): boolean {
       );
     case 'ACAO_RESOLVIDA':
       return isOneOf(value['acao'], ACTIONS) && hasOptionalString(value, 'alvo');
-    case 'ATAQUE_ACUMULADO':
+    case 'ATAQUE_ACUMULADO': {
+      const origem = value['origem'];
       return (
         isFiniteNumber(value['novo']) &&
         value['novo'] >= 0 &&
         Array.isArray(value['stack']) &&
-        value['stack'].every((action) => isOneOf(action, ACTIONS))
+        value['stack'].every((action) => isOneOf(action, ACTIONS)) &&
+        (origem === undefined ||
+          origem === 'STARTER' ||
+          (isString(origem) && playerIds.has(origem)))
       );
+    }
     case 'ATAQUE_REFLETIDO_ZERO_MAIS':
       return (
         isString(value['origem']) &&
@@ -260,23 +272,29 @@ function isGameEvent(value: unknown): boolean {
       return isOneOf(value['motivo'], ['VITORIA', 'ABANDONO', 'TIMEOUT'] as const);
     case 'MONTE_ESGOTADO':
       return (
+        snapshotVersion >= 3 &&
         isString(value['jogadorId']) &&
         isInteger(value['cartasSolicitadas']) &&
+        value['cartasSolicitadas'] >= 1 &&
         isInteger(value['cartasObtidas']) &&
         value['cartasObtidas'] >= 0 &&
-        value['cartasObtidas'] <= value['cartasSolicitadas']
+        value['cartasObtidas'] < value['cartasSolicitadas']
       );
   }
 }
 
-function isGameState(value: unknown): value is EstadoPartida {
+function isGameState(
+  value: unknown,
+  snapshotVersion: ReadableRoomSnapshotVersion,
+): value is EstadoPartida {
   if (!isRecord(value)) return false;
+  const jogadores = value['jogadores'];
+  if (!Array.isArray(jogadores) || !jogadores.every(isPlayer)) return false;
+  const playerIds = new Set(jogadores.map((jogador) => jogador.id));
   const silence = value['silencio'];
   return (
     isString(value['partidaId']) &&
     isString(value['salaId']) &&
-    Array.isArray(value['jogadores']) &&
-    value['jogadores'].every(isPlayer) &&
     Array.isArray(value['monteCompra']) &&
     value['monteCompra'].every(isCard) &&
     Array.isArray(value['monteDescarte']) &&
@@ -296,7 +314,7 @@ function isGameState(value: unknown): value is EstadoPartida {
       : Array.isArray(silence['jogadoresQuebraram']) &&
         silence['jogadoresQuebraram'].every(isString)) &&
     Array.isArray(value['historico']) &&
-    value['historico'].every(isGameEvent) &&
+    value['historico'].every((event) => isGameEvent(event, snapshotVersion, playerIds)) &&
     isBoolean(value['finalizada']) &&
     hasOptionalString(value, 'vencedor')
   );
@@ -306,7 +324,8 @@ function validateSnapshot(value: unknown): RoomSnapshot {
   if (!isRecord(value)) {
     throw new RoomSnapshotError('Snapshot de salas inválido: raiz deve ser um objeto.');
   }
-  if (value['version'] !== ROOM_SNAPSHOT_VERSION) {
+  const version = value['version'];
+  if (version !== ROOM_SNAPSHOT_VERSION && version !== LEGACY_ROOM_SNAPSHOT_VERSION) {
     if (value['version'] === 1) {
       throw new RoomSnapshotError(
         'Snapshot v1 não pode ser migrado com segurança: credenciais de retomada ausentes.',
@@ -330,7 +349,7 @@ function validateSnapshot(value: unknown): RoomSnapshot {
       throw new RoomSnapshotError('Snapshot de salas inválido: hashes de retomada malformados.');
     }
     const state = candidate['estado'];
-    if (state !== undefined && !isGameState(state)) {
+    if (state !== undefined && !isGameState(state, version)) {
       throw new RoomSnapshotError(
         `Snapshot de salas inválido: partida da sala ${candidate['sala'].id} malformada.`,
       );

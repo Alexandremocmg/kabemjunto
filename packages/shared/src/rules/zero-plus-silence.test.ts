@@ -318,7 +318,7 @@ describe('0+ (Zero Mais) — com ataque acumulado', () => {
     expect(r.eventos.filter((e) => e.tipo === 'CARTA_COMPRADA')).toHaveLength(2);
   });
 
-  it('falha antes de alterar o estado se não há cartas suficientes para refletir o ataque inteiro', () => {
+  it('encerra por menor mão sem compra parcial se o baralho inteiro não paga o reflexo', () => {
     const estado = criarPartidaCustom({
       baralho: Array.from({ length: 20 }, () => cartaAcao('LARANJA', 'SKIP')),
       totalJogadores: 2,
@@ -339,9 +339,24 @@ describe('0+ (Zero Mais) — com ataque acumulado', () => {
     };
     const antes = structuredClone(estadoComAtaque);
 
-    expect(() =>
-      executarJogada({ estado: estadoComAtaque, cartaIndex: 0, corEscolhida: 'AZUL' }),
-    ).toThrow(/cartas suficientes/i);
+    const resultado = executarJogada({
+      estado: estadoComAtaque,
+      cartaIndex: 0,
+      corEscolhida: 'AZUL',
+    });
+
+    expect(resultado.novoEstado.finalizada).toBe(true);
+    expect(resultado.novoEstado.vencedor).toBe('j2');
+    expect(resultado.novoEstado.ataqueAcumulado).toBe(2);
+    expect(resultado.eventos.filter((evento) => evento.tipo === 'CARTA_COMPRADA')).toEqual([]);
+    expect(resultado.eventos).toContainEqual(
+      expect.objectContaining({
+        tipo: 'MONTE_ESGOTADO',
+        jogadorId: 'j1',
+        cartasSolicitadas: 2,
+        cartasObtidas: 0,
+      }),
+    );
     expect(estadoComAtaque).toEqual(antes);
   });
 });

@@ -15,6 +15,7 @@ Este arquivo registra as Decisões de Arquitetura (ADRs) do projeto Kabemjunto.
 - [ADR-009: Consolidação do App Único em `apps/web/` (Fim do Dual App)](#adr-009-consolidação-do-app-único-em-appsweb-fim-do-dual-app)
 - [ADR-010: Redesign da Mesa Mobile e Carta 7 Visualmente Secreta](#adr-010-redesign-da-mesa-mobile-e-carta-7-visualmente-secreta)
 - [ADR-011: Persistência Atômica em Instância Única e Container Same-Origin](#adr-011-persistência-atômica-em-instância-única-e-container-same-origin)
+- [ADR-012: Remover a API de State Machine sem Consumidor](#adr-012-remover-a-api-de-state-machine-sem-consumidor)
 
 ---
 
@@ -332,6 +333,13 @@ Este arquivo registra as Decisões de Arquitetura (ADRs) do projeto Kabemjunto.
   10. O alvo inicial confirmado é Railway, serviço único same-origin com volume
       de 500 MB em `/data`. O domínio Railway é a origem CORS exata. Ativação de
       plano pago permanece decisão separada do proprietário.
+  11. O evento persistido `MONTE_ESGOTADO` exige schema **v3**. O leitor v3
+      aceita snapshots v2 antigos sem reescrevê-los durante `load`; o próximo
+      `save` grava v3. Um arquivo rotulado v2 não pode conter o evento novo.
+      Isso mantém a fronteira de compatibilidade explícita: rollback para um
+      binário v2 exige backup operacional capturado antes da primeira gravação
+      v3, em vez de tentar abrir estado novo com um validador antigo. Em v3,
+      `cartasSolicitadas >= 1` e `0 <= cartasObtidas < cartasSolicitadas`.
 - **Alternativas rejeitadas nesta sprint:**
   - **Postgres desde o início:** robusto para múltiplas réplicas, porém adiciona
     conta, migrações, pool e I/O assíncrono sem demanda atual.
@@ -354,3 +362,31 @@ Este arquivo registra as Decisões de Arquitetura (ADRs) do projeto Kabemjunto.
     entram em snapshot, logs, métricas ou telemetria.
   - ❌ Uma única instância continua sendo ponto único de falha.
   - ❌ Volume persistente e backup dependem do provedor escolhido.
+
+---
+
+### ADR-012: Remover a API de State Machine sem Consumidor
+
+- **Status:** Aprovado · 2026-07-30 · @Mavis
+- **Contexto:** `packages/shared/src/rules/state-machine.ts` exportava estados e
+  transições e tinha uma suíte própria, mas nenhum fluxo de `apps/server`,
+  `apps/web` ou das demais regras chamava essa API. O turno real já era executado
+  pelas funções puras `validarJogada`, `executarJogada` e `comprarCartas`. Manter
+  duas representações executáveis permitiu divergência: a tabela descrevia a
+  janela após comprar uma carta, enquanto o runtime chegou a implementar outro
+  comportamento. O pacote `@kabemjunto/shared` tem `private: true`, portanto não
+  existe contrato publicado no registry a preservar.
+- **Decisão:**
+  1. Remover `state-machine.ts`, seu teste isolado e seu export do barrel.
+  2. Não substituir o módulo por outra API até existir um consumidor real e uma
+     única fonte executável para o fluxo.
+  3. Manter a state machine no GDD apenas como **modelo conceitual** para design,
+     revisão e testes de conformidade; as funções puras do motor são o runtime.
+  4. Tratar a remoção como higiene de API/build: código morto não integra a
+     superfície privada do pacote nem gera declarações/JavaScript sem uso.
+- **Consequências:**
+  - ✅ Elimina uma falsa sensação de cobertura e uma fonte paralela de verdade.
+  - ✅ Reduz a superfície exportada e os artefatos emitidos no build.
+  - ✅ Preserva o vocabulário de estados no GDD sem fingir que ele é uma API.
+  - ❌ Integrações internas que quisessem adotar uma máquina executável no futuro
+    precisarão de nova decisão e testes dirigidos por um consumidor real.

@@ -20,6 +20,7 @@ import { PainelVitoria } from './components/PainelVitoria';
 import { TutorialModal } from './components/TutorialModal';
 import { audioService } from './services/audioService';
 import { EventoPartidaOverlay } from './components/EventoPartidaOverlay';
+import { descreverZeroMais } from './services/zeroPlusFeedback';
 
 type Feedback = {
   tipo: 'info' | 'erro' | 'sucesso';
@@ -156,11 +157,11 @@ export const App: React.FC = () => {
       });
     }
     if (carta.acao === 'ZERO_MAIS' && antes.ataqueAcumulado > 0) {
+      const feedbackZeroMais = descreverZeroMais(antes, nome);
       eventos.push({
         id: `${id}-zero`,
         tipo: 'ZERO_MAIS',
-        titulo: '0+! Ataque refletido!',
-        detalhe: `${nome} devolveu o ataque para o último atacante.`,
+        ...feedbackZeroMais,
       });
     }
     if (depois.ataqueAcumulado > antes.ataqueAcumulado) {

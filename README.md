@@ -129,6 +129,8 @@ docker run -d --name kabemjunto \
 
 O container declara `VOLUME ["/data"]`. Monte um volume real nesse caminho e aponte `ROOM_STORAGE_FILE=/data/rooms.json` — sem isso, um restart do container perde todas as salas. Restart com volume montado foi validado manualmente: sala criada antes do restart continua presente depois (jogadores voltam como `conectado: false` até reconectar pelo `resumeToken`).
 
+O schema atual do snapshot é **v3**. O servidor lê v2 sem alterar o arquivo no `load` e grava v3 no próximo `save`; v3 adiciona `MONTE_ESGOTADO` ao histórico. Antes de atualizar uma instalação com snapshot v2, faça backup operacional do arquivo: rollback para um binário v2 requer essa cópia anterior à primeira gravação v3. Não rotule o evento novo como v2.
+
 ### Deploy no Railway
 
 `railway.json` aponta para o `Dockerfile` e configura o healthcheck em `/live`. O projeto/volume/segredos (`METRICS_TOKEN`, `CORS_ORIGINS`, domínio) são provisionados diretamente no provedor — nenhum segredo fica no repositório.
@@ -242,6 +244,8 @@ Por fim, faça smoke real no navegador público: criar sala com um cliente, entr
 3. **O front** tenha um wrapper fino (`src/services/gameEngine.ts`) que toca áudio baseado no que o motor retorna
 
 Detalhe completo em [ADR-004](./DECISIONS.md#adr-004-refactor-do-motor-de-regras-para-packagessharedsrules).
+
+`@kabemjunto/shared` é um pacote **privado do monorepo**. A state machine descrita no GDD é um modelo conceitual para revisar o fluxo; a antiga API exportada de estados foi removida porque não tinha consumidor no runtime e duplicava as funções executáveis do motor. Veja [ADR-012](./DECISIONS.md#adr-012-remover-a-api-de-state-machine-sem-consumidor).
 
 ---
 

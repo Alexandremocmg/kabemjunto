@@ -580,6 +580,7 @@ describe('executarJogada()', () => {
     const resultado = executarJogada({
       estado: estadoCustom,
       cartaIndex: 0,
+      corEscolhida: 'AZUL',
       alvoTrocaId: 'j2',
     });
 
@@ -600,19 +601,32 @@ describe('executarJogada()', () => {
     const j1 = estado.jogadores[0]!;
     const estadoComTroca: EstadoPartida = {
       ...estado,
-      jogadores: [{ ...j1, mao: [cartaNeutra('TROCA_MAO')] }, ...estado.jogadores.slice(1)],
+      jogadores: [
+        { ...j1, mao: [cartaNeutra('TROCA_MAO'), cartaNum('VERDE', 9)] },
+        ...estado.jogadores.slice(1),
+      ],
       monteDescarte: [cartaNum('LARANJA', 0)],
       corAtiva: 'LARANJA',
     };
 
-    expect(() => executarJogada({ estado: estadoComTroca, cartaIndex: 0 })).toThrow(
-      /requer alvoTrocaId/i,
-    );
     expect(() =>
-      executarJogada({ estado: estadoComTroca, cartaIndex: 0, alvoTrocaId: 'j1' }),
+      executarJogada({ estado: estadoComTroca, cartaIndex: 0, corEscolhida: 'AZUL' }),
+    ).toThrow(/requer alvoTrocaId/i);
+    expect(() =>
+      executarJogada({
+        estado: estadoComTroca,
+        cartaIndex: 0,
+        corEscolhida: 'AZUL',
+        alvoTrocaId: 'j1',
+      }),
     ).toThrow(/próprio jogador/i);
     expect(() =>
-      executarJogada({ estado: estadoComTroca, cartaIndex: 0, alvoTrocaId: 'ausente' }),
+      executarJogada({
+        estado: estadoComTroca,
+        cartaIndex: 0,
+        corEscolhida: 'AZUL',
+        alvoTrocaId: 'ausente',
+      }),
     ).toThrow(/não encontrado/i);
   });
   it('detecta vitória: mão vazia → finalizada = true, vencedor = j1', () => {
@@ -724,19 +738,24 @@ describe('comprarCartas()', () => {
     expect(r.turnoMantido).toBe(false);
   });
 
-  it('reembaralha descarte se monte esvazia', () => {
-    // Monta estado com monte pequeno (1 carta) e descarte com várias.
-    // Mão vazia isola a mecânica de compra do precondition de jogabilidade.
+  it('reembaralha descarte para pagar ataque integralmente se o monte esvazia', () => {
     const base = criarPartidaTeste();
     const estadoCustom: EstadoPartida = {
       ...base,
       jogadores: base.jogadores.map((j, i) => (i === 0 ? { ...j, mao: [] } : j)),
       monteCompra: [cartaNum('VERDE', 1)],
-      monteDescarte: [cartaNum('LARANJA', 0), cartaNum('VERDE', 5), cartaNum('AZUL', 3)],
+      monteDescarte: [
+        cartaNum('VERDE', 5),
+        cartaNum('AZUL', 3),
+        cartaNum('PRETO', 8),
+        cartaNum('LARANJA', 0),
+      ],
+      ataqueAcumulado: 4,
+      ataqueStack: ['MAIS_QUATRO'],
     };
-    const r = comprarCartas({ estado: estadoCustom, quantidade: 3 });
-    // Deve ter comprado 3 cartas no total
-    expect(r.novoEstado.jogadores[0]!.mao.length).toBe(3);
+    const r = comprarCartas({ estado: estadoCustom });
+    expect(r.novoEstado.jogadores[0]!.mao.length).toBe(4);
+    expect(r.novoEstado.ataqueAcumulado).toBe(0);
   });
 });
 

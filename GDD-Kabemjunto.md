@@ -81,7 +81,7 @@
 2. **Tensão social crescente** — regra do 7 + acúmulo de ataques
 3. **Momento viral (0+)** — reviravolta cinematográfica
 4. **Rejogabilidade alta** — baralho pequeno, variância alta
-5. **Dev-readiness** — state machine finita, sem loops infinitos
+5. **Dev-readiness** — fluxo de turno finito, sem loops infinitos. A state machine do GDD é o modelo conceitual; o runtime executa funções puras do motor, sem uma segunda API de estados paralela.
 
 ### Decisões macro
 
@@ -103,31 +103,31 @@
 
 Termos canônicos usados em todo o GDD. Cada termo mantém o mesmo significado em todas as seções.
 
-| Termo                       | Definição                                                                                                          |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| **Monte de Compra**         | Pilha virada para baixo, de onde jogadores compram cartas.                                                         |
-| **Monte de Descarte**       | Pilha virada para cima no centro, com a `topo` sendo a última carta jogada.                                        |
-| **Topo**                    | Última carta do Monte de Descarte. Define a cor/símbolo que a próxima jogada deve respeitar.                       |
-| **Ativo**                   | Cor vigente definida por uma carta neutra (ou a cor da carta colorida do topo, se a última jogada não foi neutra). |
-| **Cor**                     | Laranja, Azul, Verde ou Preto.                                                                                     |
-| **Coringa**                 | Carta neutra que pode ser jogada sobre qualquer cor.                                                               |
-| **Coringa Simples (Wild)**  | Coringa que apenas muda a cor ativa.                                                                               |
-| **+4**                      | Coringa que obriga o próximo a comprar 4 cartas.                                                                   |
-| **+2**                      | Carta colorida que obriga o próximo a comprar 2 cartas.                                                            |
-| **Ataque Acumulado**        | Soma de +2/+4 encadeados que o próximo jogador deve cobrir ou comprar.                                             |
-| **Reflexo**                 | Efeito do 0+ (Zero Mais): o ataque acumulado é devolvido ao último atacante.                                       |
-| **Regra do 7 / Silêncio**   | Ao jogar uma carta 7, todos os jogadores ficam em silêncio até a próxima carta; quem falar paga +2.                |
-| **Direção de Jogo**         | Horário ou anti-horário. Invertida pela carta Reverse.                                                             |
-| **Mão**                     | Conjunto de cartas que cada jogador segura e não pode mostrar aos outros.                                          |
-| **Descartar**               | Ação de jogar uma carta da mão no Monte de Descarte.                                                               |
-| **Comprar**                 | Ação de pegar a carta do topo do Monte de Compra.                                                                  |
-| **Vazio (estado)**          | Quando o Monte de Compra se esgota; descarte vira novo monte (mantendo topo).                                      |
-| **Starter (carta inicial)** | Primeira carta virada para o Monte de Descarte; nunca pode ser neutra.                                             |
-| **Último Atacante**         | Jogador que jogou a carta de ataque mais recente; alvo do 0+ em caso de reflexo.                                   |
-| **Compra Obrigatória**      | Compra forçada por ataque (+2 / +4 / silêncio quebrado).                                                           |
-| **Validação de Jogada**     | Função `validarJogada(cartaJogada, topo, ativo)` que retorna `válida? + efeito`.                                   |
-| **State Machine de Turno**  | INICIO_TURNO → ESPERAR_CARTA → VALIDAR → RESOLVER_ACAO → FIM_TURNO (ou COMPRAR → FIM_TURNO).                       |
-| **Servidor Autoritativo**   | Toda validação de regras roda no servidor; cliente só envia intenção de jogada.                                    |
+| Termo                       | Definição                                                                                                                                                                    |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Monte de Compra**         | Pilha virada para baixo, de onde jogadores compram cartas.                                                                                                                   |
+| **Monte de Descarte**       | Pilha virada para cima no centro, com a `topo` sendo a última carta jogada.                                                                                                  |
+| **Topo**                    | Última carta do Monte de Descarte. Define a cor/símbolo que a próxima jogada deve respeitar.                                                                                 |
+| **Ativo**                   | Cor vigente definida por uma carta neutra (ou a cor da carta colorida do topo, se a última jogada não foi neutra).                                                           |
+| **Cor**                     | Laranja, Azul, Verde ou Preto.                                                                                                                                               |
+| **Coringa**                 | Carta neutra que pode ser jogada sobre qualquer cor.                                                                                                                         |
+| **Coringa Simples (Wild)**  | Coringa que apenas muda a cor ativa.                                                                                                                                         |
+| **+4**                      | Coringa que obriga o próximo a comprar 4 cartas.                                                                                                                             |
+| **+2**                      | Carta colorida que obriga o próximo a comprar 2 cartas.                                                                                                                      |
+| **Ataque Acumulado**        | Soma de +2/+4 encadeados que o próximo jogador deve cobrir ou comprar.                                                                                                       |
+| **Reflexo**                 | Efeito do 0+ (Zero Mais): o ataque acumulado é devolvido ao último atacante.                                                                                                 |
+| **Regra do 7 / Silêncio**   | Ao jogar uma carta 7, todos os jogadores ficam em silêncio até a próxima carta; quem falar paga +2.                                                                          |
+| **Direção de Jogo**         | Horário ou anti-horário. Invertida pela carta Reverse.                                                                                                                       |
+| **Mão**                     | Conjunto de cartas que cada jogador segura e não pode mostrar aos outros.                                                                                                    |
+| **Descartar**               | Ação de jogar uma carta da mão no Monte de Descarte.                                                                                                                         |
+| **Comprar**                 | Ação de pegar a carta do topo do Monte de Compra.                                                                                                                            |
+| **Vazio (estado)**          | Quando o Monte de Compra se esgota; descarte vira novo monte (mantendo topo).                                                                                                |
+| **Starter (carta inicial)** | Primeira carta virada para o Monte de Descarte; nunca pode ser neutra.                                                                                                       |
+| **Último Atacante**         | Jogador que jogou a carta de ataque mais recente; alvo do 0+ em caso de reflexo.                                                                                             |
+| **Compra Obrigatória**      | Compra forçada por ataque (+2 / +4 / silêncio quebrado).                                                                                                                     |
+| **Validação de Jogada**     | Função `validarJogada(cartaJogada, topo, ativo)` que retorna `válida? + efeito`.                                                                                             |
+| **State Machine de Turno**  | Modelo conceitual do GDD: INICIO_TURNO → ESPERAR_CARTA → VALIDAR → RESOLVER_ACAO → FIM_TURNO (ou COMPRAR → FIM_TURNO). Não corresponde a uma API pública separada no pacote. |
+| **Servidor Autoritativo**   | Toda validação de regras roda no servidor; cliente só envia intenção de jogada.                                                                                              |
 
 ---
 
@@ -183,9 +183,10 @@ Termos canônicos usados em todo o GDD. Cada termo mantém o mesmo significado e
   - +4 sobre +2: OK (soma +6)
   - +2 sobre +4: **PROIBIDO**
   - +4 sobre +4: OK (soma +8)
+  - a compra de um ataque é integral: recicla o descarte preservando o topo; se o baralho inteiro ainda não bastar, não há compra parcial e a partida termina pelo critério determinístico da menor mão
 - **0+ (Zero Mais):** sem ataque acumulado, é somente um coringa neutro: escolhe a cor ativa e o turno segue normalmente, sem giro/troca de mãos. Com ataque acumulado, identifica o último atacante pelo histórico canônico, obriga-o a comprar integralmente a pilha (reciclando o descarte quando necessário), encerra a pilha e passa o turno a partir desse alvo; quem recebe o reflexo não pode rebater.
-- **Troca Mão:** escolha um jogador e troque toda a sua mão com a dele
-- **Gira Mão:** escolha um sentido; todos passam suas mãos para o vizinho
+- **Troca Mão:** escolha um jogador e troque toda a sua mão com a dele; se for a última carta de quem a jogou, esse jogador vence imediatamente e o efeito não acontece
+- **Gira Mão:** escolha um sentido; todos passam suas mãos para o vizinho; se for a última carta de quem a jogou, esse jogador vence imediatamente e o efeito não acontece
 - **Coringa Simples:** altera a cor ativa do jogo
 - **Regra do 7 (Silêncio):** jogar 7 abre uma janela até a próxima carta. Chat escrito e Falas rápidas seguem disponíveis; a primeira mensagem de cada jogador na janela é entregue e gera +2 cartas imediatas, sem passar o turno. Novas mensagens daquele mesmo jogador não acumulam punição até outro 7 abrir uma nova janela.
 
@@ -250,7 +251,7 @@ Para navegação rápida, cada seção tem um verbete com os pontos-chave que el
 > **Próximos passos sugeridos:**
 >
 > 1. Revisar este GDD com o time (estimativa: 1 reunião de 1h)
-> 2. Implementar state machine de turno (seção 02) em TypeScript — primeiro entregável
+> 2. Manter as funções puras do motor conformes ao modelo conceitual de turno da seção 02, sem duplicar o fluxo em uma API de state machine sem consumidor
 > 3. Prototipar cartas numeradas + Skip/Reverse/+2 (sem neutras) em modo hot-seat
 > 4. Rodar playtest interno com 5 partidas por configuração (2, 4, 6, 8, 10 jogadores)
 > 5. Validar UX da Regra do 7 com usuários reais antes de expandir para multiplayer online

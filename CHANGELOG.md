@@ -5,6 +5,16 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ---
 
+## [Não lançado]
+
+### Alterado
+
+- Snapshot de salas evoluído para schema v3 para versionar explicitamente o evento `MONTE_ESGOTADO`; leitura de v2 permanece suportada e a migração ocorre somente no próximo `save`.
+- Validação persistida de `MONTE_ESGOTADO` agora exige `cartasSolicitadas >= 1` e `0 <= cartasObtidas < cartasSolicitadas`.
+- Removida a API exportada de state machine sem consumidor no runtime, junto com seus testes isolados. O pacote `@kabemjunto/shared` é privado e o modelo de estados permanece no GDD como especificação conceitual, evitando código morto e emissão de build desnecessária.
+
+---
+
 ## [0.5.0] — 2026-07-28 · Sprint 6 FECHADA ✅
 
 Persistência, hardening, observabilidade e deploy real. Diário completo em [`briefings/sprint-6.md`](./briefings/sprint-6.md) e revisões formais em `feedback/2026-07-28-*.md`.

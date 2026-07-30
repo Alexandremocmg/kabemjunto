@@ -181,10 +181,15 @@ function executarJogadaComoBot(
   }
   void rng; // silencia lint
 
+  const alvoTrocaId =
+    carta.acao === 'TROCA_MAO'
+      ? estado.jogadores.find((jogador) => jogador.id !== estado.vezDe)?.id
+      : undefined;
   const r = executarJogada({
     estado,
     cartaIndex,
     corEscolhida,
+    ...(alvoTrocaId !== undefined ? { alvoTrocaId } : {}),
   });
   return {
     novoEstado: r.novoEstado,

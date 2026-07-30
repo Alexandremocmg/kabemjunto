@@ -7,6 +7,22 @@
 **Branch:** `main`
 **Sprint atual:** Sprint 6 — **EM ANDAMENTO** — persistência, produção e operação v0.5.0
 
+### 2026-07-30 · Correções canônicas em validação local
+
+- ✅ `TROCA_MAO`/`GIRA_MAO` como última carta encerram imediatamente a partida antes de qualquer troca/giro.
+- ✅ Ataques `+2`/`+4` compram integralmente após reciclar o descarte; esgotamento total encerra por menor mão sem compra parcial.
+- ✅ Ataques da starter registram origem `STARTER`; 0+ não inventa um atacante humano.
+- ✅ Bot escolhe alvo determinístico válido para `TROCA_MAO`; quantidades de compra e cor de neutras são validadas estritamente.
+- ✅ Mobile: primeiro toque seleciona/arma; segundo na mesma carta joga uma unidade; segundo em outra da mesma face cria/estende a pilha, sem long press.
+- ⚠️ Alterações ainda locais, sem commit/push/deploy; aguardam gates integrais e aprovação de publicação.
+
+### 2026-07-30 · Persistência v3 e higiene da API do motor
+
+- ✅ Snapshot de salas evoluído para **v3**: `MONTE_ESGOTADO` pertence somente ao novo schema e exige `cartasSolicitadas >= 1` e `0 <= cartasObtidas < cartasSolicitadas`.
+- ✅ Snapshots **v2** anteriores continuam legíveis e não são reescritos no `load`; a migração acontece no próximo `save`. Rollback para binário v2 exige preservar uma cópia operacional antes da primeira gravação v3; o sistema não finge que leitores antigos entendem o evento novo.
+- ✅ Formalizada a remoção de `state-machine.ts`: era uma API exportada sem consumidor no runtime. O pacote `@kabemjunto/shared` é privado; o fluxo permanece como modelo conceitual no GDD, enquanto as funções reais do motor são a implementação executável.
+- ✅ Higiene de build documentada: exports e testes do módulo morto foram removidos, sem artefato público legado a preservar.
+
 ### 2026-07-30 · Mavis — revisão do motor vs. GDD (2 divergências de regra corrigidas)
 
 - 🐛 **Comprar 1 carta sempre perdia o turno**, contra `GDD §7` e a state machine `§5.2` (`COMPRAR (1 carta) → ESPERAR_CARTA`). Valia em Local e Online. Agora: pagar ataque perde o turno; comprar 1 carta **jogável** mantém o turno; carta não jogável ou monte esgotado passa a vez. `comprarCartas` expõe `turnoMantido`.
@@ -188,14 +204,15 @@ apps/server/                        # Backend (Codex)
 │   ├── server.ts                    # Fastify + Socket.IO autoritativo
 │   ├── room-store.ts                # Estado em memória
 │   ├── socket.ts                    # Handlers de evento
-│   └── room-store.test.ts            # 4 testes
+│   ├── persistence.ts               # Snapshot JSON v3; leitura/migração v2
+│   └── persistence.test.ts          # Compatibilidade e invariantes do schema
 └── package.json
 
 packages/shared/src/
 ├── rules/                           # Motor puro (Mavis)
 │   ├── shuffle.ts | create-game.ts | validate-play.ts
 │   ├── execute-play.ts              # + fix do girarMaos
-│   ├── buy-cards.ts | bot-turn.ts | state-machine.ts
+│   ├── buy-cards.ts | bot-turn.ts   # fluxo executável (sem state-machine paralela)
 │   └── snapshot.ts                  # M12
 ├── telemetry/                       # M13
 │   ├── telemetry.ts | telemetry.test.ts | index.ts

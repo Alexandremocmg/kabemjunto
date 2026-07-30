@@ -407,6 +407,9 @@ describe('socket — descarte múltiplo', () => {
       ataqueAcumulado: 0,
       ataqueStack: [],
     };
+    const maoEsperadaDoGuest = session.estado.jogadores
+      .find((jogador) => jogador.id === 'guest')!
+      .mao.map((carta) => ({ id: carta.id }));
 
     const accepted = once<{ cartaIds: string[]; jogadorId: string }>(
       host,
@@ -433,8 +436,7 @@ describe('socket — descarte múltiplo', () => {
       },
     });
     await expect(hostHand).resolves.toEqual({ mao: [] });
-    await expect(guestHand).resolves.not.toMatchObject({
-      mao: expect.arrayContaining([expect.objectContaining({ id: maisDoisAzul.id })]),
-    });
+    const maoRecebidaPeloGuest = (await guestHand).mao.map((carta) => carta.id);
+    expect(maoRecebidaPeloGuest).toEqual(maoEsperadaDoGuest.map((carta) => carta.id));
   });
 });

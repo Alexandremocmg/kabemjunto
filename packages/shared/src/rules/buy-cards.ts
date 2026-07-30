@@ -55,11 +55,23 @@ export function comprarCartas(opcoes: ComprarOpcoes): ResultadoCompra {
     throw new Error('A partida já acabou.');
   }
 
+  const qtdDesejada = opcoes.quantidade ?? Math.max(estado.ataqueAcumulado, 1);
+  if (!Number.isInteger(qtdDesejada) || qtdDesejada <= 0) {
+    throw new Error('A quantidade de cartas deve ser um inteiro positivo.');
+  }
+  const pagandoAtaque = estado.ataqueAcumulado > 0;
+  if (!pagandoAtaque && qtdDesejada !== 1) {
+    throw new Error('Fora de ataque, a compra voluntária deve ser exatamente 1 carta.');
+  }
+  if (pagandoAtaque && qtdDesejada !== estado.ataqueAcumulado) {
+    throw new Error(
+      `Sob ataque acumulado, a quantidade deve ser exatamente ${estado.ataqueAcumulado}.`,
+    );
+  }
+
   const eventos: EventoPartida[] = [];
   const sfx: SfxEvent[] = ['compra'];
   const cartasCompradasIds: string[] = [];
-
-  const pagandoAtaque = estado.ataqueAcumulado > 0;
 
   // GDD §7: "Sem carta válida: comprar 1 do Monte de Compra." Pagar ataque
   // é sempre obrigatório (não depende de ter carta válida), mas a compra
@@ -74,7 +86,37 @@ export function comprarCartas(opcoes: ComprarOpcoes): ResultadoCompra {
     throw new Error('Você tem uma carta válida na mão — jogue-a em vez de comprar.');
   }
 
-  const qtdDesejada = opcoes.quantidade ?? Math.max(estado.ataqueAcumulado, 1);
+  // Ataques são all-or-nothing. Se nem o monte inteiro (incluindo o
+  // descarte reciclável, preservando o topo) paga a pilha, ninguém recebe
+  // uma compra parcial: a partida termina pelo critério determinístico da
+  // menor mão. Empates preservam a ordem canônica de `jogadores`.
+  const cartasDisponiveis =
+    estado.monteCompra.length + Math.max(estado.monteDescarte.length - 1, 0);
+  if (pagandoAtaque && cartasDisponiveis < qtdDesejada) {
+    const vencedor = estado.jogadores.reduce((menor, atual) =>
+      atual.mao.length < menor.mao.length ? atual : menor,
+    );
+    eventos.push({
+      tipo: 'MONTE_ESGOTADO',
+      timestamp: Date.now(),
+      jogadorId,
+      cartasSolicitadas: qtdDesejada,
+      cartasObtidas: 0,
+    });
+    eventos.push({ tipo: 'VITORIA', timestamp: Date.now(), vencedorId: vencedor.id });
+    return {
+      novoEstado: {
+        ...estado,
+        finalizada: true,
+        vencedor: vencedor.id,
+        historico: [...estado.historico, ...eventos],
+      },
+      cartasCompradasIds,
+      sfx: ['vitoria'],
+      eventos,
+      turnoMantido: false,
+    };
+  }
 
   let monteCompra = [...estado.monteCompra];
   let monteDescarte = [...estado.monteDescarte];

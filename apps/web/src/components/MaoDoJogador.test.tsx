@@ -76,8 +76,30 @@ const estado = {
   finalizada: false,
 } as EstadoPartida;
 
+function dispatchPointer(
+  element: HTMLElement,
+  type: 'pointerdown' | 'pointerup',
+  pointerType: 'touch' | 'mouse',
+  clientX = 20,
+  clientY = 20,
+): void {
+  const event = new MouseEvent(type, { bubbles: true, clientX, clientY });
+  Object.defineProperties(event, {
+    pointerId: { value: 1 },
+    pointerType: { value: pointerType },
+  });
+  element.dispatchEvent(event);
+}
+
+function tap(element: HTMLElement, pointerType: 'touch' | 'mouse'): void {
+  const target = element.querySelector<HTMLElement>('.card-wrapper') ?? element;
+  dispatchPointer(target, 'pointerdown', pointerType);
+  dispatchPointer(target, 'pointerup', pointerType);
+  target.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+}
+
 describe('MaoDoJogador — pilha por gesto', () => {
-  it('arma a primeira carta jogável no toque e acrescenta a mesma face no segundo toque, sem jogar a carta comum', () => {
+  it('arma a primeira carta jogável no toque e acrescenta outra da mesma face no segundo toque', () => {
     Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
     const container = document.createElement('div');
     const selecionarCarta = vi.fn();
@@ -98,22 +120,76 @@ describe('MaoDoJogador — pilha por gesto', () => {
     );
     if (!primeira || !segunda) throw new Error('Cartas da mão não foram renderizadas.');
 
-    act(() => {
-      primeira.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    });
-    expect(selecionarCarta).not.toHaveBeenCalled();
+    act(() => tap(primeira, 'touch'));
+    expect(selecionarCarta).toHaveBeenCalledOnce();
+    expect(selecionarCarta).toHaveBeenLastCalledWith(0);
     expect(container.querySelector('.multiple-discard-touch-feedback')?.textContent).toContain(
       'Pilha armada: toque outra carta de mesma face',
     );
 
-    act(() => {
-      segunda.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    });
+    act(() => tap(segunda, 'touch'));
 
+    expect(selecionarCarta).toHaveBeenCalledOnce();
     const stack = container.querySelector<HTMLElement>('.multiple-discard-inline-stack');
     expect(stack?.getAttribute('aria-label')).toContain('2 cartas, na ordem selecionada');
     expect(stack?.querySelectorAll('.multiple-discard-inline-stack-card')).toHaveLength(2);
 
+    act(() => root.unmount());
+  });
+
+  it('confirma uma jogada comum ao tocar duas vezes na mesma carta', () => {
+    Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+    const container = document.createElement('div');
+    const selecionarCarta = vi.fn();
+    const root = createRoot(container);
+
+    act(() => {
+      root.render(
+        <MaoDoJogador
+          estado={estado}
+          onSelecionarCarta={selecionarCarta}
+          onPlayMultiple={() => {}}
+        />,
+      );
+    });
+    const primeira = container.querySelector<HTMLElement>('[data-card-id="sete-azul"]');
+    if (!primeira) throw new Error('Carta da mão não foi renderizada.');
+
+    act(() => tap(primeira, 'touch'));
+    const primeiraAtualizada = container.querySelector<HTMLElement>('[data-card-id="sete-azul"]');
+    if (!primeiraAtualizada) throw new Error('Carta selecionada não foi renderizada.');
+    act(() => tap(primeiraAtualizada, 'touch'));
+
+    expect(selecionarCarta).toHaveBeenCalledTimes(2);
+    expect(selecionarCarta).toHaveBeenNthCalledWith(1, 0);
+    expect(selecionarCarta).toHaveBeenNthCalledWith(2, 0);
+    expect(container.querySelector('.multiple-discard-inline-stack')).toBeNull();
+    act(() => root.unmount());
+  });
+
+  it('preserva dois cliques normais do mouse sem armar Tap-to-Stack', () => {
+    Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+    const container = document.createElement('div');
+    const selecionarCarta = vi.fn();
+    const root = createRoot(container);
+
+    act(() => {
+      root.render(
+        <MaoDoJogador
+          estado={estado}
+          onSelecionarCarta={selecionarCarta}
+          onPlayMultiple={() => {}}
+        />,
+      );
+    });
+    const primeira = container.querySelector<HTMLElement>('[data-card-id="sete-azul"]');
+    if (!primeira) throw new Error('Carta da mão não foi renderizada.');
+
+    act(() => tap(primeira, 'mouse'));
+    act(() => tap(primeira, 'mouse'));
+
+    expect(selecionarCarta).toHaveBeenCalledTimes(2);
+    expect(container.querySelector('.multiple-discard-touch-feedback')?.textContent).toBe('');
     act(() => root.unmount());
   });
 
@@ -132,10 +208,8 @@ describe('MaoDoJogador — pilha por gesto', () => {
     );
     if (!primeira || !diferente) throw new Error('Cartas da mão não foram renderizadas.');
 
-    act(() => {
-      primeira.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-      diferente.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    });
+    act(() => tap(primeira, 'touch'));
+    act(() => tap(diferente, 'touch'));
 
     expect(container.querySelector('.multiple-discard-inline-stack')).toBeNull();
     expect(container.querySelector('.multiple-discard-touch-feedback')?.textContent).toContain(
@@ -158,6 +232,38 @@ describe('MaoDoJogador — pilha por gesto', () => {
     expect(html).toContain('hand-fan');
     expect(html).not.toContain('multiple-discard-stack');
     expect(html).not.toContain('Limpar pilha');
+  });
+
+  it('mantém Alt+Enter para montar a pilha pelo teclado', () => {
+    Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+    const container = document.createElement('div');
+    const root = createRoot(container);
+
+    act(() => {
+      root.render(
+        <MaoDoJogador estado={estado} onSelecionarCarta={() => {}} onPlayMultiple={() => {}} />,
+      );
+    });
+    const [primeira, segunda] = Array.from(
+      container.querySelectorAll<HTMLElement>('.hand-card-slot .card-wrapper'),
+    );
+    if (!primeira || !segunda) throw new Error('Cartas da mão não foram renderizadas.');
+
+    act(() => {
+      primeira.dispatchEvent(
+        new KeyboardEvent('keydown', { bubbles: true, key: 'Enter', altKey: true }),
+      );
+    });
+    act(() => {
+      segunda.dispatchEvent(
+        new KeyboardEvent('keydown', { bubbles: true, key: 'Enter', altKey: true }),
+      );
+    });
+
+    expect(
+      container.querySelector('.multiple-discard-inline-stack')?.getAttribute('aria-label'),
+    ).toContain('2 cartas, na ordem selecionada');
+    act(() => root.unmount());
   });
 
   it('empilha qualquer quantidade na âncora, mostra a última carta à frente e descarta na ordem do gesto', () => {

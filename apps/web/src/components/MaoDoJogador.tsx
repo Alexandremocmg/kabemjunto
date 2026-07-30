@@ -35,9 +35,8 @@ export const MaoDoJogador: React.FC<MaoDoJogadorProps> = ({
     x: number;
     y: number;
   }>();
-  const longPressTimerRef = React.useRef<number>();
-  const longPressCardIdRef = React.useRef<string>();
   const suppressNextClickRef = React.useRef(false);
+  const ultimoPonteiroFoiToqueRef = React.useRef(false);
   const jogadorAtual = estado.jogadores.find((j) => j.id === estado.vezDe);
 
   if (!jogadorAtual) return null;
@@ -64,58 +63,47 @@ export const MaoDoJogador: React.FC<MaoDoJogadorProps> = ({
     event: React.PointerEvent<HTMLDivElement>,
     carta: Carta,
     primeiraCartaJogavel: boolean,
-    index: number,
   ): void {
+    ultimoPonteiroFoiToqueRef.current = event.pointerType === 'touch';
     if (
       !jogadorAtual?.isBot &&
       (stackIds.length > 0 || canSelectMultipleDiscardCard([], carta, mao, primeiraCartaJogavel))
     ) {
-      event.currentTarget.setPointerCapture?.(event.pointerId);
+      if (event.pointerType === 'touch') event.currentTarget.setPointerCapture?.(event.pointerId);
       dragAnchorRef.current = { carta, primeiraCartaJogavel, x: event.clientX, y: event.clientY };
-      if (event.pointerType === 'touch') {
-        longPressTimerRef.current = window.setTimeout(() => {
-          longPressCardIdRef.current = carta.id;
-          setStackFeedback('Carta selecionada para a jogada normal.');
-          onSelecionarCarta(index);
-        }, 500);
-      }
     }
   }
 
-  function tocarCarta(carta: Carta, primeiraCartaJogavel: boolean): void {
+  function tocarCarta(carta: Carta, primeiraCartaJogavel: boolean, index: number): void {
     if (!onPlayMultiple || jogadorAtual?.isBot) return;
-    setStackIds((atuais) => {
-      if (atuais.length === 0) {
-        if (!canSelectMultipleDiscardCard([], carta, mao, primeiraCartaJogavel)) return atuais;
-        setStackFeedback(
-          'Pilha armada: toque outra carta de mesma face ou segure para jogar normalmente.',
-        );
-        return [carta.id];
-      }
-      if (atuais.includes(carta.id)) {
-        const proximas = atuais.filter((id) => id !== carta.id);
-        setStackFeedback(proximas.length ? 'Carta removida da pilha.' : 'Pilha cancelada.');
-        return proximas;
-      }
-      const proximas = appendCardToMultipleDiscardStack(atuais, carta, mao);
+    if (stackIds.length === 0) {
+      onSelecionarCarta(index);
+      if (!canSelectMultipleDiscardCard([], carta, mao, primeiraCartaJogavel)) return;
+      setStackIds([carta.id]);
       setStackFeedback(
-        proximas === atuais
-          ? 'Essa carta não tem a mesma face da pilha.'
-          : `Pilha com ${proximas.length} cartas. Toque a pilha para descartar.`,
+        'Pilha armada: toque outra carta de mesma face ou toque de novo para jogar.',
       );
-      return proximas;
-    });
+      return;
+    }
+    if (stackIds.length === 1 && stackIds[0] === carta.id) {
+      setStackIds([]);
+      setStackFeedback('Jogada comum confirmada.');
+      onSelecionarCarta(index);
+      return;
+    }
+    const proximas = appendCardToMultipleDiscardStack(stackIds, carta, mao);
+    setStackFeedback(
+      proximas === stackIds
+        ? 'Essa carta não tem a mesma face da pilha.'
+        : `Pilha com ${proximas.length} cartas. Toque a pilha para descartar.`,
+    );
+    setStackIds(proximas);
   }
 
   function soltarNaCarta(event: React.PointerEvent<HTMLDivElement>, fallbackTarget: Carta): void {
-    if (longPressTimerRef.current !== undefined) window.clearTimeout(longPressTimerRef.current);
     const drag = dragAnchorRef.current;
     dragAnchorRef.current = undefined;
-    if (!drag || longPressCardIdRef.current === drag.carta.id) {
-      if (drag) suppressNextClickRef.current = true;
-      longPressCardIdRef.current = undefined;
-      return;
-    }
+    if (!drag) return;
     if (Math.hypot(event.clientX - drag.x, event.clientY - drag.y) <= 8) return;
     const cardIdAtExpandedPointer = Array.from(
       document.querySelectorAll<HTMLElement>('[data-card-id]'),
@@ -179,7 +167,7 @@ export const MaoDoJogador: React.FC<MaoDoJogadorProps> = ({
           const center = (mao.length - 1) / 2;
           const angle = Math.max(-12, Math.min(12, (index - center) * 4));
 
-          if (inStack && !isStackAnchor) return null;
+          if (pilhaPronta && inStack && !isStackAnchor) return null;
 
           return (
             <div
@@ -188,7 +176,7 @@ export const MaoDoJogador: React.FC<MaoDoJogadorProps> = ({
               role="listitem"
               data-card-id={carta.id}
               style={{ transform: `rotate(${angle}deg)` }}
-              onPointerDown={(event) => iniciarArrasto(event, carta, res.valida, index)}
+              onPointerDown={(event) => iniciarArrasto(event, carta, res.valida)}
               onPointerUp={(event) => soltarNaCarta(event, carta)}
               onClickCapture={(event) => {
                 const clicouNaPilha =
@@ -199,12 +187,18 @@ export const MaoDoJogador: React.FC<MaoDoJogadorProps> = ({
                   event.preventDefault();
                   event.stopPropagation();
                 }
-                if (!suppressClick && !clicouNaPilha && onPlayMultiple) {
+                if (
+                  !suppressClick &&
+                  !clicouNaPilha &&
+                  ultimoPonteiroFoiToqueRef.current &&
+                  onPlayMultiple
+                ) {
                   event.preventDefault();
                   event.stopPropagation();
-                  tocarCarta(carta, res.valida);
+                  tocarCarta(carta, res.valida, index);
                 }
                 suppressNextClickRef.current = false;
+                ultimoPonteiroFoiToqueRef.current = false;
               }}
               onKeyDownCapture={(event) => {
                 if (event.altKey && (event.key === 'Enter' || event.key === ' ')) {

@@ -225,7 +225,7 @@ describe('GDD §7 / §5.2 — compra de 1 carta e posse do turno', () => {
     );
   });
 
-  it('emite MONTE_ESGOTADO com cartasObtidas parcial quando o ataque não pode ser pago integralmente', () => {
+  it('encerra por menor mão sem compra parcial quando o ataque não pode ser pago integralmente', () => {
     // Ataque de 4, mas só 1 carta disponível no total (monte + descarte reciclável).
     const estado = estadoBase({
       ataqueAcumulado: 4,
@@ -236,13 +236,16 @@ describe('GDD §7 / §5.2 — compra de 1 carta e posse do turno', () => {
 
     const r = comprarCartas({ estado });
 
-    expect(r.cartasCompradasIds).toHaveLength(1);
+    expect(r.cartasCompradasIds).toEqual([]);
+    expect(r.novoEstado.finalizada).toBe(true);
+    expect(r.novoEstado.vencedor).toBe('j1');
+    expect(r.novoEstado.ataqueAcumulado).toBe(4);
     expect(r.eventos).toContainEqual(
       expect.objectContaining({
         tipo: 'MONTE_ESGOTADO',
         jogadorId: 'j1',
         cartasSolicitadas: 4,
-        cartasObtidas: 1,
+        cartasObtidas: 0,
       }),
     );
   });

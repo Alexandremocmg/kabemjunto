@@ -108,18 +108,17 @@ export function criarPartidaInicial(opcoes: CriarPartidaOpcoes): EstadoPartida {
       break;
     }
   }
-  // Fallback improvável: se todas as restantes forem neutras (só acontece em baralhos degenerados)
-  const starter: Carta =
-    starterIndex >= 0
-      ? (monteCompra[starterIndex] as Carta)
-      : (monteCompra[monteCompra.length - 1] as Carta);
-  const monteCompraSemStarter =
-    starterIndex >= 0
-      ? [...monteCompra.slice(0, starterIndex), ...monteCompra.slice(starterIndex + 1)]
-      : monteCompra.slice(0, -1);
+  if (starterIndex < 0) {
+    throw new Error('Baralho inválido: não há starter colorida elegível após a distribuição.');
+  }
+  const starter = monteCompra[starterIndex] as Carta;
+  const monteCompraSemStarter = [
+    ...monteCompra.slice(0, starterIndex),
+    ...monteCompra.slice(starterIndex + 1),
+  ];
 
   // 5. Definir cor ativa
-  const corAtiva: Exclude<Cor, 'NEUTRO'> = starter.cor !== 'NEUTRO' ? starter.cor : 'LARANJA'; // fallback (não deve acontecer com o filtro acima)
+  const corAtiva = starter.cor as Exclude<Cor, 'NEUTRO'>;
 
   // 6. Calcular ataque inicial se starter for +2 ou +4
   const ataqueInicial = calcularAtaqueInicial(starter);
@@ -142,7 +141,18 @@ export function criarPartidaInicial(opcoes: CriarPartidaOpcoes): EstadoPartida {
       ativo: starter.valor === 7 || starter.acao === 'SILENCIO',
       jogadoresQuebraram: [],
     },
-    historico: [],
+    historico:
+      ataqueInicial.valor > 0
+        ? [
+            {
+              tipo: 'ATAQUE_ACUMULADO' as const,
+              timestamp: Date.now(),
+              novo: ataqueInicial.valor,
+              stack: ataqueInicial.stack,
+              origem: 'STARTER',
+            },
+          ]
+        : [],
     finalizada: false,
   };
 }

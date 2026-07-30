@@ -1,4 +1,59 @@
 import { expect, test, type APIRequestContext, type Browser, type Page } from '@playwright/test';
+import type { Carta, EstadoPartida } from '@kabemjunto/shared';
+
+function criarEstadoLocalMobile(): EstadoPartida {
+  const carta = (id: string, cor: Carta['cor'], valor: number): Carta => ({
+    id,
+    tipo: 'NUMERADA',
+    cor,
+    valor,
+    raridade: 'COMUM',
+    colecao: 'base-v1',
+    efeito_texto_curto: `${valor}`,
+    efeito_texto_longo: `Carta ${valor}`,
+  });
+  const mao = [
+    carta('sete-azul-mobile', 'AZUL', 7),
+    carta('sete-verde-mobile', 'VERDE', 7),
+    carta('nove-azul-mobile', 'AZUL', 9),
+  ];
+  return {
+    partidaId: 'partida-mobile',
+    salaId: 'sala-mobile',
+    jogadores: [
+      {
+        id: 'jogador-mobile',
+        nome: 'Você Mobile',
+        mao,
+        isBot: false,
+        conectado: true,
+        disseUno: false,
+        avatar: '👤',
+        pontos: 0,
+      },
+      {
+        id: 'oponente-mobile',
+        nome: 'Oponente Mobile',
+        mao: [carta('dois-verde-mobile', 'VERDE', 2)],
+        isBot: false,
+        conectado: true,
+        disseUno: false,
+        avatar: '🤖',
+        pontos: 0,
+      },
+    ],
+    monteCompra: [carta('compra-mobile', 'LARANJA', 3)],
+    monteDescarte: [carta('topo-mobile', 'AZUL', 4)],
+    vezDe: 'jogador-mobile',
+    sentido: 1,
+    corAtiva: 'AZUL',
+    ataqueAcumulado: 0,
+    ataqueStack: [],
+    silencio: { ativo: false, jogadoresQuebraram: [] },
+    historico: [],
+    finalizada: false,
+  };
+}
 
 async function criarSala(page: Page, nome: string): Promise<string> {
   await page.goto('/');
@@ -215,6 +270,64 @@ test('mesa local distribui dez jogadores em ordem circular sem overflow', async 
     elements.map((element) => element.getAttribute('data-seat-index')),
   );
   expect(indices).toEqual(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']);
+});
+
+test('mobile 390x844 confirma jogada única e monta pilha tocável com geometria visível', async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true,
+  });
+  const page = await context.newPage();
+  const estado = criarEstadoLocalMobile();
+  await page.addInitScript((fixture) => {
+    window.sessionStorage.setItem('kabemjunto.modo', 'local');
+    window.sessionStorage.setItem('kabemjunto.estado', JSON.stringify(fixture));
+  }, estado);
+
+  await page.goto('/');
+  const primeiraCarta = page.locator('[data-card-id="sete-azul-mobile"] .card-wrapper');
+  await primeiraCarta.tap();
+  await expect(primeiraCarta).toHaveAttribute('aria-pressed', 'true');
+  await primeiraCarta.tap();
+  await expect(page.locator('.discard-slot .card-wrapper')).toHaveAttribute(
+    'aria-label',
+    'Carta 7 AZUL',
+  );
+  await expect(page.locator('[data-card-id="sete-azul-mobile"]')).toHaveCount(0);
+
+  await page.reload();
+  const primeiraDaPilha = page.locator('[data-card-id="sete-azul-mobile"] .card-wrapper');
+  const segundaDaPilha = page.locator('[data-card-id="sete-verde-mobile"]');
+  await primeiraDaPilha.tap();
+  await segundaDaPilha.tap({ force: true });
+
+  const stack = page.getByRole('button', {
+    name: 'Jogar pilha de descarte múltiplo com 2 cartas, na ordem selecionada',
+  });
+  await expect(stack).toBeVisible();
+  const stackCards = stack.locator('.multiple-discard-inline-stack-card');
+  await expect(stackCards).toHaveCount(2);
+  const geometry = await stackCards.evaluateAll((cards) =>
+    cards.map((card) => {
+      const rect = card.getBoundingClientRect();
+      return { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right };
+    }),
+  );
+  expect(geometry[0]!.top).toBeLessThan(geometry[1]!.top);
+  for (const rect of geometry) {
+    expect(rect.left).toBeGreaterThanOrEqual(0);
+    expect(rect.right).toBeLessThanOrEqual(390);
+    expect(rect.top).toBeGreaterThanOrEqual(0);
+    expect(rect.bottom).toBeLessThanOrEqual(844);
+  }
+
+  await stack.tap();
+  await expect(page.getByRole('list', { name: 'Sua mão: 1 cartas' })).toBeVisible();
+  await expect(page.getByText('fez um descarte múltiplo.')).toBeVisible();
+  await context.close();
 });
 
 test('cliente recarrega e recupera a sessao da partida', async ({ browser }) => {

@@ -145,7 +145,14 @@ export type EventoPartida =
       cartaId: string;
     }
   | { tipo: 'ACAO_RESOLVIDA'; timestamp: number; acao: Acao; alvo?: JogadorId }
-  | { tipo: 'ATAQUE_ACUMULADO'; timestamp: number; novo: number; stack: ReadonlyArray<Acao> }
+  | {
+      tipo: 'ATAQUE_ACUMULADO';
+      timestamp: number;
+      novo: number;
+      stack: ReadonlyArray<Acao>;
+      /** Ausente em snapshots legados; `STARTER` representa ataque da abertura. */
+      origem?: JogadorId | 'STARTER';
+    }
   | {
       tipo: 'ATAQUE_REFLETIDO_ZERO_MAIS';
       timestamp: number;

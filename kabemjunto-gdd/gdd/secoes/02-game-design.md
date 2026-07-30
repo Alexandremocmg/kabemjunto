@@ -55,9 +55,11 @@
 4. **Rejogabilidade alta** — baralho pequeno, partidas curtas, variância
    alta. Nenhuma partida é igual porque a regra do 7 e a ordem do 0+
    dependem do comportamento dos jogadores.
-5. **Dev-readiness** — todas as regras cabem em uma state machine finita
+5. **Dev-readiness** — todas as regras cabem em um fluxo conceitual finito,
    sem loops infinitos; toda carta é resolvida por uma função pura que
-   recebe `(estado, carta_jogada)` e devolve o novo estado.
+   recebe `(estado, carta_jogada)` e devolve o novo estado. O diagrama da
+   seção 5 especifica o comportamento, não uma API de state machine separada
+   no runtime.
 
 ---
 
@@ -205,10 +207,11 @@ setup(players: Player[]):
   │     ┌────────────────────┐
   │     │  REFLETIR (0+)     │
   │     └─────────┬──────────┘
-  │                 │ transfere pending_attack ao último atacante
-  │                 │ atacante agora tem pending_attack para resolver
-  │                 │ (mesmo fluxo: ENFRENTAR_ATAQUE) — encerra a pilha
-  │                 ▼
+  │                 │ identifica o último atacante e compra automaticamente
+  │                 │ pending_attack para ele, sem janela de defesa/rebate
+  │                 │ zera a pilha e retoma o turno a partir desse alvo
+  │                 └───────────────────────────────→ FIM_TURNO
+  │
   │     ┌────────────────────┐
   │     │  ESPERAR_CARTA     │
   │     └─────────┬──────────┘
@@ -269,7 +272,7 @@ setup(players: Player[]):
 | `ENFRENTAR_ATAQUE`  | `RESOLVER_ACAO`   | Jogador jogou `PLUS2` ou `WILD4` válido → empilha.                                |
 | `ENFRENTAR_ATAQUE`  | `REFLETIR`        | Jogador jogou `ZEROPLUS` (0+) e há `last_attacker`.                              |
 | `ENFRENTAR_ATAQUE`  | `COMPRAR`         | Jogador desiste (não tem defesa nem 0+) → compra tudo e fim do turno.           |
-| `REFLETIR`          | `ENFRENTAR_ATAQUE`| `current = last_attacker`; ele tem `pending_attack` para resolver.                |
+| `REFLETIR`          | `FIM_TURNO`       | Último atacante compra automaticamente toda a pilha, sem janela de defesa/rebate; a pilha é zerada e a vez segue a partir dele. |
 | `ESPERAR_CARTA`     | `VALIDAR_CARTA`   | Jogador clicou em carta da mão.                                                  |
 | `ESPERAR_CARTA`     | `COMPRAR`         | Jogador pediu pra comprar (1 carta).                                             |
 | `VALIDAR_CARTA`     | `RESOLVER_ACAO`   | Carta passou na matriz.                                                          |
@@ -528,6 +531,8 @@ resolve_wild4(state, card, chosen_color):
 - **Efeito:** o jogador da vez escolhe **um** outro jogador; **troca
   todas as cartas da mão** com ele.
 - **Casos extremos:**
+  - **Última carta:** se `SWAPHAND` deixa a mão de quem jogou vazia no
+    descarte, essa pessoa vence imediatamente e a troca não é executada.
   - **2 jogadores:** o único outro jogador recebe a mão. Para manter
     a "troca" simétrica, escolha o outro e troque (resultado idêntico
     a dar a mão a ele). Permitir.
@@ -549,11 +554,10 @@ resolve_swaphand(state, card, target_id):
     state.active_color = random_color()   # ver nota abaixo
 ```
 
-> **Nota de cor:** o manual não obriga o jogador a escolher cor. Como
-> carta neutra, o jogo herda uma cor automaticamente (escolha aleatória
-> ou default). Sugestão: pedir cor **opcional** no cliente; se não
-> escolher, default para a cor da próxima carta colorida da mão do
-> jogador, ou aleatória como fallback.
+> **Nota de cor:** como carta neutra, `SWAPHAND` exige escolha explícita de
+> cor quando seu efeito será resolvido. A única exceção é a última carta:
+> a vitória ocorre antes do efeito e não existe próximo turno cuja cor precise
+> ser definida.
 
 ### 7.6 `HANDSPIN` (Gira Mão)
 
@@ -561,14 +565,11 @@ resolve_swaphand(state, card, target_id):
 - **Efeito:** **todos os jogadores** passam a mão inteira ao próximo
   jogador na direção vigente. Roda 1 posição.
 - **Casos extremos:**
+  - **Última carta:** se `HANDSPIN` deixa a mão de quem jogou vazia no
+    descarte, essa pessoa vence imediatamente e nenhuma mão é girada.
   - **2 jogadores:** as mãos trocam entre si (resultado: o outro fica
     com a mão do atual, e o atual fica com a do outro).
   - **3 jogadores:** A → B, B → C, C → A.
-  - Se algum jogador da cadeia for o **vencedor** entre as trocas
-    parciais (esvaziou a mão), a partida acaba **no momento** em que
-    ele fica com 0 cartas; a rotação é interrompida para os demais.
-    Implementação: aplicar trocas sequencialmente e checar vitória
-    após cada uma.
   - Compatibilidade com `SWAPHAND`: se jogados em sequência, a
     `HANDSPIN` subsequente **re-faz a rotação inteira**, com base nas
     mãos atuais.
@@ -585,56 +586,55 @@ resolve_handspin(state):
         receiver = next_player(state, p)
         # todos dão ao seu próximo
         receiver.hand = hands[giver.id]
-    # checar vitória após cada swap é caro; aceitar checagem ao final
-    check_victory(state)
-    state.active_color = random_color()  # ver nota 7.5
+    state.active_color = card.chosen_color
 ```
 
 ### 7.7 `ZEROPLUS` (0+)
 
-- **Trigger:** carta jogada. **Requer** `pending_attack > 0` E
-  `last_attacker != None`. Se não houver ataque acumulado, **não
-  pode ser jogada como defesa** (vira 7.9 — efeito social sem ataque).
-- **Efeito:** o jogador da vez **não paga nada**. A pilha de ataque
-  é **transferida integralmente** para `last_attacker` e a pilha é
-  **encerrada** (não pode mais ser empilhada). O último atacante
-  agora deve resolver o ataque (comprar tudo ou tentar nova defesa,
-  mas sem direito a outro 0+ na mesma cadeia — porque a pilha
-  encerrou no refletor anterior).
+- **Trigger:** carta jogada. Com `pending_attack > 0`, requer histórico canônico
+  que identifique o último atacante. Sem ataque acumulado, funciona como
+  coringa neutro comum.
+- **Efeito com ataque:** o jogador da vez **não paga nada**. O último atacante
+  identificado compra **automaticamente** a pilha inteira, reciclando o
+  descarte quando necessário. Não existe janela para ele escolher defesa,
+  empilhar outra carta ou rebater com outro 0+. Depois da compra, a pilha é
+  zerada e a vez segue a partir desse alvo.
 - **Casos extremos:**
-  - **0+ jogado sem ataque pendente:** permitido como jogada normal
-    neutra; **não** reflete nada (não há alvo). Conta apenas como
-    troca de cor e fim de turno.
-  - **0+ quando `last_attacker == current`:** impossível — você não
-    pode refletir para si mesmo; mas o validador já trata porque
-    só entra em `REFLETIR` quando `last_attacker != current`.
-  - **0+ encadeado:** proibido. Após refletir, o atacante enfrenta
-    a pilha. Se ele tiver **outro 0+**, ainda é permitido jogar
-    **somente** se houver nova pilha? **Não** — a regra explícita
-    do manual é "encerrar a pilha". Logo, **a primeira reflexão
-    encerra; o atacante deve pagar ou defender com +2/+4** (que
-    recomeça uma pilha nova).
-  - **0+ com `pending_attack == 0`:** permitido como jogada neutra
-    comum (sem efeito de refletir).
-- **Stack/combo:** bloqueia novos 0+ na mesma pilha.
+  - **0+ jogado sem ataque pendente:** permitido como jogada normal neutra;
+    apenas escolhe a cor ativa e encerra o turno normal, sem girar ou trocar mãos.
+  - **Origem do reflexo:** usa o último atacante registrado no histórico
+    canônico da pilha; não escolhe alvo pela UI.
+  - **Ataque da starter:** a origem canônica é `STARTER`; o 0+ encerra o
+    ataque sem inventar ou punir um jogador que não atacou.
+  - **Monte insuficiente durante o reflexo:** recicla o descarte preservando
+    o topo e tenta entregar a quantidade integral. Se o baralho inteiro ainda
+    não bastar, não há compra parcial: a partida termina por menor mão.
+- **Stack/combo:** a reflexão encerra a pilha; não há novo 0+ na mesma cadeia.
 - **Pseudocódigo:**
 
 ```text
 resolve_zeroplus(state, card):
     if state.pending_attack == 0:
-        # sem ataque, vira coringa simples
         state.active_color = card.chosen_color
+        advance_turn(state)
         return
-    # refletir
-    attacker = state.last_attacker
-    state.last_attacker = state.current
-    state.current = attacker          # turno vai para o atacante
-    # pilha mantida; encerra a cadeia de 0+
-    state.zeroplus_used_in_stack = True
-    # não zera pending_attack — ele vai para o atacante resolver
-    state.skip_pending = next_player(state, state.current)  # o próximo do atacante
-    # cor
-    state.active_color = card.chosen_color or random_color()
+
+    attacker = find_last_attacker(state.log)
+    assert attacker is not None
+    if attacker == STARTER:
+        state.pending_attack = 0
+        advance_turn(state)
+        return
+    amount = state.pending_attack
+    recycle_discard_preserving_top(state)
+    if available_cards(state) < amount:
+        end_game(state, player_with_smallest_hand(state))
+        return
+    draw(state, attacker, amount)       # compra automática; sem decisão intermediária
+    state.pending_attack = 0
+    state.last_attacker = None
+    state.active_color = card.chosen_color
+    state.current = next_player(state, attacker)
 ```
 
 ### 7.8 `WILD` (Coringa Simples)
@@ -914,20 +914,19 @@ resolve_wild4(state, card, chosen_color):
     # ... fluxo normal
 ```
 
-### 10.9 `ZEROPLUS` refletido e último atacante sem defesa
+### 10.9 `ZEROPLUS` refletido
 
-**Regra:** o atacante agora tem `pending_attack` e deve decidir
-(defender, ou comprar). Como a pilha **encerrou**, ele não pode
-usar **outro** `ZEROPLUS` para rebater de novo.
+**Regra:** o último atacante compra automaticamente toda a pilha. Ele não
+recebe turno intermediário para defender, empilhar ou usar outro `ZEROPLUS`;
+a reflexão encerra a pilha e a vez avança a partir desse alvo.
 
 ```text
-# após REFLETIR
-if not can_defend(state, attacker):
-    # atacante compra tudo
-    n = state.pending_attack
-    attacker.hand.extend(draw(state, n))
-    state.pending_attack = 0
-    advance_turn(state)
+# durante REFLETIR
+n = state.pending_attack
+assert available_cards(state) >= n
+attacker.hand.extend(draw(state, n))
+state.pending_attack = 0
+advance_turn_from(state, attacker)
 ```
 
 ### 10.10 `SWAPHAND` consigo mesmo

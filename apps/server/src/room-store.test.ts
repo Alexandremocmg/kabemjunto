@@ -129,7 +129,7 @@ describe('RoomStore — básico', () => {
       ataqueStack: [],
     };
 
-    const after = store.play('KJTEST', jogadorAtual.id, cartaTroca.id, undefined, alvo.id).estado!;
+    const after = store.play('KJTEST', jogadorAtual.id, cartaTroca.id, 'AZUL', alvo.id).estado!;
     expect(after.jogadores.find((jogador) => jogador.id === jogadorAtual.id)?.mao).toHaveLength(3);
     expect(after.jogadores.find((jogador) => jogador.id === alvo.id)?.mao).toHaveLength(1);
     expect(after.historico.some((evento) => evento.tipo === 'MAO_TROCADA')).toBe(true);

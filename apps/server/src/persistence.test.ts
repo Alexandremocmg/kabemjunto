@@ -95,18 +95,83 @@ describe('JsonRoomPersistence', () => {
     expect(new JsonRoomPersistence(file).load()).toEqual([]);
   });
 
-  it('grava snapshot versionado por substituição atômica e faz round-trip', () => {
+  it('grava snapshot v3 por substituição atômica e faz round-trip com MONTE_ESGOTADO', () => {
     const { directory, file } = temporaryFile();
     const persistence = new JsonRoomPersistence(file);
-    const rooms = [waitingRoom()];
+    const room = activeRoom();
+    const rooms: PersistedRoomSession[] = [
+      {
+        ...room,
+        estado: {
+          ...room.estado!,
+          historico: [
+            ...room.estado!.historico,
+            {
+              tipo: 'MONTE_ESGOTADO',
+              timestamp: 123,
+              jogadorId: room.estado!.jogadores[0]!.id,
+              cartasSolicitadas: 4,
+              cartasObtidas: 1,
+            },
+          ],
+        },
+      },
+    ];
 
     persistence.save(rooms);
 
     expect(persistence.load()).toEqual(rooms);
     const snapshotText = readFileSync(file, 'utf8');
-    expect(JSON.parse(snapshotText)).toMatchObject({ version: 2, rooms });
+    expect(JSON.parse(snapshotText)).toMatchObject({ version: 3, rooms });
     expect(snapshotText).not.toContain('token-bruto-proibido');
     expect(readdirSync(join(directory, 'nested'))).toEqual(['rooms.json']);
+  });
+
+  it('lê snapshot v2 antigo sem reescrevê-lo e migra para v3 no próximo save', () => {
+    const { directory, file } = temporaryFile();
+    const room = activeRoom();
+    const legacyText = JSON.stringify({ version: 2, rooms: [room] });
+    mkdirSync(join(directory, 'nested'), { recursive: true });
+    writeFileSync(file, legacyText, 'utf8');
+    const persistence = new JsonRoomPersistence(file);
+
+    const restored = persistence.load();
+
+    expect(restored).toEqual([room]);
+    expect(readFileSync(file, 'utf8')).toBe(legacyText);
+
+    persistence.save(restored);
+    expect(JSON.parse(readFileSync(file, 'utf8'))).toMatchObject({ version: 3, rooms: [room] });
+  });
+
+  it('não aceita MONTE_ESGOTADO rotulado como v2', () => {
+    const { directory, file } = temporaryFile();
+    const room = activeRoom();
+    const incompatibleV2 = {
+      version: 2,
+      rooms: [
+        {
+          ...room,
+          estado: {
+            ...room.estado,
+            historico: [
+              ...room.estado!.historico,
+              {
+                tipo: 'MONTE_ESGOTADO',
+                timestamp: 123,
+                jogadorId: room.estado!.jogadores[0]!.id,
+                cartasSolicitadas: 1,
+                cartasObtidas: 0,
+              },
+            ],
+          },
+        },
+      ],
+    };
+    mkdirSync(join(directory, 'nested'), { recursive: true });
+    writeFileSync(file, JSON.stringify(incompatibleV2), 'utf8');
+
+    expect(() => new JsonRoomPersistence(file).load()).toThrow(/partida .* malformada/);
   });
 
   it('migra snapshot legado com jogadorQuebrou para a coleção vazia', () => {
@@ -137,8 +202,8 @@ describe('JsonRoomPersistence', () => {
     ['raiz que não é objeto', JSON.stringify([])],
     ['versão desconhecida', JSON.stringify({ version: 999, rooms: [] })],
     ['snapshot v1 sem credenciais migráveis', JSON.stringify({ version: 1, rooms: [] })],
-    ['rooms que não é array', JSON.stringify({ version: 2, rooms: {} })],
-    ['estrutura inválida', JSON.stringify({ version: 2, rooms: [{ sala: null }] })],
+    ['rooms que não é array', JSON.stringify({ version: 3, rooms: {} })],
+    ['estrutura inválida', JSON.stringify({ version: 3, rooms: [{ sala: null }] })],
   ])('falha explicitamente para %s sem sobrescrever o arquivo', (_case, contents) => {
     const { file } = temporaryFile();
     const persistence = new JsonRoomPersistence(file);
@@ -186,6 +251,70 @@ describe('JsonRoomPersistence', () => {
         { ...room, resumeTokenHashes: { 'player-1': 'token-bruto-proibido' } },
       ]),
     ).toThrow(RoomSnapshotError);
+  });
+
+  it.each([
+    ['cartasSolicitadas menor que 1', 0, 0],
+    ['cartasObtidas igual a cartasSolicitadas', 1, 1],
+    ['cartasObtidas maior que cartasSolicitadas', 2, 3],
+  ])('rejeita MONTE_ESGOTADO com %s', (_case, cartasSolicitadas, cartasObtidas) => {
+    const { directory, file } = temporaryFile();
+    const room = activeRoom();
+    const invalidSnapshot = {
+      version: 3,
+      rooms: [
+        {
+          ...room,
+          estado: {
+            ...room.estado,
+            historico: [
+              ...room.estado!.historico,
+              {
+                tipo: 'MONTE_ESGOTADO',
+                timestamp: 123,
+                jogadorId: room.estado!.jogadores[0]!.id,
+                cartasSolicitadas,
+                cartasObtidas,
+              },
+            ],
+          },
+        },
+      ],
+    };
+    mkdirSync(join(directory, 'nested'), { recursive: true });
+    writeFileSync(file, JSON.stringify(invalidSnapshot), 'utf8');
+
+    expect(() => new JsonRoomPersistence(file).load()).toThrow(/partida .* malformada/);
+  });
+
+  it('rejeita origem inválida em ATAQUE_ACUMULADO', () => {
+    const { directory, file } = temporaryFile();
+    const room = activeRoom();
+    const invalidSnapshot = {
+      version: 3,
+      rooms: [
+        {
+          ...room,
+          estado: {
+            ...room.estado,
+            historico: [
+              ...room.estado!.historico,
+              {
+                tipo: 'ATAQUE_ACUMULADO',
+                timestamp: 123,
+                novo: 2,
+                stack: ['MAIS_DOIS'],
+                origem: 'jogador-inexistente',
+              },
+            ],
+          },
+        },
+      ],
+    };
+    mkdirSync(join(directory, 'nested'), { recursive: true });
+    writeFileSync(file, JSON.stringify(invalidSnapshot), 'utf8');
+
+    expect(() => new JsonRoomPersistence(file).load()).toThrow(/partida .* malformada/);
   });
 
   it('encapsula falha de substituição e remove o arquivo temporário', () => {

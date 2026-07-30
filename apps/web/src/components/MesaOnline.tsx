@@ -1,13 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type {
   Carta,
-  EstadoPartida,
   EstadoPartidaPublico,
   JogadorPublico,
   ServerChatEvent,
 } from '@kabemjunto/shared';
-import { validarJogada } from '@kabemjunto/shared';
 import { PALETA_CORES } from '@kabemjunto/shared/constants/cards';
+import { validarJogadaPublica } from '../services/validarJogadaPublica';
 import { CartaView } from './CartaView';
 import {
   appendCardToMultipleDiscardStack,
@@ -42,13 +41,6 @@ const FALAS_RAPIDAS = [
 const DURACAO_BALAO_FALA_MS = 5000;
 
 type BalaoFala = { chave: ServerChatEvent; texto: string };
-
-function isNormallyPlayableOnline(estado: EstadoPartidaPublico, carta: Carta): boolean {
-  if (estado.ataqueAcumulado > 0) return carta.acao === 'MAIS_DOIS';
-  return (
-    carta.cor === 'NEUTRO' || carta.cor === estado.corAtiva || temMesmaFace(carta, estado.topo)
-  );
-}
 
 function SentidoIcone({ sentido }: { sentido: number }) {
   return (
@@ -141,31 +133,14 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
     x: number;
     y: number;
   }>();
-  const longPressTimerRef = useRef<number>();
-  const longPressCardIdRef = useRef<string>();
   const suppressNextClickRef = useRef(false);
   const ultimoPonteiroFoiToqueRef = useRef(false);
   const [baloesDeFala, setBaloesDeFala] = useState<ReadonlyMap<string, BalaoFala>>(new Map());
   const mensagensVistasRef = useRef(new WeakSet<ServerChatEvent>());
   const timersDeBalaoRef = useRef(new Map<string, number>());
   const minhaVez = estado.vezDe === jogadorId;
-  // GDD §7: comprar só existe pra quem não tem carta válida na mão. Pagar
-  // ataque é sempre permitido. `EstadoPartidaPublico` não tem
-  // `monteDescarte` (só o `topo`) nem `jogadores[].mao` de terceiros, mas
-  // `validarJogada` só depende de vezDe/finalizada/monteDescarte/
-  // ataqueAcumulado/corAtiva — nenhum deles precisa da mão alheia.
   const podeJogarCarta = (carta: Carta): boolean =>
-    validarJogada(
-      {
-        vezDe: estado.vezDe,
-        finalizada: estado.finalizada,
-        monteDescarte: [estado.topo],
-        ataqueAcumulado: estado.ataqueAcumulado,
-        corAtiva: estado.corAtiva,
-      } as unknown as EstadoPartida,
-      carta,
-      jogadorId ?? '',
-    ).valida;
+    validarJogadaPublica(estado, carta, jogadorId ?? '').valida;
   const temCartaValida =
     minhaVez && estado.ataqueAcumulado === 0 && mao.some((carta) => podeJogarCarta(carta));
   const jogadorAtual = estado.jogadores.find((jogador) => jogador.id === estado.vezDe);
@@ -201,49 +176,40 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
       dragAnchorRef.current = { carta, primeiraCartaJogavel, x: event.clientX, y: event.clientY };
       if (event.pointerType === 'touch') {
         event.currentTarget.setPointerCapture?.(event.pointerId);
-        longPressTimerRef.current = window.setTimeout(() => {
-          longPressCardIdRef.current = carta.id;
-          setStackFeedback('Carta selecionada para a jogada normal.');
-          onSelecionarCarta(carta);
-        }, 500);
       }
     }
   }
 
   function tocarCarta(carta: Carta, primeiraCartaJogavel: boolean): void {
     if (!minhaVez || !onPlayMultiple) return;
-    setStackIds((atuais) => {
-      if (atuais.length === 0) {
-        if (!canSelectMultipleDiscardCard([], carta, mao, primeiraCartaJogavel)) return atuais;
-        setStackFeedback(
-          'Pilha armada: toque outra carta de mesma face ou segure para jogar normalmente.',
-        );
-        return [carta.id];
-      }
-      if (atuais.includes(carta.id)) {
-        const proximas = atuais.filter((id) => id !== carta.id);
-        setStackFeedback(proximas.length ? 'Carta removida da pilha.' : 'Pilha cancelada.');
-        return proximas;
-      }
-      const proximas = appendCardToMultipleDiscardStack(atuais, carta, mao);
+    if (stackIds.length === 0) {
+      onSelecionarCarta(carta);
+      if (!canSelectMultipleDiscardCard([], carta, mao, primeiraCartaJogavel)) return;
+      setStackIds([carta.id]);
       setStackFeedback(
-        proximas === atuais
-          ? 'Essa carta não tem a mesma face da pilha.'
-          : `Pilha com ${proximas.length} cartas. Toque a pilha para descartar.`,
+        'Pilha armada: toque outra carta de mesma face ou toque de novo para jogar.',
       );
-      return proximas;
-    });
+      return;
+    }
+    if (stackIds.length === 1 && stackIds[0] === carta.id) {
+      setStackIds([]);
+      setStackFeedback('Jogada comum confirmada.');
+      onSelecionarCarta(carta);
+      return;
+    }
+    const proximas = appendCardToMultipleDiscardStack(stackIds, carta, mao);
+    setStackFeedback(
+      proximas === stackIds
+        ? 'Essa carta não tem a mesma face da pilha.'
+        : `Pilha com ${proximas.length} cartas. Toque a pilha para descartar.`,
+    );
+    setStackIds(proximas);
   }
 
   function soltarNaCarta(event: React.PointerEvent<HTMLDivElement>, fallbackTarget: Carta): void {
-    if (longPressTimerRef.current !== undefined) window.clearTimeout(longPressTimerRef.current);
     const drag = dragAnchorRef.current;
     dragAnchorRef.current = undefined;
-    if (!drag || longPressCardIdRef.current === drag.carta.id) {
-      if (drag) suppressNextClickRef.current = true;
-      longPressCardIdRef.current = undefined;
-      return;
-    }
+    if (!drag) return;
     if (Math.hypot(event.clientX - drag.x, event.clientY - drag.y) <= 8) return;
     const cardIdAtExpandedPointer = Array.from(
       document.querySelectorAll<HTMLElement>('[data-card-id]'),
@@ -477,12 +443,12 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
         </p>
         <div className="hand-cards hand-fan" role="list">
           {mao.map((carta, index) => {
-            const primeiraCartaJogavel = isNormallyPlayableOnline(estado, carta);
+            const primeiraCartaJogavel = podeJogarCarta(carta);
             const cartaJogavel = minhaVez;
             const inStack = stackIds.includes(carta.id);
             const isStackAnchor = pilhaPronta && carta.id === stackIds[0];
 
-            if (inStack && !isStackAnchor) return null;
+            if (pilhaPronta && inStack && !isStackAnchor) return null;
 
             return (
               <div
@@ -515,6 +481,7 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
                     tocarCarta(carta, primeiraCartaJogavel);
                   }
                   suppressNextClickRef.current = false;
+                  ultimoPonteiroFoiToqueRef.current = false;
                 }}
                 onKeyDownCapture={(event) => {
                   if (event.altKey && (event.key === 'Enter' || event.key === ' ')) {
