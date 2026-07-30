@@ -101,6 +101,7 @@ const EVENT_TYPES = [
   'MAO_TROCADA',
   'VITORIA',
   'PARTIDA_FINALIZADA',
+  'MONTE_ESGOTADO',
 ] as const;
 
 function hasOptionalString(record: Record<string, unknown>, key: string): boolean {
@@ -257,6 +258,14 @@ function isGameEvent(value: unknown): boolean {
       return isString(value['vencedorId']);
     case 'PARTIDA_FINALIZADA':
       return isOneOf(value['motivo'], ['VITORIA', 'ABANDONO', 'TIMEOUT'] as const);
+    case 'MONTE_ESGOTADO':
+      return (
+        isString(value['jogadorId']) &&
+        isInteger(value['cartasSolicitadas']) &&
+        isInteger(value['cartasObtidas']) &&
+        value['cartasObtidas'] >= 0 &&
+        value['cartasObtidas'] <= value['cartasSolicitadas']
+      );
   }
 }
 

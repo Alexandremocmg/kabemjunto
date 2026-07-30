@@ -126,6 +126,22 @@ function totalCartasNoEstado(estado: EstadoPartida): number {
   );
 }
 
+/**
+ * Move a mão de quem tem a vez pro monte de compra, sem descartar nada
+ * (preserva o total de cartas). GDD §7: comprar só é permitido sem carta
+ * válida — usado nos testes que exercitam `comprarCartas()` diretamente
+ * sobre um estado gerado aleatoriamente, onde a mão pode ter uma carta
+ * jogável por acaso.
+ */
+function esvaziarMaoDaVez(estado: EstadoPartida): EstadoPartida {
+  const atual = estado.jogadores.find((j) => j.id === estado.vezDe)!;
+  return {
+    ...estado,
+    monteCompra: [...estado.monteCompra, ...atual.mao],
+    jogadores: estado.jogadores.map((j) => (j.id === estado.vezDe ? { ...j, mao: [] } : j)),
+  };
+}
+
 describe('INVARIANTE 1: Conservação de cartas', () => {
   it('total de cartas no estado é constante', () => {
     fc.assert(
@@ -157,7 +173,7 @@ describe('INVARIANTE 1: Conservação de cartas', () => {
           const totalInicial = totalCartasNoEstado(estado);
 
           // Compra 1 carta
-          estado = comprarCartas({ estado }).novoEstado;
+          estado = comprarCartas({ estado: esvaziarMaoDaVez(estado) }).novoEstado;
           expect(totalCartasNoEstado(estado)).toBe(totalInicial);
 
           return true;
@@ -331,7 +347,7 @@ describe('INVARIANTE 10: Histórico só cresce', () => {
         (opcoes) => {
           let estado = criarPartidaInicial(opcoes);
           const historicoAntes = estado.historico.length;
-          estado = comprarCartas({ estado }).novoEstado;
+          estado = comprarCartas({ estado: esvaziarMaoDaVez(estado) }).novoEstado;
           expect(estado.historico.length).toBeGreaterThanOrEqual(historicoAntes);
           return true;
         },

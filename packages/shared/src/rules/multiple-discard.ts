@@ -101,6 +101,9 @@ export function executarDescarteMultiplo(opcoes: ExecutarDescarteMultiploOpcoes)
     eventos.push({ tipo: 'VITORIA', timestamp, vencedorId: jogadorId });
     novoEstado = {
       ...novoEstado,
+      // GDD §10.8: ataque da carta vencedora nunca é cobrado.
+      ataqueAcumulado: 0,
+      ataqueStack: [],
       finalizada: true,
       vencedor: jogadorId,
       historico: [...estado.historico, ...eventos],

@@ -17,7 +17,7 @@ import {
   diff,
   SnapshotStack,
 } from './snapshot.js';
-import { criarPartidaInicial, comprarCartas } from './index.js';
+import { criarPartidaInicial } from './index.js';
 import type { EstadoPartida } from '../types/game.js';
 import { BARALHO_COMPLETO_108 } from '../constants/index.js';
 
@@ -73,7 +73,7 @@ describe('snapshot()', () => {
     const original = criarEstadoBaseSemAtaque();
     const clone = snapshot(original);
     // Modificar o clone
-    const novoEstado = comprarCartas({ estado: clone }).novoEstado;
+    const novoEstado = comprarParaJogador1(clone, 1);
     expect(novoEstado.jogadores[0]?.mao.length).toBe(8); // clone modificado
     expect(original.jogadores[0]?.mao.length).toBe(7); // original intacto
   });
@@ -174,7 +174,7 @@ describe('SnapshotStack (undo/redo)', () => {
   it('push de 2 snapshots permite undo', () => {
     const stack = new SnapshotStack();
     const a = criarEstadoBaseSemAtaque();
-    const b = comprarCartas({ estado: a }).novoEstado;
+    const b = comprarParaJogador1(a, 1);
     stack.push(a);
     stack.push(b);
     expect(stack.canUndo()).toBe(true);
@@ -202,7 +202,7 @@ describe('SnapshotStack (undo/redo)', () => {
   it('push após undo trunca o future', () => {
     const stack = new SnapshotStack();
     const a = criarEstadoBaseSemAtaque();
-    const b = comprarCartas({ estado: a }).novoEstado;
+    const b = comprarParaJogador1(a, 1);
     const c = criarEstadoBaseSemAtaque(); // diferente
     stack.push(a);
     stack.push(b);
@@ -215,9 +215,9 @@ describe('SnapshotStack (undo/redo)', () => {
     const stack = new SnapshotStack(3);
     const a = criarEstadoBaseSemAtaque();
     stack.push(a);
-    stack.push(comprarCartas({ estado: a }).novoEstado);
-    stack.push(comprarCartas({ estado: a }).novoEstado);
-    stack.push(comprarCartas({ estado: a }).novoEstado); // 4º push, deveria evict o 1º
+    stack.push(comprarParaJogador1(a, 1));
+    stack.push(comprarParaJogador1(a, 2));
+    stack.push(comprarParaJogador1(a, 3)); // 4º push, deveria evict o 1º
     expect(stack.size()).toBe(3);
   });
 

@@ -25,15 +25,6 @@ export { comprarCartas, type ComprarOpcoes, type ResultadoCompra } from './buy-c
 export { penalizarQuebraSilencio, type ResultadoQuebraSilencio } from './silence.js';
 export { executarTurnoBot, type BotOpcoes, type NivelBot, type ResultadoBot } from './bot-turn.js';
 export {
-  transicionar,
-  podeTransicionar,
-  iniciarStateMachine,
-  inferirEstadoTurno,
-  type EstadoTurno,
-  type EventoTurno,
-  type ResultadoTransicao,
-} from './state-machine.js';
-export {
   snapshot,
   restore,
   snapshotToJSON,

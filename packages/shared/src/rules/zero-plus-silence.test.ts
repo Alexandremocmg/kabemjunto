@@ -546,13 +546,16 @@ describe('Regra do 7 — comprar carta sob silêncio', () => {
   it('compra normal (silêncio não bloqueia compra)', () => {
     const baralho: Carta[] = Array.from({ length: 20 }, () => cartaAcao('LARANJA', 'SKIP'));
     const estado = criarPartidaCustom({ baralho, totalJogadores: 2 });
+    const j1 = estado.jogadores[0]!;
+    // GDD §7: comprar só é permitido sem carta válida. Aqui o baralho é
+    // só SKIP LARANJA (tudo jogável contra o topo) — mão vazia isola o
+    // que o teste quer provar: silêncio não impede a compra.
     const estadoComSilencio: EstadoPartida = {
       ...estado,
-      silencio: { ativo: true },
+      jogadores: [{ ...j1, mao: [] }, ...estado.jogadores.slice(1)],
+      silencio: { ativo: true, jogadoresQuebraram: [] },
     };
-    const j1 = estadoComSilencio.jogadores[0]!;
-    const maoAntes = j1.mao.length;
     const r = comprarCartas({ estado: estadoComSilencio });
-    expect(r.novoEstado.jogadores[0]!.mao.length).toBe(maoAntes + 1);
+    expect(r.novoEstado.jogadores[0]!.mao.length).toBe(1);
   });
 });

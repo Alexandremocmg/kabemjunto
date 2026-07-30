@@ -677,12 +677,16 @@ describe('executarJogada()', () => {
 
 describe('comprarCartas()', () => {
   it('compra 1 carta em turno normal', () => {
-    const estado = criarPartidaTeste();
-    const j1 = estado.jogadores[0]!;
-    const maoAntes = j1.mao.length;
+    // GDD §7: comprar só existe pra quem não tem carta válida. Mão vazia
+    // isola a mecânica de compra do precondition de jogabilidade.
+    const base = criarPartidaTeste();
+    const estado: EstadoPartida = {
+      ...base,
+      jogadores: base.jogadores.map((j, i) => (i === 0 ? { ...j, mao: [] } : j)),
+    };
     const monteAntes = estado.monteCompra.length;
     const r = comprarCartas({ estado });
-    expect(r.novoEstado.jogadores[0]!.mao.length).toBe(maoAntes + 1);
+    expect(r.novoEstado.jogadores[0]!.mao.length).toBe(1);
     expect(r.novoEstado.monteCompra.length).toBe(monteAntes - 1);
     expect(r.novoEstado.ataqueAcumulado).toBe(0);
   });
@@ -705,24 +709,34 @@ describe('comprarCartas()', () => {
   });
 
   it('avança turno após compra', () => {
-    const estado = criarPartidaTeste();
+    // Mão vazia (sem carta válida) + carta comprada que sabidamente não bate
+    // com o topo/corAtiva: o turno deve passar (GDD §7).
+    const base = criarPartidaTeste();
+    const estado: EstadoPartida = {
+      ...base,
+      jogadores: base.jogadores.map((j, i) => (i === 0 ? { ...j, mao: [] } : j)),
+      monteCompra: [...base.monteCompra, cartaNum('PRETO', 9)],
+      corAtiva: 'LARANJA',
+      monteDescarte: [cartaNum('LARANJA', 0)],
+    };
     const r = comprarCartas({ estado });
     expect(r.novoEstado.vezDe).toBe('j2');
+    expect(r.turnoMantido).toBe(false);
   });
 
   it('reembaralha descarte se monte esvazia', () => {
-    // Monta estado com monte pequeno (1 carta) e descarte com várias
-    const estado = criarPartidaTeste();
+    // Monta estado com monte pequeno (1 carta) e descarte com várias.
+    // Mão vazia isola a mecânica de compra do precondition de jogabilidade.
+    const base = criarPartidaTeste();
     const estadoCustom: EstadoPartida = {
-      ...estado,
+      ...base,
+      jogadores: base.jogadores.map((j, i) => (i === 0 ? { ...j, mao: [] } : j)),
       monteCompra: [cartaNum('VERDE', 1)],
       monteDescarte: [cartaNum('LARANJA', 0), cartaNum('VERDE', 5), cartaNum('AZUL', 3)],
     };
-    const j1 = estadoCustom.jogadores[0]!;
-    const maoAntes = j1.mao.length;
     const r = comprarCartas({ estado: estadoCustom, quantidade: 3 });
     // Deve ter comprado 3 cartas no total
-    expect(r.novoEstado.jogadores[0]!.mao.length).toBe(maoAntes + 3);
+    expect(r.novoEstado.jogadores[0]!.mao.length).toBe(3);
   });
 });
 
@@ -780,9 +794,18 @@ describe('invariantes do estado', () => {
       estado.monteDescarte.length +
       estado.jogadores.reduce((acc, j) => acc + j.mao.length, 0);
 
-    // Simula 5 compras
+    // Simula 5 compras. Antes de cada uma, move a mão de quem tem a vez pro
+    // monte de compra (não descarta — só reposiciona, preservando o total)
+    // — GDD §7 só permite comprar sem carta válida, e este teste isola a
+    // conservação de cartas, não a jogabilidade.
     let e = estado;
     for (let i = 0; i < 5; i++) {
+      const atual = e.jogadores.find((j) => j.id === e.vezDe)!;
+      e = {
+        ...e,
+        monteCompra: [...e.monteCompra, ...atual.mao],
+        jogadores: e.jogadores.map((j) => (j.id === e.vezDe ? { ...j, mao: [] } : j)),
+      };
       e = comprarCartas({ estado: e }).novoEstado;
     }
     const totalFinal =

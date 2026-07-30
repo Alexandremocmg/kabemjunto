@@ -144,6 +144,11 @@ export function executarJogada(opcoes: ExecutarJogadaOpcoes): ResultadoJogada {
     eventos.push({ tipo: 'VITORIA', timestamp: Date.now(), vencedorId: jogadorId });
     novoEstado = {
       ...novoEstado,
+      // GDD §10.8: se a carta vencedora é +2/+4, o ataque nunca é cobrado —
+      // a partida já acabou. O estado final não deve carregar um ataque
+      // "pendente" que ninguém vai resolver.
+      ataqueAcumulado: 0,
+      ataqueStack: [],
       finalizada: true,
       vencedor: jogadorId,
       historico: [...estado.historico, ...eventos],

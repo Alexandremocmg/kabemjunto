@@ -422,8 +422,15 @@ describe('socket — descarte múltiplo', () => {
       cartaIds: [maisDoisVerde.id, maisDoisAzul.id],
       jogadorId: 'host',
     });
+    // A mão de 2 cartas esvazia inteira: vitória. GDD §10.8 — o ataque das
+    // cartas vencedoras nunca é cobrado.
     await expect(publicState).resolves.toMatchObject({
-      estado: { ataqueAcumulado: 4, topo: { id: maisDoisAzul.id } },
+      estado: {
+        ataqueAcumulado: 0,
+        finalizada: true,
+        vencedor: 'host',
+        topo: { id: maisDoisAzul.id },
+      },
     });
     await expect(hostHand).resolves.toEqual({ mao: [] });
     await expect(guestHand).resolves.not.toMatchObject({

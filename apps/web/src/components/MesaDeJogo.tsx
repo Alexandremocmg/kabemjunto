@@ -1,6 +1,7 @@
 import React from 'react';
 import { Cor, EstadoPartida, Jogador } from '@kabemjunto/shared/types';
 import { PALETA_CORES } from '@kabemjunto/shared/constants/cards';
+import { validarJogada } from '@kabemjunto/shared';
 import { CartaView } from './CartaView';
 
 interface MesaDeJogoProps {
@@ -72,7 +73,15 @@ export const MesaDeJogo: React.FC<MesaDeJogoProps> = ({ estado, onComprarCarta }
   const infoCor = PALETA_CORES[corAtiva] || PALETA_CORES.NEUTRO;
   const jogadorAtual = estado.jogadores.find((j) => j.id === estado.vezDe);
   const totalJogadores = estado.jogadores.length;
-  const compraDisponivel = Boolean(jogadorAtual && !jogadorAtual.isBot && !estado.finalizada);
+  // GDD §7: comprar só existe pra quem não tem carta válida na mão. Pagar
+  // ataque é sempre permitido (não depende de jogabilidade).
+  const temCartaValida =
+    estado.ataqueAcumulado === 0 &&
+    (jogadorAtual?.mao.some((carta) => validarJogada(estado, carta, jogadorAtual.id).valida) ??
+      false);
+  const compraDisponivel = Boolean(
+    jogadorAtual && !jogadorAtual.isBot && !estado.finalizada && !temCartaValida,
+  );
   const compraLabel =
     estado.ataqueAcumulado > 0 ? `Pagar +${estado.ataqueAcumulado}` : 'Comprar carta';
 
@@ -101,7 +110,11 @@ export const MesaDeJogo: React.FC<MesaDeJogoProps> = ({ estado, onComprarCarta }
             verso={true}
             contador={`${estado.monteCompra.length}`}
             jogavel={compraDisponivel}
-            {...(jogadorAtual?.isBot ? { motivoBloqueio: 'Aguardando o bot jogar.' } : {})}
+            {...(jogadorAtual?.isBot
+              ? { motivoBloqueio: 'Aguardando o bot jogar.' }
+              : temCartaValida
+                ? { motivoBloqueio: 'Você tem uma carta válida na mão — jogue-a.' }
+                : {})}
             onClick={onComprarCarta}
           />
           <span className="pile-label pile-label-deck">MONTE</span>

@@ -1,10 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type {
   Carta,
+  EstadoPartida,
   EstadoPartidaPublico,
   JogadorPublico,
   ServerChatEvent,
 } from '@kabemjunto/shared';
+import { validarJogada } from '@kabemjunto/shared';
 import { PALETA_CORES } from '@kabemjunto/shared/constants/cards';
 import { CartaView } from './CartaView';
 import {
@@ -147,6 +149,25 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
   const mensagensVistasRef = useRef(new WeakSet<ServerChatEvent>());
   const timersDeBalaoRef = useRef(new Map<string, number>());
   const minhaVez = estado.vezDe === jogadorId;
+  // GDD §7: comprar só existe pra quem não tem carta válida na mão. Pagar
+  // ataque é sempre permitido. `EstadoPartidaPublico` não tem
+  // `monteDescarte` (só o `topo`) nem `jogadores[].mao` de terceiros, mas
+  // `validarJogada` só depende de vezDe/finalizada/monteDescarte/
+  // ataqueAcumulado/corAtiva — nenhum deles precisa da mão alheia.
+  const podeJogarCarta = (carta: Carta): boolean =>
+    validarJogada(
+      {
+        vezDe: estado.vezDe,
+        finalizada: estado.finalizada,
+        monteDescarte: [estado.topo],
+        ataqueAcumulado: estado.ataqueAcumulado,
+        corAtiva: estado.corAtiva,
+      } as unknown as EstadoPartida,
+      carta,
+      jogadorId ?? '',
+    ).valida;
+  const temCartaValida =
+    minhaVez && estado.ataqueAcumulado === 0 && mao.some((carta) => podeJogarCarta(carta));
   const jogadorAtual = estado.jogadores.find((jogador) => jogador.id === estado.vezDe);
   const jogadorLocal = estado.jogadores.find((jogador) => jogador.id === jogadorId);
   const jogadoresRemotos = estado.jogadores.filter((jogador) => jogador.id !== jogadorId);
@@ -354,12 +375,25 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
         </div>
 
         <div className="table-center" aria-label="Núcleo da mesa online">
-          <div className="deck-slot" title={minhaVez ? 'Comprar carta' : 'Aguardando sua vez'}>
+          <div
+            className="deck-slot"
+            title={
+              !minhaVez
+                ? 'Aguardando sua vez'
+                : temCartaValida
+                  ? 'Você tem uma carta válida na mão'
+                  : 'Comprar carta'
+            }
+          >
             <CartaView
               verso
               contador={`${estado.quantidadeMonteCompra}`}
-              jogavel={minhaVez}
-              {...(!minhaVez ? { motivoBloqueio: 'Aguardando o turno.' } : {})}
+              jogavel={minhaVez && !temCartaValida}
+              {...(!minhaVez
+                ? { motivoBloqueio: 'Aguardando o turno.' }
+                : temCartaValida
+                  ? { motivoBloqueio: 'Você tem uma carta válida na mão — jogue-a.' }
+                  : {})}
               onClick={onComprarCarta}
             />
             <span className="pile-label pile-label-deck">MONTE</span>

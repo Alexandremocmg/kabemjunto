@@ -16,17 +16,17 @@ afetando diretamente a sensação de jogo. Corrigidas com testes que falhavam
 antes da correção. Além disso, 6 observações menores registradas como
 proposta, sem alteração de comportamento.
 
-| #   | Achado                                               | Severidade  | Status       |
-| --- | ---------------------------------------------------- | ----------- | ------------ |
-| 1   | Comprar 1 carta sempre perdia o turno                | **Alta**    | ✅ Corrigido |
-| 2   | Starter Skip/Reverse não tinha efeito                | **Média**   | ✅ Corrigido |
-| 3   | Teste do servidor não-determinístico (flaky latente) | Média       | ✅ Corrigido |
-| 4   | `state-machine.ts` é código morto                    | Baixa       | 📋 Proposta  |
-| 5   | Compras voluntárias repetidas no mesmo turno         | Baixa       | 📋 Proposta  |
-| 6   | `+4` como última carta deixa ataque residual         | Baixa       | 📋 Proposta  |
-| 7   | `origem: 'STALEMATE'` declarado e nunca emitido      | Baixa       | 📋 Proposta  |
-| 8   | Tabela do GDD soma 68, não 108                       | Baixa (doc) | 📋 Proposta  |
-| 9   | Nota do `STATUS.md` sobre silêncio está obsoleta     | Baixa (doc) | 📋 Proposta  |
+| #   | Achado                                               | Severidade  | Status                |
+| --- | ---------------------------------------------------- | ----------- | --------------------- |
+| 1   | Comprar 1 carta sempre perdia o turno                | **Alta**    | ✅ Corrigido          |
+| 2   | Starter Skip/Reverse não tinha efeito                | **Média**   | ✅ Corrigido          |
+| 3   | Teste do servidor não-determinístico (flaky latente) | Média       | ✅ Corrigido          |
+| 4   | `state-machine.ts` é código morto                    | Baixa       | ✅ Removido (adendo)  |
+| 5   | Compras voluntárias repetidas no mesmo turno         | Baixa       | ✅ Corrigido (adendo) |
+| 6   | `+4` como última carta deixa ataque residual         | Baixa       | ✅ Corrigido (adendo) |
+| 7   | `origem: 'STALEMATE'` declarado e nunca emitido      | Baixa       | ✅ Corrigido (adendo) |
+| 8   | Tabela do GDD soma 68, não 108                       | Baixa (doc) | ✅ Corrigido (adendo) |
+| 9   | Nota do `STATUS.md` sobre silêncio está obsoleta     | Baixa (doc) | ✅ Corrigido (adendo) |
 
 ---
 
@@ -174,5 +174,111 @@ sugerir trabalho já concluído.
 
 ## Pendências
 
-Nada bloqueante. As propostas 4–9 aguardam decisão do dono; nenhuma altera
-comportamento hoje.
+Nada bloqueante nesta rodada — ver adendo abaixo, onde as 6 propostas foram
+executadas.
+
+---
+
+## Adendo (mesmo dia) — execução das propostas 4–9
+
+O dono pediu pra executar as propostas. Ordem: mais simples/seguras primeiro.
+
+### 6. Ataque residual na vitória com +2/+4 — corrigido
+
+`execute-play.ts` e `multiple-discard.ts`: no branch de vitória, agora
+zeram `ataqueAcumulado`/`ataqueStack` no estado final (GDD §10.8 — "o
+efeito de +4 não é aplicado" quando é a carta vencedora). Teste novo em
+`gdd-turn-conformance.test.ts`. Dois testes existentes (`room-store.test.ts`
+e `socket.test.ts`, cenário de descarte múltiplo terminando em vitória)
+afirmavam o ataque residual como esperado — atualizados para afirmar
+`finalizada`/`vencedor` e ataque zerado.
+
+### 7. Evento de monte esgotado — corrigido (com desvio da proposta original)
+
+`origem: 'STALEMATE'` em `CARTA_COMPRADA` não dá pra usar de verdade: quando
+o monte esgota antes de completar a compra, **nenhuma carta é obtida**
+naquele passo, então não há `cartaId` pra anexar o evento. Em vez de forçar
+esse campo, criei um evento novo — `MONTE_ESGOTADO` (`jogadorId`,
+`cartasSolicitadas`, `cartasObtidas`) — em `types/game.ts`, com validação
+correspondente em `persistence.ts` (`EVENT_TYPES` + `isGameEvent`).
+`buy-cards.ts` emite esse evento no ponto exato do esgotamento (cobre tanto
+o caso de 0 cartas obtidas quanto compra parcial de um ataque grande). Dois
+testes novos.
+
+### 8 e 9. Documentação — corrigidas
+
+- `GDD-Kabemjunto.md:71`: linha-resumo trocada de "40 numeradas + 12 ação
+  colorida + 8 neutras + 4x +4 + 4 especiais únicas" (soma 68) para "100
+  coloridas: 25 por cor × 4 cores + 8 neutras: 4x +4, Troca Mão, Gira Mão,
+  0+, Coringa Simples" (soma 108, batendo com `gerarBaralho108()` e
+  `deck108.test.ts`).
+- `STATUS.md`: nota que pedia trocar `jogadorQuebrou` único por lista —
+  já implementado (`jogadoresQuebraram: JogadorId[]` em `silence.ts`) —
+  atualizada pra refletir isso em vez de pedir trabalho já feito.
+
+### 4. `state-machine.ts` — removido
+
+Confirmado por grep: só era importado por `rules/index.ts` e pelo próprio
+teste, nenhum consumidor em `apps/`. Removidos `state-machine.ts` e
+`state-machine.test.ts` (19 testes a menos, mas testavam código morto),
+export retirado de `rules/index.ts`, e os 2 comentários em `snapshot.ts`
+que citavam `inferirEstadoTurno` como alternativa de validação foram
+trocados pra citar `validarJogada`.
+
+### 5. Bloquear compra voluntária com carta válida na mão — corrigido
+
+Este era o item de maior risco: fechar a brecha de "comprar de novo
+tentando uma carta melhor" significa que `comprarCartas()` agora **recusa**
+a compra voluntária (`ataqueAcumulado === 0`) se o jogador já tem qualquer
+carta jogável na mão — `throw new Error('Você tem uma carta válida na mão —
+jogue-a em vez de comprar.')`. Pagar ataque nunca é bloqueado por essa
+regra.
+
+**Efeitos em cadeia (esperados, todos corrigidos):**
+
+- `RoomStore.buy()` agora captura o erro e traduz pra
+  `RoomError('JOGADA_INVALIDA', mensagem)`, no mesmo padrão de `play()`.
+- **11 testes existentes** que chamavam `comprarCartas()`/`store.buy()`
+  sobre um estado onde o jogador podia ter uma carta jogável por
+  coincidência (baralhos reais embaralhados, ou mãos não controladas para
+  esse fim) passaram a falhar — não por regressão, mas porque agora
+  exercitavam exatamente a regra nova. Cada um foi ajustado pra isolar o
+  que realmente queria testar:
+  - `create-game.test.ts` (4 testes) e `property-based.test.ts` (2 testes):
+    mão do jogador esvaziada (ou cartas realocadas pro monte de compra, pra
+    não quebrar a conservação de cartas) antes de comprar, quando o teste
+    é sobre a mecânica de compra, não sobre jogabilidade.
+  - `snapshot.test.ts` (4 testes): trocado `comprarCartas()` direto pelo
+    helper `comprarParaJogador1()` (já existente, manipula a mão sem passar
+    pela regra) — esses testes são sobre snapshot/undo-redo, não sobre
+    compra.
+  - `zero-plus-silence.test.ts` (1 teste): mão esvaziada antes de comprar —
+    o teste prova que silêncio não bloqueia compra, não que a compra é
+    sempre permitida.
+  - `room-store.test.ts` (1 teste, o mesmo da correção #3): virou um teste
+    condicional — se o baralho real deu carta válida pro jogador, afirma
+    que `buy()` recusa; senão, roda as asserções originais. Validado com 8
+    execuções consecutivas verdes (os dois ramos são exercitados
+    naturalmente pela aleatoriedade real do baralho).
+- **UI**: adicionado o mesmo cálculo de "tem carta válida" em
+  `MesaDeJogo.tsx` (Local) e `MesaOnline.tsx` (Online) — o monte de compra
+  fica visualmente desabilitado (`jogavel={false}`, com `motivoBloqueio`)
+  quando o jogador já pode jogar, em vez de deixar o clique estourar erro.
+  Para `MesaOnline.tsx`, que só tem `EstadoPartidaPublico` (sem
+  `monteDescarte`, só `topo`), montei um objeto mínimo compatível com o que
+  `validarJogada()` realmente usa (`vezDe`, `finalizada`, `monteDescarte`,
+  `ataqueAcumulado`, `corAtiva` — nenhum depende de mão alheia).
+
+### Verificação do adendo
+
+- `npm run validate` — **312/312 testes**, typecheck/lint/Prettier/build ok.
+- `npx playwright test` — **26/26 E2E** (inclui fluxos de compra em mesa
+  local e online, então a mudança de UI foi exercitada de ponta a ponta).
+- `git diff --check` — limpo.
+- `room-store.test.ts` rodado 8x seguidas pra confirmar que o teste
+  condicional (baralho real) cobre os dois ramos sem flake.
+
+### Pendências
+
+Nenhuma. As 6 propostas da rodada anterior estão implementadas, testadas e
+com o gate integral verde.

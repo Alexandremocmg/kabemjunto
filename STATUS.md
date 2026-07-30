@@ -17,6 +17,18 @@
 - 📄 Relatório completo, com 6 propostas menores (state machine morta, `STALEMATE` nunca emitido, inconsistências de doc): [`feedback/2026-07-30-revisao-motor-vs-gdd-mavis.md`](./feedback/2026-07-30-revisao-motor-vs-gdd-mavis.md).
 - ⚠️ Ainda **não publicado** em produção: aguarda decisão de deploy.
 
+### 2026-07-30 · Mavis — executadas as 6 propostas da revisão (adendo)
+
+- ✅ **Ataque residual na vitória**: `execute-play.ts`/`multiple-discard.ts` zeram `ataqueAcumulado`/`ataqueStack` quando +2/+4 é a carta vencedora (`GDD §10.8`).
+- ✅ **Evento `MONTE_ESGOTADO`** (novo, não o `origem: 'STALEMATE'` original — esse não cabia no formato de `CARTA_COMPRADA` porque zero cartas são obtidas): emitido em `buy-cards.ts` quando monte+descarte reciclável esgotam antes de completar a compra. Tipo novo em `types/game.ts`, validado em `persistence.ts`.
+- ✅ **Docs corrigidas**: `GDD-Kabemjunto.md:71` (soma do baralho 68→108) e a nota do silêncio no topo deste arquivo (já estava implementada, texto não pedia mais trabalho).
+- ✅ **`state-machine.ts` removido** — código morto (só usado no próprio teste), 19 testes removidos junto.
+- ✅ **Compra voluntária com carta válida na mão agora é recusada** (`GDD §7`) — fecha a brecha de comprar repetidamente "pescando" carta melhor. `RoomStore.buy()` traduz o erro pra `JOGADA_INVALIDA`. UI (`MesaDeJogo.tsx` e `MesaOnline.tsx`) desabilita visualmente o monte de compra nesse caso.
+- 🧪 **11 testes existentes ajustados** (não regressão — passaram a exercitar a regra nova): `create-game.test.ts`, `property-based.test.ts`, `snapshot.test.ts`, `zero-plus-silence.test.ts`, `room-store.test.ts` (esse último virou teste condicional, validado 8x seguidas sem flake).
+- ✅ `npm run validate` 312/312 + `npx playwright test` 26/26 + `git diff --check` limpo.
+- 📄 Adendo completo no mesmo relatório: [`feedback/2026-07-30-revisao-motor-vs-gdd-mavis.md`](./feedback/2026-07-30-revisao-motor-vs-gdd-mavis.md).
+- ⚠️ Ainda **não publicado** em produção.
+
 ### Regra operacional permanente — GitHub → Railway
 
 - `git push origin main` **não** publica automaticamente no Railway neste projeto: não há workflow GitHub de deploy nem source/autodeploy Railway conectado.
@@ -29,7 +41,7 @@
 
 - SILÊNCIO não bloqueia chat escrito nem Falas rápidas. A primeira mensagem aceita de cada jogador na janela ativa é entregue e gera +2 cartas imediatas, aplicadas pelo servidor; mensagens posteriores do mesmo jogador não acumulam nova punição até outra carta 7 abrir nova janela.
 - A punição não passa turno, não altera ataques acumulados e precisa ser persistida/auditável como `SILENCIO_QUEBRADO` + compras `REGRA_DO_7`.
-- A implementação futura deve trocar a representação de um único `jogadorQuebrou` por um conjunto/lista de jogadores já punidos na janela e validar isso no servidor; o cliente apenas mostra feedback.
+- ✅ Já implementado: `EstadoPartida.silencio.jogadoresQuebraram` é uma lista de `JogadorId`, validada e aplicada no servidor (`penalizarQuebraSilencio` em `silence.ts`, chamada por `RoomStore.penalizeSilenceBreak`); o cliente só recebe o feedback via `server:silencio:quebrado`.
 
 ### Atualização — salas públicas/privadas e saída online
 

@@ -28,7 +28,7 @@ export function snapshot(estado: EstadoPartida): EstadoPartida {
  * Restaura um estado a partir de um snapshot. Útil pra "desfazer" jogada.
  *
  * IMPORTANTE: assume que o snapshot é válido. Se quiser validar antes
- * (ex: turno correto), use `validarJogada` ou `inferirEstadoTurno`.
+ * (ex: turno correto), use `validarJogada`.
  */
 export function restore(snapshot: EstadoPartida): EstadoPartida {
   return structuredClone(snapshot);
@@ -45,8 +45,8 @@ export function snapshotToJSON(estado: EstadoPartida): string {
 /**
  * Desserializa uma string JSON num estado. Lança erro se o JSON for inválido.
  *
- * NÃO valida a estrutura — apenas faz parse. Use `inferirEstadoTurno` ou
- * outras funções do motor pra verificar sanidade.
+ * NÃO valida a estrutura — apenas faz parse. Use `validarJogada` ou outras
+ * funções do motor pra verificar sanidade.
  */
 export function snapshotFromJSON(json: string): EstadoPartida {
   return JSON.parse(json) as EstadoPartida;

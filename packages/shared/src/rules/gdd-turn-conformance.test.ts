@@ -89,6 +89,74 @@ function estadoBase(overrides: Partial<EstadoPartida> = {}): EstadoPartida {
 }
 
 describe('GDD §7 / §5.2 — compra de 1 carta e posse do turno', () => {
+  it('rejeita compra voluntária quando o jogador já tem carta válida na mão', () => {
+    // Topo 5 AZUL / corAtiva AZUL. j1 tem uma carta AZUL válida na mão —
+    // a compra deveria ser desnecessária e o motor deve recusar.
+    const estado = estadoBase({
+      jogadores: [
+        {
+          id: 'j1',
+          nome: 'J1',
+          mao: [cartaNum('AZUL', 5, '-mao')],
+          isBot: false,
+          conectado: true,
+          disseUno: false,
+          avatar: '⭐',
+          pontos: 0,
+        },
+        {
+          id: 'j2',
+          nome: 'J2',
+          mao: [cartaNum('VERDE', 3)],
+          isBot: false,
+          conectado: true,
+          disseUno: false,
+          avatar: '⭐',
+          pontos: 0,
+        },
+      ],
+    });
+
+    expect(() => comprarCartas({ estado })).toThrow(
+      'Você tem uma carta válida na mão — jogue-a em vez de comprar.',
+    );
+  });
+
+  it('permite pagar ataque mesmo com carta válida na mão (pagar é diferente de comprar voluntário)', () => {
+    const estado = estadoBase({
+      jogadores: [
+        {
+          id: 'j1',
+          nome: 'J1',
+          mao: [cartaAcao('AZUL', 'MAIS_DOIS', '-mao')],
+          isBot: false,
+          conectado: true,
+          disseUno: false,
+          avatar: '⭐',
+          pontos: 0,
+        },
+        {
+          id: 'j2',
+          nome: 'J2',
+          mao: [cartaNum('VERDE', 3)],
+          isBot: false,
+          conectado: true,
+          disseUno: false,
+          avatar: '⭐',
+          pontos: 0,
+        },
+      ],
+      ataqueAcumulado: 2,
+      ataqueStack: ['MAIS_DOIS'],
+      monteCompra: [cartaNum('LARANJA', 1), cartaNum('LARANJA', 2)],
+    });
+
+    const r = comprarCartas({ estado });
+
+    expect(r.cartasCompradasIds).toHaveLength(2);
+    expect(r.novoEstado.vezDe).toBe('j2');
+  });
+
   it('mantém o turno quando a carta comprada é jogável', () => {
     // Topo 5 AZUL / corAtiva AZUL. A carta do monte é 5 VERDE → jogável
     // por número. O jogador deve poder descartá-la imediatamente.
@@ -147,6 +215,36 @@ describe('GDD §7 / §5.2 — compra de 1 carta e posse do turno', () => {
     expect(r.cartasCompradasIds).toHaveLength(0);
     expect(r.novoEstado.vezDe).toBe('j2');
     expect(r.turnoMantido).toBe(false);
+    expect(r.eventos).toContainEqual(
+      expect.objectContaining({
+        tipo: 'MONTE_ESGOTADO',
+        jogadorId: 'j1',
+        cartasSolicitadas: 1,
+        cartasObtidas: 0,
+      }),
+    );
+  });
+
+  it('emite MONTE_ESGOTADO com cartasObtidas parcial quando o ataque não pode ser pago integralmente', () => {
+    // Ataque de 4, mas só 1 carta disponível no total (monte + descarte reciclável).
+    const estado = estadoBase({
+      ataqueAcumulado: 4,
+      ataqueStack: ['MAIS_QUATRO'],
+      monteCompra: [cartaNum('VERDE', 1)],
+      monteDescarte: [cartaNum('AZUL', 5)],
+    });
+
+    const r = comprarCartas({ estado });
+
+    expect(r.cartasCompradasIds).toHaveLength(1);
+    expect(r.eventos).toContainEqual(
+      expect.objectContaining({
+        tipo: 'MONTE_ESGOTADO',
+        jogadorId: 'j1',
+        cartasSolicitadas: 4,
+        cartasObtidas: 1,
+      }),
+    );
   });
 
   it('não deixa o jogador travado: se o turno é mantido, existe jogada válida', () => {
@@ -208,5 +306,43 @@ describe('GDD §10.7 — starter Skip/Reverse age sobre o primeiro jogador', () 
 
     expect(estado.monteDescarte.at(-1)!.acao).toBe('REVERSE');
     expect(estado.vezDe).toBe('j1');
+  });
+});
+
+describe('GDD §10.8 — +2/+4 como carta vencedora não deixa ataque pendente', () => {
+  it('executarJogada: zera ataqueAcumulado/ataqueStack ao vencer com +2', () => {
+    const estado = estadoBase({
+      jogadores: [
+        {
+          id: 'j1',
+          nome: 'J1',
+          mao: [cartaAcao('AZUL', 'MAIS_DOIS')],
+          isBot: false,
+          conectado: true,
+          disseUno: false,
+          avatar: '⭐',
+          pontos: 0,
+        },
+        {
+          id: 'j2',
+          nome: 'J2',
+          mao: [cartaNum('VERDE', 3)],
+          isBot: false,
+          conectado: true,
+          disseUno: false,
+          avatar: '⭐',
+          pontos: 0,
+        },
+      ],
+      monteDescarte: [cartaAcao('AZUL', 'MAIS_DOIS', '-topo')],
+      corAtiva: 'AZUL',
+    });
+
+    const r = executarJogada({ estado, cartaIndex: 0 });
+
+    expect(r.novoEstado.finalizada).toBe(true);
+    expect(r.novoEstado.vencedor).toBe('j1');
+    expect(r.novoEstado.ataqueAcumulado).toBe(0);
+    expect(r.novoEstado.ataqueStack).toEqual([]);
   });
 });

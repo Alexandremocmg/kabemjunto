@@ -63,17 +63,17 @@
 
 ### Dados-chave do projeto
 
-| Métrica                | Valor                                                                          |
-| ---------------------- | ------------------------------------------------------------------------------ |
-| Gênero                 | Shedding game + party game social                                              |
-| Jogadores              | 2 a 10 (sweet spot 4-6)                                                        |
-| Duração de partida     | 8-15 min                                                                       |
-| Cartas no baralho      | 108 (40 numeradas + 12 ação colorida + 8 neutras + 4x +4 + 4 especiais únicas) |
-| Setup                  | < 30s                                                                          |
-| Complexidade de regras | Explicável em < 90s                                                            |
-| Plataforma-alvo        | Web (PWA) + Mobile (iOS/Android) + Desktop                                     |
-| Modelo de negócio      | F2P com baralhos temáticos pagos + passe de temporada                          |
-| Time de partida        | < 2-3 meses para MVP                                                           |
+| Métrica                | Valor                                                                                                  |
+| ---------------------- | ------------------------------------------------------------------------------------------------------ |
+| Gênero                 | Shedding game + party game social                                                                      |
+| Jogadores              | 2 a 10 (sweet spot 4-6)                                                                                |
+| Duração de partida     | 8-15 min                                                                                               |
+| Cartas no baralho      | 108 (100 coloridas: 25 por cor × 4 cores + 8 neutras: 4x +4, Troca Mão, Gira Mão, 0+, Coringa Simples) |
+| Setup                  | < 30s                                                                                                  |
+| Complexidade de regras | Explicável em < 90s                                                                                    |
+| Plataforma-alvo        | Web (PWA) + Mobile (iOS/Android) + Desktop                                                             |
+| Modelo de negócio      | F2P com baralhos temáticos pagos + passe de temporada                                                  |
+| Time de partida        | < 2-3 meses para MVP                                                                                   |
 
 ### Pilares de design (resumo)
 

@@ -60,6 +60,20 @@ export function comprarCartas(opcoes: ComprarOpcoes): ResultadoCompra {
   const cartasCompradasIds: string[] = [];
 
   const pagandoAtaque = estado.ataqueAcumulado > 0;
+
+  // GDD §7: "Sem carta válida: comprar 1 do Monte de Compra." Pagar ataque
+  // é sempre obrigatório (não depende de ter carta válida), mas a compra
+  // voluntária só existe porque o jogador não tem o que jogar — permitir
+  // comprar com uma carta válida na mão abriria uma forma de "fishing"
+  // (comprar de novo, repetidamente, tentando uma carta melhor) que a
+  // regra canônica não prevê.
+  if (
+    !pagandoAtaque &&
+    jogador.mao.some((carta) => validarJogada(estado, carta, jogadorId).valida)
+  ) {
+    throw new Error('Você tem uma carta válida na mão — jogue-a em vez de comprar.');
+  }
+
   const qtdDesejada = opcoes.quantidade ?? Math.max(estado.ataqueAcumulado, 1);
 
   let monteCompra = [...estado.monteCompra];
@@ -76,7 +90,14 @@ export function comprarCartas(opcoes: ComprarOpcoes): ResultadoCompra {
         monteCompra = embaralhar(restoDescarte, rng);
         monteDescarte = [topo];
       } else {
-        // Monte de compra e descarte (só topo) esgotaram. Stalemate.
+        // Monte de compra e descarte (só topo) esgotaram (GDD §10.2/§10.5).
+        eventos.push({
+          tipo: 'MONTE_ESGOTADO',
+          timestamp: Date.now(),
+          jogadorId,
+          cartasSolicitadas: qtdDesejada,
+          cartasObtidas: i,
+        });
         break;
       }
     }

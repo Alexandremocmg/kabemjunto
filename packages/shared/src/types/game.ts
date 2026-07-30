@@ -166,7 +166,18 @@ export type EventoPartida =
   | { tipo: 'MAO_GIRADA'; timestamp: number; sentido: 1 | -1 }
   | { tipo: 'MAO_TROCADA'; timestamp: number; jogadorA: JogadorId; jogadorB: JogadorId }
   | { tipo: 'VITORIA'; timestamp: number; vencedorId: JogadorId }
-  | { tipo: 'PARTIDA_FINALIZADA'; timestamp: number; motivo: 'VITORIA' | 'ABANDONO' | 'TIMEOUT' };
+  | { tipo: 'PARTIDA_FINALIZADA'; timestamp: number; motivo: 'VITORIA' | 'ABANDONO' | 'TIMEOUT' }
+  | {
+      /**
+       * Monte de compra e descarte reciclável esgotaram antes de completar
+       * uma compra (GDD §10.2/§10.5). `cartasObtidas` pode ser 0.
+       */
+      tipo: 'MONTE_ESGOTADO';
+      timestamp: number;
+      jogadorId: JogadorId;
+      cartasSolicitadas: number;
+      cartasObtidas: number;
+    };
 
 /**
  * Estado público da partida (filtrado para enviar a cada cliente).

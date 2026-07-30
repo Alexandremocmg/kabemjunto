@@ -138,18 +138,30 @@ describe('RoomStore — básico', () => {
     const store = createStartedStore();
     const before = store.get('KJTEST')!.estado!;
     const currentPlayer = before.vezDe;
-    const maoAntes = before.jogadores.find((item) => item.id === currentPlayer)!.mao.length;
+    const maoAntes = before.jogadores.find((item) => item.id === currentPlayer)!.mao;
     const ataque = before.ataqueAcumulado;
-    const esperadasCompradas = ataque > 0 ? ataque : 1;
 
+    // O baralho de `createStartedStore` é embaralhado de verdade: a mão
+    // inicial pode ou não ter uma carta jogável contra o topo. GDD §7 só
+    // permite comprar voluntariamente sem carta válida — com carta válida
+    // na mão, o servidor deve recusar a compra (e não há ataque nessa fase
+    // do jogo recém-iniciado, então a única saída é a recusa).
+    const temCartaValida = maoAntes.some(
+      (carta) => validarJogada(before, carta, currentPlayer).valida,
+    );
+    if (ataque === 0 && temCartaValida) {
+      expect(() => store.buy('KJTEST', currentPlayer)).toThrow('Você tem uma carta válida na mão');
+      return;
+    }
+
+    const esperadasCompradas = ataque > 0 ? ataque : 1;
     const after = store.buy('KJTEST', currentPlayer).estado!;
     const maoDepois = after.jogadores.find((item) => item.id === currentPlayer)!.mao;
-    expect(maoDepois).toHaveLength(maoAntes + esperadasCompradas);
+    expect(maoDepois).toHaveLength(maoAntes.length + esperadasCompradas);
 
-    // O baralho de `createStartedStore` é embaralhado de verdade, então a
-    // carta comprada varia entre execuções. Em vez de fixar um resultado,
-    // afirmamos a regra: o turno só permanece com quem comprou se a compra
-    // foi voluntária (sem ataque) e a carta é jogável.
+    // Afirmamos a regra, não um resultado fixo: o turno só permanece com
+    // quem comprou se a compra foi voluntária (sem ataque) e a carta é
+    // jogável.
     const comprada = maoDepois.at(-1)!;
     const jogavel = validarJogada(
       { ...after, vezDe: currentPlayer },
@@ -198,8 +210,12 @@ describe('RoomStore — descarte múltiplo', () => {
       maisDoisVerde.id,
       maisDoisAzul.id,
     ]);
-    expect(after.ataqueAcumulado).toBe(4);
-    expect(after.ataqueStack).toEqual(['MAIS_DOIS', 'MAIS_DOIS']);
+    // O lote esvazia a mão: vitória. GDD §10.8 — o ataque da(s) carta(s)
+    // vencedora(s) nunca é cobrado, a partida já acabou.
+    expect(after.finalizada).toBe(true);
+    expect(after.vencedor).toBe(jogadorAtual.id);
+    expect(after.ataqueAcumulado).toBe(0);
+    expect(after.ataqueStack).toEqual([]);
     expect(after.jogadores.find((jogador) => jogador.id === jogadorAtual.id)?.mao).toEqual([]);
   });
 });

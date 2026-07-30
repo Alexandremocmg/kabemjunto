@@ -548,7 +548,15 @@ export class RoomStore {
     if (session.estado.vezDe !== jogadorId) {
       throw new RoomError('NAO_SUA_VEZ', 'Não é o seu turno.');
     }
-    const resultado = comprarCartas({ estado: session.estado });
+    let resultado: ReturnType<typeof comprarCartas>;
+    try {
+      resultado = comprarCartas({ estado: session.estado });
+    } catch (error) {
+      throw new RoomError(
+        'JOGADA_INVALIDA',
+        error instanceof Error ? error.message : 'Não foi possível comprar.',
+      );
+    }
     return this.saveState(session, resultado.novoEstado);
   }
 
