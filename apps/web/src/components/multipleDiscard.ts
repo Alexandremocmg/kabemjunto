@@ -3,7 +3,10 @@ import type { Carta } from '@kabemjunto/shared/types';
 const ACOES_PERMITIDAS = new Set(['MAIS_DOIS', 'SKIP', 'REVERSE']);
 
 export function isEligibleForMultipleDiscard(carta: Carta): boolean {
-  return carta.tipo === 'NUMERADA' || ACOES_PERMITIDAS.has(carta.acao ?? '');
+  return (
+    (carta.tipo === 'NUMERADA' && carta.acao === undefined) ||
+    (carta.tipo === 'ACAO' && ACOES_PERMITIDAS.has(carta.acao ?? ''))
+  );
 }
 
 /**
@@ -93,4 +96,46 @@ export function temMesmaFace(a: Carta, b: Carta): boolean {
     return a.tipo === 'NUMERADA' && b.tipo === 'NUMERADA' && a.valor === b.valor;
   }
   return a.acao !== undefined && a.acao === b.acao;
+}
+
+/** Circular rotation: [a,b,c] → [b,c,a]. Returns the same array reference for length ≤ 1. */
+export function rotateStack(ids: ReadonlyArray<string>): ReadonlyArray<string> {
+  if (ids.length <= 1) return ids;
+  const [first, ...rest] = ids;
+  return [...rest, first!];
+}
+
+/**
+ * Reconciles stacks against the current hand:
+ * - Removes IDs missing from the hand
+ * - Dissolves stacks with < 2 remaining cards
+ * - Does NOT add new cards automatically
+ */
+export function reconcileStacks(
+  stacks: ReadonlyArray<ReadonlyArray<string>>,
+  mao: ReadonlyArray<Carta>,
+): ReadonlyArray<ReadonlyArray<string>> {
+  const maoIds = new Set(mao.map((c) => c.id));
+  return stacks
+    .map((stack) => stack.filter((id) => maoIds.has(id)))
+    .filter((stack) => stack.length >= 2);
+}
+
+/**
+ * Rotates the stack so the first card that passes `isValid` is at position 0.
+ * If the first card is already valid, or none are valid, the original order is preserved.
+ */
+export function findFirstValidInStack(
+  stack: ReadonlyArray<string>,
+  mao: ReadonlyArray<Carta>,
+  isValid: (carta: Carta) => boolean,
+): ReadonlyArray<string> {
+  if (stack.length === 0) return stack;
+  const maoById = new Map(mao.map((c) => [c.id, c]));
+  const firstValidIdx = stack.findIndex((id) => {
+    const c = maoById.get(id);
+    return c !== undefined && isValid(c);
+  });
+  if (firstValidIdx <= 0) return stack;
+  return [...stack.slice(firstValidIdx), ...stack.slice(0, firstValidIdx)];
 }

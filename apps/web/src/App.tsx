@@ -400,6 +400,7 @@ function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
             onPlayMultiple={jogarDescarteMultiplo}
             onComprarCarta={online.comprarCarta}
             onEnviarFalaRapida={enviarFalaRapida}
+            descarteMultiploErro={online.state.descarteMultiploErro}
           />
 
           {utilityOpen && (

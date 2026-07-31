@@ -238,9 +238,9 @@ export const App: React.FC = () => {
   };
 
   const handleDescarteMultiplo = (cartas: ReadonlyArray<Carta>) => {
-    if (!estado) return;
+    if (!estado) return false;
     const jogadorAtual = estado.jogadores.find((jogador) => jogador.id === estado.vezDe);
-    if (!jogadorAtual || jogadorAtual.isBot) return;
+    if (!jogadorAtual || jogadorAtual.isBot) return false;
     try {
       const novoEstado = jogarMultiplasCartas(
         estado,
@@ -249,8 +249,10 @@ export const App: React.FC = () => {
       registrarTransicao(estado, novoEstado, cartas[cartas.length - 1]!, jogadorAtual.nome);
       setEstado(novoEstado);
       mostrarFeedback({ tipo: 'sucesso', texto: `${jogadorAtual.nome} fez um descarte múltiplo.` });
+      return true;
     } catch (err) {
       mostrarFeedback({ tipo: 'erro', texto: err instanceof Error ? err.message : String(err) });
+      return false;
     }
   };
 
@@ -359,6 +361,11 @@ export const App: React.FC = () => {
 
       <MaoDoJogador
         estado={estado}
+        jogadorId={
+          estado.jogadores.filter((jogador) => !jogador.isBot).length === 1
+            ? estado.jogadores.find((jogador) => !jogador.isBot)!.id
+            : estado.vezDe
+        }
         onSelecionarCarta={handleSelecionarCarta}
         onPlayMultiple={handleDescarteMultiplo}
         selectedIndex={selectedCardIndex}

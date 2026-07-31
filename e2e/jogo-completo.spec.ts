@@ -13,8 +13,8 @@ function criarEstadoLocalMobile(): EstadoPartida {
     efeito_texto_longo: `Carta ${valor}`,
   });
   const mao = [
-    carta('sete-azul-mobile', 'AZUL', 7),
-    carta('sete-verde-mobile', 'VERDE', 7),
+    carta('seis-azul-mobile', 'AZUL', 6),
+    carta('seis-verde-mobile', 'VERDE', 6),
     carta('nove-azul-mobile', 'AZUL', 9),
   ];
   return {
@@ -288,28 +288,44 @@ test('mobile 390x844 confirma jogada única e monta pilha tocável com geometria
   }, estado);
 
   await page.goto('/');
-  const primeiraCarta = page.locator('[data-card-id="sete-azul-mobile"] .card-wrapper');
+  const primeiraCarta = page.locator('[data-card-id="seis-azul-mobile"] .card-wrapper');
   await primeiraCarta.tap();
   await expect(primeiraCarta).toHaveAttribute('aria-pressed', 'true');
   await primeiraCarta.tap();
   await expect(page.locator('.discard-slot .card-wrapper')).toHaveAttribute(
     'aria-label',
-    'Carta 7 AZUL',
+    'Carta 6 AZUL',
   );
-  await expect(page.locator('[data-card-id="sete-azul-mobile"]')).toHaveCount(0);
+  await expect(page.locator('[data-card-id="seis-azul-mobile"]')).toHaveCount(0);
 
   await page.reload();
-  const primeiraDaPilha = page.locator('[data-card-id="sete-azul-mobile"] .card-wrapper');
-  const segundaDaPilha = page.locator('[data-card-id="sete-verde-mobile"]');
+  const primeiraDaPilha = page.locator('[data-card-id="seis-azul-mobile"] .card-wrapper');
+  const segundaDaPilha = page.locator('[data-card-id="seis-verde-mobile"]');
   await primeiraDaPilha.tap();
   await segundaDaPilha.tap({ force: true });
 
-  const stack = page.getByRole('button', {
-    name: 'Jogar pilha de descarte múltiplo com 2 cartas, na ordem selecionada',
-  });
+  const stack = page.getByRole('group', { name: /2 cartas\. Ordem:/ });
   await expect(stack).toBeVisible();
+
+  // aria-label should include card count
+  const ariaLabel = await stack.getAttribute('aria-label');
+  expect(ariaLabel).toContain('2 cartas');
+
   const stackCards = stack.locator('.multiple-discard-inline-stack-card');
   await expect(stackCards).toHaveCount(2);
+  const playButton = stack.locator('.stack-play-button');
+  const playButtonBox = await playButton.boundingBox();
+  expect(playButtonBox).not.toBeNull();
+  expect(playButtonBox!.width).toBeGreaterThanOrEqual(44);
+  expect(playButtonBox!.height).toBeGreaterThanOrEqual(44);
+  const cartaSoltaBox = await page
+    .locator('[data-card-id="nove-azul-mobile"] .card-wrapper')
+    .boundingBox();
+  expect(cartaSoltaBox).not.toBeNull();
+  expect(
+    rectsIntersect(playButtonBox!, cartaSoltaBox!),
+    `botão=${JSON.stringify(playButtonBox)} cartaSolta=${JSON.stringify(cartaSoltaBox)}`,
+  ).toBe(false);
   const geometry = await stackCards.evaluateAll((cards) =>
     cards.map((card) => {
       const rect = card.getBoundingClientRect();
@@ -324,10 +340,104 @@ test('mobile 390x844 confirma jogada única e monta pilha tocável com geometria
     expect(rect.bottom).toBeLessThanOrEqual(844);
   }
 
-  await stack.tap();
+  // Verify strip clip-path CSS: non-last stack cards should use 22px clipping,
+  // but the LAST card in the stack (the visible face) must NOT be clipped —
+  // regressão: botões-irmãos após os <span> não podem contar como :last-child.
+  const stripClipPath = await stackCards.first().evaluate((card) => {
+    const wrapper = card.querySelector<HTMLElement>('.card-wrapper');
+    return wrapper ? getComputedStyle(wrapper).clipPath : '';
+  });
+  // clip-path should be set (not 'none') for the first card in a multi-card stack
+  expect(stripClipPath).not.toBe('');
+  const lastCardClipPath = await stackCards.last().evaluate((card) => {
+    const wrapper = card.querySelector<HTMLElement>('.card-wrapper');
+    return wrapper ? getComputedStyle(wrapper).clipPath : '';
+  });
+  expect(lastCardClipPath).toBe('none');
+
+  // Executa por drag touch real e solta dentro da zona de descarte.
+  const stackBox = await stack.boundingBox();
+  expect(stackBox, 'stack bounding box not found').not.toBeNull();
+  const centerX = stackBox!.x + stackBox!.width / 2;
+  const startY = stackBox!.y + stackBox!.height / 2;
+  const stackSlot = page.locator('[data-card-id="seis-azul-mobile"]');
+  const pointerId = 13;
+  await stackSlot.dispatchEvent('pointerdown', {
+    pointerId,
+    pointerType: 'touch',
+    isPrimary: true,
+    buttons: 1,
+    clientX: centerX,
+    clientY: startY,
+  });
+  await stackSlot.dispatchEvent('pointermove', {
+    pointerId,
+    pointerType: 'touch',
+    isPrimary: true,
+    buttons: 1,
+    clientX: centerX,
+    clientY: startY - 90,
+  });
+  const dropZone = page.locator('.discard-drop-zone');
+  await expect(dropZone).toBeVisible();
+  const dropBox = await dropZone.boundingBox();
+  expect(dropBox).not.toBeNull();
+  await stackSlot.dispatchEvent('pointerup', {
+    pointerId,
+    pointerType: 'touch',
+    isPrimary: true,
+    buttons: 0,
+    clientX: dropBox!.x + dropBox!.width / 2,
+    clientY: dropBox!.y + dropBox!.height / 2,
+  });
   await expect(page.getByRole('list', { name: 'Sua mão: 1 cartas' })).toBeVisible();
   await expect(page.getByText('fez um descarte múltiplo.')).toBeVisible();
   await context.close();
+});
+test('mobile 390x844 online — carta única via toque duplo e geometria sem overflow', async ({
+  browser,
+  request,
+}) => {
+  const hostContext = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true,
+  });
+  const guestContext = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true,
+  });
+  const host = await hostContext.newPage();
+  const convidado = await guestContext.newPage();
+
+  const salaId = await criarSala(host, 'Host Mobile');
+  await entrarNaSala(convidado, 'Convidado Mobile', salaId);
+  await expect(host.getByRole('button', { name: 'Iniciar partida' })).toBeEnabled();
+  await host.getByRole('button', { name: 'Iniciar partida' }).click();
+  await expect(host.getByText('SUA MÃO')).toBeVisible();
+  await expect(convidado.getByText('SUA MÃO')).toBeVisible();
+
+  const fixture = await aplicarFixtureVitoriaDeterministica(request, salaId);
+
+  // No horizontal scroll in 390px viewport
+  await expect.poll(() => host.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+
+  // Online hand container fits without overflow
+  const handBox = await host.locator('.online-hand-container').boundingBox();
+  expect(handBox, 'online-hand-container not found').not.toBeNull();
+  expect(handBox!.width).toBeLessThanOrEqual(390);
+
+  // Single-card play via double touch tap (host has 1 card via fixture)
+  const cartaVencedora = host.locator(`[data-card-id="${fixture.vencedorCardId}"] .card-wrapper`);
+  await expect(cartaVencedora).toBeVisible();
+  await cartaVencedora.tap();
+  await cartaVencedora.tap();
+
+  await expect(host.getByRole('heading', { name: 'Você Venceu!' })).toBeVisible();
+
+  await hostContext.close();
+  await guestContext.close();
 });
 
 test('cliente recarrega e recupera a sessao da partida', async ({ browser }) => {

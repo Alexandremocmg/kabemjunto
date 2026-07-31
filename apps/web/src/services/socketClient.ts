@@ -12,6 +12,7 @@ import {
   type EstadoPartidaPublico,
   type JogadorPublico,
   type ServerChatEvent,
+  type ServerDescarteMultiploAceitoEvent,
   type ServerErroEvent,
   type ServerEstadoAtualizadoEvent,
   type ServerJogadaAceitaEvent,
@@ -48,6 +49,7 @@ type ServerEvents = {
   'server:sessao:emitida': (payload: ServerSessaoEmitidaEvent) => void;
   'server:sala:atualizada': (payload: ServerSalaAtualizadaEvent) => void;
   'server:chat:msg': (payload: ServerChatEvent) => void;
+  'server:descarte:multiplo:aceito': (payload: ServerDescarteMultiploAceitoEvent) => void;
   'server:erro': (payload: ServerErroEvent) => void;
   'server:jogada:aceita': (payload: ServerJogadaAceitaEvent) => void;
   'server:jogada:rejeitada': (payload: ServerJogadaRejeitadaEvent) => void;
@@ -69,6 +71,8 @@ export interface SocketGameState {
   cartaRejeitada: string | undefined;
   mao: ReadonlyArray<Carta>;
   salasPublicas: ReadonlyArray<ServerSalaDisponivel>;
+  /** Incrementado cada vez que server:erro dispara enquanto há um batch pendente. */
+  descarteMultiploErro: number;
 }
 
 const configuredSocketUrl = import.meta.env.VITE_SOCKET_URL?.trim();
@@ -204,6 +208,7 @@ export function useGameSocket(): {
   const socketRef = useRef<GameSocket>();
   if (!socketRef.current) socketRef.current = createSocket();
   const socket = socketRef.current;
+  const batchPendenteRef = useRef(false);
   const [state, setState] = useState<SocketGameState>({
     jogadores: [],
     mensagens: [],
@@ -214,6 +219,7 @@ export function useGameSocket(): {
     cartaRejeitada: undefined,
     mao: [],
     salasPublicas: [],
+    descarteMultiploErro: 0,
   });
   const [credentials, setCredentials] = useState<SessionCredentials | undefined>(readSession);
   const [hostId, setHostId] = useState<string | undefined>();
@@ -287,8 +293,24 @@ export function useGameSocket(): {
         ...current,
         mensagens: [...current.mensagens, message].slice(-40),
       }));
-    const onError = ({ codigo, mensagem }: ServerErroEvent) =>
-      setState((current) => ({ ...current, erro: mensagem, erroCodigo: codigo }));
+    const onError = ({ codigo, mensagem }: ServerErroEvent) => {
+      if (batchPendenteRef.current) {
+        batchPendenteRef.current = false;
+        setState((current) => ({
+          ...current,
+          erro: mensagem,
+          erroCodigo: codigo,
+          descarteMultiploErro: current.descarteMultiploErro + 1,
+        }));
+      } else {
+        setState((current) => ({ ...current, erro: mensagem, erroCodigo: codigo }));
+      }
+    };
+    const onMultipleDiscardAccepted = (_payload: ServerDescarteMultiploAceitoEvent) => {
+      // O aceite encerra a correlação do request. A UI ainda aguarda a mão
+      // privada provar que as cartas saíram antes de remover a pilha visual.
+      batchPendenteRef.current = false;
+    };
     const onAccepted = ({ cartaId }: ServerJogadaAceitaEvent) => {
       setState((current) => ({ ...current, cartaAceita: cartaId, cartaRejeitada: undefined }));
       window.setTimeout(() => {
@@ -306,8 +328,14 @@ export function useGameSocket(): {
         );
       }, 2500);
     };
-    const onHand = ({ mao }: ServerMaoAtualizadaEvent) =>
+    const onHand = ({ mao }: ServerMaoAtualizadaEvent) => {
+      // NÃO limpar batchPendenteRef aqui: uma atualização de mão pode ser
+      // causada por outro evento (Troca/Gira do oponente, etc.) e não prova
+      // nem aceite nem rejeição do lote pendente. A correlação do lote só
+      // se resolve por 'server:descarte:multiplo:aceito' (aceite) ou por
+      // 'server:erro' com batchPendenteRef ainda ativo (rejeição).
       setState((current) => ({ ...current, mao }));
+    };
     const onSessionIssued = (issued: ServerSessaoEmitidaEvent) => {
       setCredentials((current) => (current ? applyIssuedSession(current, issued) : current));
     };
@@ -326,6 +354,7 @@ export function useGameSocket(): {
     socket.on('server:sessao:emitida', onSessionIssued);
     socket.on('server:sala:atualizada', onRoom);
     socket.on('server:chat:msg', onChat);
+    socket.on('server:descarte:multiplo:aceito', onMultipleDiscardAccepted);
     socket.on('server:erro', onError);
     socket.on('server:jogada:aceita', onAccepted);
     socket.on('server:jogada:rejeitada', onRejected);
@@ -347,6 +376,7 @@ export function useGameSocket(): {
       socket.off('server:sessao:emitida', onSessionIssued);
       socket.off('server:sala:atualizada', onRoom);
       socket.off('server:chat:msg', onChat);
+      socket.off('server:descarte:multiplo:aceito', onMultipleDiscardAccepted);
       socket.off('server:erro', onError);
       socket.off('server:jogada:aceita', onAccepted);
       socket.off('server:jogada:rejeitada', onRejected);
@@ -401,7 +431,10 @@ export function useGameSocket(): {
     [socket],
   );
   const jogarMultiplasCartas = useCallback(
-    (cartaIds: ReadonlyArray<string>) => socket.emit('client:descarte:multiplo', { cartaIds }),
+    (cartaIds: ReadonlyArray<string>) => {
+      batchPendenteRef.current = true;
+      socket.emit('client:descarte:multiplo', { cartaIds });
+    },
     [socket],
   );
   const comprarCarta = useCallback(() => socket.emit('client:comprar', {}), [socket]);
@@ -424,6 +457,7 @@ export function useGameSocket(): {
       cartaRejeitada: undefined,
       mao: [],
       salasPublicas: [],
+      descarteMultiploErro: 0,
     });
   }, [socket]);
   const sair = useCallback(() => {

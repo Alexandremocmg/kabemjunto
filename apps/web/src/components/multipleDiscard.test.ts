@@ -5,8 +5,11 @@ import {
   canActivateMultipleDiscardStack,
   canSelectMultipleDiscardCard,
   createMultipleDiscardStack,
+  findFirstValidInStack,
   getSelectedMultipleDiscardCards,
   isEligibleForMultipleDiscard,
+  reconcileStacks,
+  rotateStack,
   toggleMultipleDiscardSelection,
 } from './multipleDiscard';
 
@@ -71,6 +74,7 @@ describe('Descarte múltiplo — seleção de faces permitidas', () => {
   });
 
   it.each([
+    carta({ id: 'sete-silencio', tipo: 'NUMERADA', valor: 7, acao: 'SILENCIO' }),
     carta({ id: 'mais-quatro', tipo: 'NEUTRA', cor: 'NEUTRO', acao: 'MAIS_QUATRO' }),
     carta({ id: 'troca-mao', tipo: 'NEUTRA', cor: 'NEUTRO', acao: 'TROCA_MAO' }),
     carta({ id: 'gira-mao', tipo: 'NEUTRA', cor: 'NEUTRO', acao: 'GIRA_MAO' }),
@@ -86,7 +90,7 @@ describe('Descarte múltiplo — seleção de faces permitidas', () => {
       carta({ id: 'reverse', tipo: 'ACAO', acao: 'REVERSE' }),
     ];
 
-    expect(getSelectedMultipleDiscardCards(mao, ['reverse', 'sete'])).toEqual([mao[2], mao[1]]);
+    expect(getSelectedMultipleDiscardCards(mao, ['reverse', 'sete'])).toEqual([mao[2]]);
   });
 
   it('alterna uma carta permitida sem selecionar faces não aprovadas', () => {
@@ -132,5 +136,130 @@ describe('Descarte múltiplo — seleção de faces permitidas', () => {
 
     expect(canSelectMultipleDiscardCard([], seteAzul, mao, false)).toBe(false);
     expect(canSelectMultipleDiscardCard(['sete-azul'], oitoAzul, mao, true)).toBe(false);
+  });
+});
+
+describe('rotateStack — rotação circular', () => {
+  it('rotaciona [a,b,c] para [b,c,a]', () => {
+    expect(rotateStack(['a', 'b', 'c'])).toEqual(['b', 'c', 'a']);
+  });
+
+  it('rotaciona um par [a,b] para [b,a]', () => {
+    expect(rotateStack(['a', 'b'])).toEqual(['b', 'a']);
+  });
+
+  it('retorna singleton sem alteração', () => {
+    expect(rotateStack(['a'])).toEqual(['a']);
+  });
+
+  it('retorna array vazio sem alteração', () => {
+    expect(rotateStack([])).toEqual([]);
+  });
+});
+
+describe('reconcileStacks — reconciliação contra a mão atual', () => {
+  it('remove IDs ausentes da mão', () => {
+    const sete = carta({ id: 'sete', tipo: 'NUMERADA', valor: 7 });
+    const oito = carta({ id: 'oito', tipo: 'NUMERADA', valor: 8 });
+    const mao = [sete, oito];
+
+    expect(reconcileStacks([['sete', 'nove']], mao)).toEqual([]);
+  });
+
+  it('dissolve grupos com menos de 2 cartas após remoção', () => {
+    const sete = carta({ id: 'sete', tipo: 'NUMERADA', valor: 7 });
+    const mao = [sete];
+
+    expect(reconcileStacks([['sete', 'sete-verde']], mao)).toEqual([]);
+  });
+
+  it('preserva grupo com 2+ cartas presentes', () => {
+    const a = carta({ id: 'a', tipo: 'NUMERADA', valor: 7 });
+    const b = carta({ id: 'b', tipo: 'NUMERADA', valor: 7 });
+    const mao = [a, b];
+
+    expect(reconcileStacks([['a', 'b']], mao)).toEqual([['a', 'b']]);
+  });
+
+  it('não acrescenta cartas novas automaticamente', () => {
+    const a = carta({ id: 'a', tipo: 'NUMERADA', valor: 7 });
+    const b = carta({ id: 'b', tipo: 'NUMERADA', valor: 7 });
+    const c = carta({ id: 'c', tipo: 'NUMERADA', valor: 7 });
+    const mao = [a, b, c];
+
+    expect(reconcileStacks([['a', 'b']], mao)).toEqual([['a', 'b']]);
+  });
+
+  it('preserva múltiplos grupos independentemente', () => {
+    const a = carta({ id: 'a', tipo: 'NUMERADA', valor: 6 });
+    const b = carta({ id: 'b', tipo: 'NUMERADA', valor: 6 });
+    const c = carta({ id: 'c', tipo: 'NUMERADA', valor: 8 });
+    const d = carta({ id: 'd', tipo: 'NUMERADA', valor: 8 });
+    const mao = [a, b, c, d];
+
+    const resultado = reconcileStacks(
+      [
+        ['a', 'b'],
+        ['c', 'd'],
+      ],
+      mao,
+    );
+    expect(resultado).toEqual([
+      ['a', 'b'],
+      ['c', 'd'],
+    ]);
+  });
+
+  it('pilhas não jogadas sobrevivem à dissolução de outra', () => {
+    const a = carta({ id: 'a', tipo: 'NUMERADA', valor: 6 });
+    const b = carta({ id: 'b', tipo: 'NUMERADA', valor: 6 });
+    const c = carta({ id: 'c', tipo: 'NUMERADA', valor: 8 });
+    const mao = [a, b, c]; // 'd' foi removida da mão (c+d eram pilha)
+
+    const resultado = reconcileStacks(
+      [
+        ['a', 'b'],
+        ['c', 'd'],
+      ],
+      mao,
+    );
+    expect(resultado).toEqual([['a', 'b']]);
+  });
+});
+
+describe('findFirstValidInStack — promoção da primeira carta válida', () => {
+  it('rotaciona até a primeira carta válida na ordem preparada', () => {
+    const seteAzul = carta({ id: 'sete-azul', tipo: 'NUMERADA', valor: 7, cor: 'AZUL' });
+    const seteVerde = carta({ id: 'sete-verde', tipo: 'NUMERADA', valor: 7, cor: 'VERDE' });
+    const mao = [seteAzul, seteVerde];
+    const isValid = (c: Carta) => c.id === 'sete-verde';
+
+    const resultado = findFirstValidInStack(['sete-azul', 'sete-verde'], mao, isValid);
+    expect(resultado).toEqual(['sete-verde', 'sete-azul']);
+  });
+
+  it('mantém pilha inalterada se já tem carta válida na posição 0', () => {
+    const seteAzul = carta({ id: 'sete-azul', tipo: 'NUMERADA', valor: 7, cor: 'AZUL' });
+    const seteVerde = carta({ id: 'sete-verde', tipo: 'NUMERADA', valor: 7, cor: 'VERDE' });
+    const mao = [seteAzul, seteVerde];
+    const isValid = (c: Carta) => c.id === 'sete-azul';
+
+    expect(findFirstValidInStack(['sete-azul', 'sete-verde'], mao, isValid)).toEqual([
+      'sete-azul',
+      'sete-verde',
+    ]);
+  });
+
+  it('preserva a pilha sem desfazê-la quando nenhuma carta é válida', () => {
+    const a = carta({ id: 'a', tipo: 'NUMERADA', valor: 7 });
+    const b = carta({ id: 'b', tipo: 'NUMERADA', valor: 7 });
+    const mao = [a, b];
+    const isValid = () => false;
+
+    expect(findFirstValidInStack(['a', 'b'], mao, isValid)).toEqual(['a', 'b']);
+  });
+
+  it('retorna array vazio para pilha vazia', () => {
+    expect(findFirstValidInStack([], [], () => true)).toEqual([]);
   });
 });

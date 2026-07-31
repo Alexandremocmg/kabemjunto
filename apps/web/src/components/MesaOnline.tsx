@@ -10,10 +10,13 @@ import { validarJogadaPublica } from '../services/validarJogadaPublica';
 import { CartaView } from './CartaView';
 import {
   appendCardToMultipleDiscardStack,
-  canActivateMultipleDiscardStack,
   canSelectMultipleDiscardCard,
   createMultipleDiscardStack,
+  findFirstValidInStack,
   getSelectedMultipleDiscardCards,
+  isEligibleForMultipleDiscard,
+  reconcileStacks,
+  rotateStack,
   temMesmaFace,
 } from './multipleDiscard';
 
@@ -24,10 +27,11 @@ interface MesaOnlineProps {
   jogadorId?: string | undefined;
   selectedCardId?: string | undefined;
   onSelecionarCarta: (carta: Carta) => void;
-  /** Optional UI bridge for a future authoritative batch-play contract. */
   onPlayMultiple?: (cartas: ReadonlyArray<Carta>) => void;
   onComprarCarta: () => void;
   onEnviarFalaRapida: (texto: string) => void;
+  /** Incrementado pelo socketClient cada vez que server:erro dispara com batch pendente. */
+  descarteMultiploErro?: number | undefined;
 }
 
 const FALAS_RAPIDAS = [
@@ -123,18 +127,31 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
   onPlayMultiple,
   onComprarCarta,
   onEnviarFalaRapida,
+  descarteMultiploErro,
 }) => {
   const [falasRapidasAbertas, setFalasRapidasAbertas] = useState(false);
-  const [stackIds, setStackIds] = useState<ReadonlyArray<string>>([]);
+  // Multiple ordered stacks; each inner array is card IDs in play order
+  const [stacks, setStacks] = useState<ReadonlyArray<ReadonlyArray<string>>>([]);
+  // The stack currently being sent to the server (null = none)
+  const [sendingStack, setSendingStack] = useState<ReadonlyArray<string> | null>(null);
+  // Trava síncrona: impede dois emits no mesmo tick antes do próximo render React.
+  const batchPendingRef = useRef(false);
   const [stackFeedback, setStackFeedback] = useState('');
+  // Whether a vertical drag has activated the drop zone
+  const [dropZoneActive, setDropZoneActive] = useState(false);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
   const dragAnchorRef = useRef<{
     carta: Carta;
     primeiraCartaJogavel: boolean;
     x: number;
     y: number;
+    /** index into `stacks` array if dragging a stack for execution, else -1 */
+    stackIndex: number;
+    locked: 'none' | 'horizontal' | 'vertical';
   }>();
   const suppressNextClickRef = useRef(false);
   const ultimoPonteiroFoiToqueRef = useRef(false);
+  const prevMaoRef = useRef<ReadonlyArray<Carta>>(mao);
   const [baloesDeFala, setBaloesDeFala] = useState<ReadonlyMap<string, BalaoFala>>(new Map());
   const mensagensVistasRef = useRef(new WeakSet<ServerChatEvent>());
   const timersDeBalaoRef = useRef(new Map<string, number>());
@@ -148,20 +165,205 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
   const jogadoresRemotos = estado.jogadores.filter((jogador) => jogador.id !== jogadorId);
   const corAtiva = estado.corAtiva ?? 'LARANJA';
   const infoCor = PALETA_CORES[corAtiva] ?? PALETA_CORES.NEUTRO;
-  const cartasSelecionadas = getSelectedMultipleDiscardCards(mao, stackIds);
-  const pilhaPronta = canActivateMultipleDiscardStack(stackIds, onPlayMultiple !== undefined);
   const balaoLocal = jogadorId ? baloesDeFala.get(jogadorId) : undefined;
 
-  function adicionarPorTeclado(carta: Carta, primeiraCartaJogavel: boolean): void {
-    setStackIds((atuais) => {
-      if (atuais.length === 0) {
-        return canSelectMultipleDiscardCard([], carta, mao, primeiraCartaJogavel)
-          ? [carta.id]
-          : atuais;
+  // Build card-to-stack-index lookup for rendering
+  const cardToStackIndex = new Map<string, number>();
+  stacks.forEach((stack, idx) => {
+    stack.forEach((id) => cardToStackIndex.set(id, idx));
+  });
+
+  // ── Turn-start reconciliation ─────────────────────────────────────────────
+  // When our turn starts: cancel singleton stacks; promote valid card in multi-card stacks
+  useEffect(() => {
+    if (estado.vezDe !== jogadorId) return;
+    const reconciliadas = reconcileStacks(stacks, mao);
+    const promovidas = reconciliadas.map((stack) =>
+      findFirstValidInStack(stack, mao, (carta) => podeJogarCarta(carta)),
+    );
+    setStacks(promovidas);
+    setSendingStack(null);
+    batchPendingRef.current = false;
+    if (promovidas.length > 0) {
+      const primeiroId = promovidas[0]?.[0];
+      const carta = primeiroId ? mao.find((c) => c.id === primeiroId) : undefined;
+      if (carta && podeJogarCarta(carta)) {
+        const face = carta.tipo === 'NUMERADA' ? `${carta.valor}` : (carta.acao ?? '');
+        setStackFeedback(`Pilha pronta — primeira carta: ${face} ${carta.cor}.`);
       }
-      return appendCardToMultipleDiscardStack(atuais, carta, mao);
+    }
+  }, [estado.vezDe, jogadorId]);
+
+  // ── ACK reconciliation ────────────────────────────────────────────────────
+  // When mao changes while a stack is "sending": check if sent cards were accepted.
+  // Rejection is only signalled via descarteMultiploErro (server:erro); mao change alone
+  // does NOT imply rejection because Troca/Gira can change mao while the batch is pending.
+  useEffect(() => {
+    if (!sendingStack || prevMaoRef.current === mao) return;
+    const sentIds = new Set(sendingStack);
+    const anySentCardStillInMao = mao.some((c) => sentIds.has(c.id));
+    if (!anySentCardStillInMao) {
+      // Server accepted: remove the sent stack and reconcile remaining stacks
+      setStacks((atuais) =>
+        reconcileStacks(
+          atuais.filter((s) => s !== sendingStack),
+          mao,
+        ),
+      );
+      setSendingStack(null);
+      batchPendingRef.current = false;
+      setStackFeedback('Jogada aceita!');
+    }
+    // If sent cards still in mao: do NOT treat as rejection here.
+    // Rejection is handled by the descarteMultiploErro effect below.
+  }, [mao, sendingStack]);
+
+  // ── Bug-1 fix: server:erro rejection via descarteMultiploErro counter ─────
+  // Fires when the socket layer increments descarteMultiploErro after a batch error.
+  useEffect(() => {
+    if (!descarteMultiploErro) return;
+    if (!sendingStack) return;
+    // Clear sending state but PRESERVE the stack in stacks
+    setSendingStack(null);
+    batchPendingRef.current = false;
+    setStackFeedback('Jogada rejeitada — pilha preservada. Tente novamente.');
+  }, [descarteMultiploErro]);
+
+  // ── Bug-2 fix: always reconcile stacks on mao change ─────────────────────
+  // Handles Troca/Gira and other off-turn events removing cards from stacks.
+  useEffect(() => {
+    setStacks((atuais) => reconcileStacks(atuais, mao));
+  }, [mao]);
+
+  useEffect(() => {
+    prevMaoRef.current = mao;
+  });
+
+  // ── Stack helpers ─────────────────────────────────────────────────────────
+
+  function findStackAnchorCard(stackIdx: number): Carta | undefined {
+    const stack = stacks[stackIdx];
+    if (!stack) return undefined;
+    return mao.find((c) => c.id === stack[0]);
+  }
+
+  function isStackValid(stackIdx: number): boolean {
+    const anchor = findStackAnchorCard(stackIdx);
+    return anchor !== undefined && podeJogarCarta(anchor);
+  }
+
+  function stackStateClass(stackIdx: number): string {
+    if (sendingStack !== null) return 'stack-sending';
+    if (!minhaVez) return 'stack-prepared';
+    return isStackValid(stackIdx) ? 'stack-valid' : 'stack-blocked';
+  }
+
+  function executarPilha(stackIdx: number): void {
+    if (batchPendingRef.current || sendingStack !== null) {
+      setStackFeedback('Aguarde a confirmação da jogada anterior.');
+      return;
+    }
+    const stack = stacks[stackIdx];
+    if (!stack || stack.length < 2 || !onPlayMultiple) return;
+    if (!isStackValid(stackIdx)) return;
+    const cartas = getSelectedMultipleDiscardCards(mao, stack);
+    if (cartas.length < 2) return;
+    batchPendingRef.current = true;
+    setSendingStack(stack);
+    setStackFeedback('Enviando jogada…');
+    onPlayMultiple(cartas);
+  }
+
+  function rotarPilha(stackIdx: number): void {
+    setStacks((atuais) => {
+      const copia = [...atuais];
+      copia[stackIdx] = rotateStack(atuais[stackIdx]!);
+      return copia;
+    });
+    setStackFeedback('Ordem da pilha rotacionada.');
+  }
+
+  // ── Off-turn organization ─────────────────────────────────────────────────
+
+  function tocarCartaForaDaVez(carta: Carta): void {
+    if (!isEligibleForMultipleDiscard(carta)) return;
+
+    setStacks((atuais) => {
+      // Already in a stack → ignore (to toggle, tap stack body instead)
+      if (atuais.some((s) => s.includes(carta.id))) return atuais;
+
+      // Find a matching-face stack to extend
+      const matchIdx = atuais.findIndex((s) => {
+        const anchor = mao.find((c) => c.id === s[0]);
+        return anchor !== undefined && temMesmaFace(anchor, carta);
+      });
+
+      if (matchIdx >= 0) {
+        const copia = [...atuais];
+        copia[matchIdx] = appendCardToMultipleDiscardStack(atuais[matchIdx]!, carta, mao);
+        const novaLen = copia[matchIdx]!.length;
+        setStackFeedback(
+          novaLen > (atuais[matchIdx]?.length ?? 0)
+            ? `Pilha com ${novaLen} cartas. Arraste para jogar na sua vez.`
+            : 'Essa carta não tem a mesma face da pilha.',
+        );
+        return copia;
+      }
+
+      // Create singleton (anchors are only kept if a second card joins before turn)
+      setStackFeedback('Pilha armada: toque outra carta de mesma face para preparar.');
+      return [...atuais, [carta.id]];
     });
   }
+
+  // ── On-turn card tap ──────────────────────────────────────────────────────
+
+  function tocarCartaNaVez(carta: Carta, primeiraCartaJogavel: boolean): void {
+    if (!onPlayMultiple) return;
+
+    const stackIdx = cardToStackIndex.get(carta.id) ?? -1;
+    if (stackIdx >= 0 && (stacks[stackIdx]?.length ?? 0) >= 2) {
+      // Tapping a card in a multi-card stack → body tap handled by stack onClick (rotation)
+      return;
+    }
+
+    // Standard single-card selection flow (preserved from original)
+    const singletonStackIdx = stacks.findIndex((s) => s.length === 1);
+
+    if (stacks.length === 0 || singletonStackIdx < 0) {
+      onSelecionarCarta(carta);
+      if (!canSelectMultipleDiscardCard([], carta, mao, primeiraCartaJogavel)) return;
+      setStacks((atuais) => [...atuais, [carta.id]]);
+      setStackFeedback(
+        'Pilha armada: toque outra carta de mesma face ou toque de novo para jogar.',
+      );
+      return;
+    }
+
+    const singleton = stacks[singletonStackIdx]!;
+    if (singleton[0] === carta.id) {
+      // Second tap on same card → play single card
+      setStacks((atuais) => atuais.filter((_, i) => i !== singletonStackIdx));
+      setStackFeedback('Jogada comum confirmada.');
+      onSelecionarCarta(carta);
+      return;
+    }
+
+    // Tap different card of same face → extend to 2-card stack
+    const proximas = appendCardToMultipleDiscardStack(singleton, carta, mao);
+    setStackFeedback(
+      proximas === singleton
+        ? 'Essa carta não tem a mesma face da pilha.'
+        : `Pilha com ${proximas.length} cartas. Arraste para jogar.`,
+    );
+    setStacks((atuais) => {
+      const copia = [...atuais];
+      copia[singletonStackIdx] = proximas;
+      return copia;
+    });
+  }
+
+  // ── Pointer handlers ──────────────────────────────────────────────────────
 
   function iniciarArrasto(
     event: React.PointerEvent<HTMLDivElement>,
@@ -169,48 +371,96 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
     primeiraCartaJogavel: boolean,
   ): void {
     ultimoPonteiroFoiToqueRef.current = event.pointerType === 'touch';
+
+    const stackIdx = cardToStackIndex.get(carta.id) ?? -1;
+
+    // For on-turn stack execute drag
+    if (minhaVez && stackIdx >= 0 && stacks[stackIdx]![0] === carta.id) {
+      dragAnchorRef.current = {
+        carta,
+        primeiraCartaJogavel,
+        x: event.clientX,
+        y: event.clientY,
+        stackIndex: stackIdx,
+        locked: 'none',
+      };
+      if (event.pointerType === 'touch') {
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+      }
+      return;
+    }
+
+    // For grouping drag (creating stacks by dragging anchor to target)
     if (
       minhaVez &&
-      (stackIds.length > 0 || canSelectMultipleDiscardCard([], carta, mao, primeiraCartaJogavel))
+      (stacks.some((s) => s.includes(carta.id)) ||
+        canSelectMultipleDiscardCard([], carta, mao, primeiraCartaJogavel))
     ) {
-      dragAnchorRef.current = { carta, primeiraCartaJogavel, x: event.clientX, y: event.clientY };
+      dragAnchorRef.current = {
+        carta,
+        primeiraCartaJogavel,
+        x: event.clientX,
+        y: event.clientY,
+        stackIndex: -1,
+        locked: 'none',
+      };
       if (event.pointerType === 'touch') {
         event.currentTarget.setPointerCapture?.(event.pointerId);
       }
     }
   }
 
-  function tocarCarta(carta: Carta, primeiraCartaJogavel: boolean): void {
-    if (!minhaVez || !onPlayMultiple) return;
-    if (stackIds.length === 0) {
-      onSelecionarCarta(carta);
-      if (!canSelectMultipleDiscardCard([], carta, mao, primeiraCartaJogavel)) return;
-      setStackIds([carta.id]);
-      setStackFeedback(
-        'Pilha armada: toque outra carta de mesma face ou toque de novo para jogar.',
-      );
-      return;
+  function moverArrastoDePilha(event: React.PointerEvent<HTMLDivElement>): void {
+    const drag = dragAnchorRef.current;
+    if (!drag || drag.stackIndex < 0) return;
+
+    const dx = event.clientX - drag.x;
+    const dy = event.clientY - drag.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 8) return;
+
+    if (drag.locked === 'none') {
+      if (Math.abs(dy) > Math.abs(dx) * 1.5 && dy < 0) {
+        drag.locked = 'vertical';
+      } else if (Math.abs(dx) > Math.abs(dy) * 1.5) {
+        drag.locked = 'horizontal';
+      }
     }
-    if (stackIds.length === 1 && stackIds[0] === carta.id) {
-      setStackIds([]);
-      setStackFeedback('Jogada comum confirmada.');
-      onSelecionarCarta(carta);
-      return;
+
+    if (drag.locked === 'vertical' && dy < -40) {
+      setDropZoneActive(true);
+    } else if (drag.locked !== 'vertical') {
+      setDropZoneActive(false);
     }
-    const proximas = appendCardToMultipleDiscardStack(stackIds, carta, mao);
-    setStackFeedback(
-      proximas === stackIds
-        ? 'Essa carta não tem a mesma face da pilha.'
-        : `Pilha com ${proximas.length} cartas. Toque a pilha para descartar.`,
-    );
-    setStackIds(proximas);
   }
 
   function soltarNaCarta(event: React.PointerEvent<HTMLDivElement>, fallbackTarget: Carta): void {
     const drag = dragAnchorRef.current;
     dragAnchorRef.current = undefined;
+
+    // If dropping from an execute-drag, check the drop zone
+    if (drag && drag.stackIndex >= 0) {
+      setDropZoneActive(false);
+      const inZone = (() => {
+        if (!dropZoneRef.current) return false;
+        const rect = dropZoneRef.current.getBoundingClientRect();
+        return (
+          event.clientX >= rect.left &&
+          event.clientX <= rect.right &&
+          event.clientY >= rect.top &&
+          event.clientY <= rect.bottom
+        );
+      })();
+      if (inZone && drag.locked === 'vertical' && minhaVez) {
+        executarPilha(drag.stackIndex);
+      }
+      return;
+    }
+
     if (!drag) return;
     if (Math.hypot(event.clientX - drag.x, event.clientY - drag.y) <= 8) return;
+
+    // Group drag (existing logic)
     const cardIdAtExpandedPointer = Array.from(
       document.querySelectorAll<HTMLElement>('[data-card-id]'),
     ).find((element) => {
@@ -224,27 +474,35 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
     })?.dataset.cardId;
     const target = mao.find((carta) => carta.id === cardIdAtExpandedPointer) ?? fallbackTarget;
     if (drag.carta.id === target.id) return;
-    setStackIds((atuais) => {
-      const proximas =
-        atuais.length === 0
-          ? createMultipleDiscardStack(drag.carta, target, mao, drag.primeiraCartaJogavel)
-          : temMesmaFace(drag.carta, target)
-            ? appendCardToMultipleDiscardStack(atuais, drag.carta, mao)
-            : atuais;
-      if (proximas !== atuais && proximas.length > atuais.length) {
+
+    const existingStackIdx = cardToStackIndex.get(drag.carta.id) ?? -1;
+    setStacks((atuais) => {
+      if (existingStackIdx >= 0) {
+        // Extend existing stack
+        if (!temMesmaFace(drag.carta, target)) return atuais;
+        const copia = [...atuais];
+        const updated = appendCardToMultipleDiscardStack(atuais[existingStackIdx]!, target, mao);
+        if (updated === atuais[existingStackIdx]) return atuais;
+        copia[existingStackIdx] = updated;
         suppressNextClickRef.current = true;
-        setStackFeedback(`Pilha com ${proximas.length} cartas. Toque a pilha para descartar.`);
+        setStackFeedback(`Pilha com ${updated.length} cartas. Arraste para jogar.`);
+        return copia;
       }
-      return proximas;
+      // Create new stack
+      const proximas = createMultipleDiscardStack(
+        drag.carta,
+        target,
+        mao,
+        drag.primeiraCartaJogavel,
+      );
+      if (proximas.length === 0) return atuais;
+      suppressNextClickRef.current = true;
+      setStackFeedback(`Pilha com ${proximas.length} cartas. Arraste para jogar.`);
+      return [...atuais, proximas];
     });
   }
 
-  function jogarPilha(): void {
-    if (canActivateMultipleDiscardStack(stackIds, onPlayMultiple !== undefined)) {
-      onPlayMultiple?.(cartasSelecionadas);
-      setStackIds([]);
-    }
-  }
+  // ── Chat effects ──────────────────────────────────────────────────────────
 
   useEffect(() => {
     const ultimasMensagens = new Map<string, ServerChatEvent>();
@@ -252,7 +510,6 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
 
     ultimasMensagens.forEach((mensagem, jogadorDaMensagemId) => {
       if (mensagensVistasRef.current.has(mensagem)) return;
-
       mensagensVistasRef.current.add(mensagem);
       const timerAnterior = timersDeBalaoRef.current.get(jogadorDaMensagemId);
       if (timerAnterior !== undefined) window.clearTimeout(timerAnterior);
@@ -288,8 +545,28 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
     setFalasRapidasAbertas(false);
   }
 
+  // ── Drag drop zone label ──────────────────────────────────────────────────
+  const draggingStackIdx =
+    dragAnchorRef.current?.stackIndex !== undefined && dragAnchorRef.current.stackIndex >= 0
+      ? dragAnchorRef.current.stackIndex
+      : null;
+  const dropZoneCardCount = draggingStackIdx !== null ? (stacks[draggingStackIdx]?.length ?? 0) : 0;
+
   return (
     <div className="table-area online-table-area">
+      {/* Drop zone for vertical drag execution */}
+      {dropZoneActive && (
+        <div
+          ref={dropZoneRef}
+          className="discard-drop-zone"
+          role="status"
+          aria-live="assertive"
+          aria-label={`Solte aqui para jogar ${dropZoneCardCount} cartas`}
+        >
+          Solte aqui para jogar {dropZoneCardCount} {dropZoneCardCount === 1 ? 'carta' : 'cartas'}
+        </div>
+      )}
+
       <div className="table-status-bar" aria-label="Status da mesa online">
         {estado.silencio.ativo && (
           <p className="online-silence-warning" role="status">
@@ -444,11 +721,23 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
         <div className="hand-cards hand-fan" role="list">
           {mao.map((carta, index) => {
             const primeiraCartaJogavel = podeJogarCarta(carta);
-            const cartaJogavel = minhaVez;
-            const inStack = stackIds.includes(carta.id);
-            const isStackAnchor = pilhaPronta && carta.id === stackIds[0];
+            const podeOrganizarForaDaVez =
+              !minhaVez && Boolean(onPlayMultiple) && isEligibleForMultipleDiscard(carta);
+            const stackIdx = cardToStackIndex.get(carta.id) ?? -1;
+            const inStack = stackIdx >= 0;
+            const stack = inStack ? stacks[stackIdx]! : null;
+            // Only stacks with 2+ cards render as the inline stack visual; singletons show as selected cards
+            const isPilhaPronta = stack !== null && stack.length >= 2;
+            const isStackAnchor = isPilhaPronta && stack![0] === carta.id;
+            const isSending = sendingStack !== null;
+            const cartasSelecionadas = isStackAnchor
+              ? getSelectedMultipleDiscardCards(mao, stack!)
+              : [];
 
-            if (pilhaPronta && inStack && !isStackAnchor) return null;
+            // Hide non-anchor cards only in full stacks (2+ cards)
+            if (isPilhaPronta && inStack && !isStackAnchor) return null;
+
+            const angle = Math.max(-4, Math.min(4, (index - (mao.length - 1) / 2) * 4));
 
             return (
               <div
@@ -456,10 +745,15 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
                 key={`${carta.id}_${index}`}
                 role="listitem"
                 data-card-id={carta.id}
-                style={{
-                  transform: `rotate(${Math.max(-12, Math.min(12, (index - (mao.length - 1) / 2) * 4))}deg)`,
-                }}
+                {...(podeOrganizarForaDaVez
+                  ? {
+                      tabIndex: 0,
+                      'aria-label': `Carta ${carta.valor ?? carta.acao ?? ''} ${carta.cor} — organizar pilha; aguarde sua vez para jogar`,
+                    }
+                  : {})}
+                style={{ transform: `rotate(${angle}deg)` }}
                 onPointerDown={(event) => iniciarArrasto(event, carta, primeiraCartaJogavel)}
+                onPointerMove={moverArrastoDePilha}
                 onPointerUp={(event) => soltarNaCarta(event, carta)}
                 onClickCapture={(event) => {
                   const clicouNaPilha =
@@ -478,31 +772,67 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
                   ) {
                     event.preventDefault();
                     event.stopPropagation();
-                    tocarCarta(carta, primeiraCartaJogavel);
+                    if (minhaVez) {
+                      tocarCartaNaVez(carta, primeiraCartaJogavel);
+                    } else {
+                      tocarCartaForaDaVez(carta);
+                    }
                   }
                   suppressNextClickRef.current = false;
                   ultimoPonteiroFoiToqueRef.current = false;
                 }}
                 onKeyDownCapture={(event) => {
-                  if (event.altKey && (event.key === 'Enter' || event.key === ' ')) {
+                  const teclaDeAcao = event.key === 'Enter' || event.key === ' ';
+                  const alvoDentroDaPilha =
+                    event.target instanceof Element &&
+                    event.target.closest('.multiple-discard-inline-stack') !== null;
+                  if (
+                    teclaDeAcao &&
+                    !alvoDentroDaPilha &&
+                    ((event.altKey && minhaVez) ||
+                      (!minhaVez && isEligibleForMultipleDiscard(carta)))
+                  ) {
                     event.preventDefault();
                     event.stopPropagation();
-                    adicionarPorTeclado(carta, primeiraCartaJogavel);
+                    // Alt+Enter: add to stack off-turn, or add to on-turn stack
+                    if (minhaVez) {
+                      setStacks((atuais) => {
+                        if (atuais.length === 0) {
+                          return canSelectMultipleDiscardCard([], carta, mao, primeiraCartaJogavel)
+                            ? [...atuais, [carta.id]]
+                            : atuais;
+                        }
+                        const lastIdx = atuais.length - 1;
+                        const updated = appendCardToMultipleDiscardStack(
+                          atuais[lastIdx]!,
+                          carta,
+                          mao,
+                        );
+                        if (updated === atuais[lastIdx]) return atuais;
+                        const copia = [...atuais];
+                        copia[lastIdx] = updated;
+                        return copia;
+                      });
+                    } else {
+                      tocarCartaForaDaVez(carta);
+                    }
                   }
                 }}
               >
-                {isStackAnchor ? (
+                {isStackAnchor && stack ? (
                   <div
-                    className="multiple-discard-inline-stack"
-                    role="button"
-                    tabIndex={0}
-                    aria-label={`Jogar pilha de descarte múltiplo com ${cartasSelecionadas.length} cartas, na ordem selecionada`}
-                    onClick={jogarPilha}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        jogarPilha();
-                      }
+                    className={`multiple-discard-inline-stack ${stackStateClass(stackIdx)}`}
+                    role="group"
+                    aria-label={`Pilha de descarte múltiplo com ${cartasSelecionadas.length} cartas. Ordem: ${cartasSelecionadas
+                      .map(
+                        (item) =>
+                          `${item.tipo === 'NUMERADA' ? item.valor : (item.acao ?? '')} ${item.cor}`,
+                      )
+                      .join(', ')}${isSending ? ' — enviando' : ''}`}
+                    aria-disabled={isSending}
+                    onClick={() => {
+                      if (isSending) return;
+                      rotarPilha(stackIdx);
                     }}
                     style={{ '--stack-count': cartasSelecionadas.length } as React.CSSProperties}
                   >
@@ -510,20 +840,51 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
                       <span
                         key={cartaDaPilha.id}
                         className="multiple-discard-inline-stack-card"
+                        data-stack-card-id={cartaDaPilha.id}
                         style={{ '--stack-index': stackIndex } as React.CSSProperties}
                         aria-hidden="true"
                       >
                         <CartaView carta={cartaDaPilha} jogavel={false} />
                       </span>
                     ))}
+                    <button
+                      type="button"
+                      className="stack-rotate-button"
+                      disabled={isSending}
+                      aria-label={`Rotacionar pilha. Ordem atual: ${cartasSelecionadas
+                        .map(
+                          (item) =>
+                            `${item.tipo === 'NUMERADA' ? item.valor : (item.acao ?? '')} ${item.cor}`,
+                        )
+                        .join(', ')}`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        rotarPilha(stackIdx);
+                      }}
+                    >
+                      Rotacionar pilha
+                    </button>
+                    {minhaVez && isStackValid(stackIdx) && !isSending && (
+                      <button
+                        type="button"
+                        className="stack-play-button"
+                        aria-label={`Jogar ${cartasSelecionadas.length} cartas`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          executarPilha(stackIdx);
+                        }}
+                      >
+                        Jogar {cartasSelecionadas.length} cartas
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <CartaView
                     carta={carta}
-                    jogavel={cartaJogavel}
-                    selecionada={inStack || selectedCardId === carta.id}
+                    jogavel={minhaVez}
+                    selecionada={selectedCardId === carta.id}
                     {...(!minhaVez ? { motivoBloqueio: 'Aguardando o seu turno.' } : {})}
-                    onClick={() => cartaJogavel && onSelecionarCarta(carta)}
+                    onClick={() => minhaVez && onSelecionarCarta(carta)}
                   />
                 )}
               </div>

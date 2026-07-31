@@ -1153,7 +1153,7 @@ h5 {
   .hand-cards {
     justify-content: flex-start;
     min-height: 158px;
-    padding-top: 20px;
+    padding-top: 64px;
     padding-left: 34px;
   }
   .silence-banner {
@@ -3076,12 +3076,37 @@ h5 {
 .multiple-discard-inline-stack {
   --inline-card-width: 130px;
   --inline-card-height: 185px;
-  --stack-strip-height: 10px;
+  --stack-strip-height: 22px;
   position: relative;
   width: var(--inline-card-width);
   height: var(--inline-card-height);
   cursor: pointer;
   isolation: isolate;
+  border-radius: 12px;
+  /* default visual: prepared (off-turn), golden border */
+  outline: 2px solid rgba(248, 197, 107, 0.7);
+  outline-offset: 2px;
+}
+
+/* Visual state overrides */
+.multiple-discard-inline-stack.stack-prepared {
+  outline-color: rgba(248, 197, 107, 0.7);
+}
+
+.multiple-discard-inline-stack.stack-valid {
+  outline: 2px solid #27ae60;
+  box-shadow: 0 0 12px rgba(39, 174, 96, 0.45);
+}
+
+.multiple-discard-inline-stack.stack-blocked {
+  outline: 2px solid #e67e22;
+  opacity: 0.75;
+}
+
+.multiple-discard-inline-stack.stack-sending {
+  outline: 2px solid rgba(200, 200, 200, 0.4);
+  opacity: 0.55;
+  pointer-events: none;
 }
 
 .multiple-discard-inline-stack:focus-visible {
@@ -3094,12 +3119,24 @@ h5 {
   inset: 0;
   display: block;
   z-index: calc(var(--stack-index) + 1);
-  transform: translateY(max(-56px, calc((var(--stack-count) - var(--stack-index) - 1) * -10px)));
+  transform: translateY(max(-56px, calc((var(--stack-count) - var(--stack-index) - 1) * -22px)));
   transition: transform 180ms ease;
 }
 
-.multiple-discard-inline-stack-card:not(:last-child) .card-wrapper {
+.multiple-discard-inline-stack-card:not(:last-of-type) .card-wrapper {
   clip-path: inset(0 0 calc(100% - var(--stack-strip-height)) 0 round 12px);
+}
+
+.multiple-discard-inline-stack-card:not(:last-of-type) .card-corner-top {
+  top: calc(var(--stack-strip-height) / 2);
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 13px;
+  gap: 2px;
+}
+
+.multiple-discard-inline-stack-card:not(:last-of-type) .card-corner-symbol {
+  display: none;
 }
 
 .multiple-discard-inline-stack-card .card-wrapper {
@@ -3110,14 +3147,93 @@ h5 {
     0 4px 15px rgba(0, 0, 0, 0.4);
 }
 
+/* Contextual play button inside a valid on-turn stack */
+.stack-play-button {
+  position: absolute;
+  bottom: -22px;
+  left: 50%;
+  min-width: 96px;
+  min-height: 44px;
+  transform: translateX(-50%);
+  z-index: 20;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 10px;
+  background: #27ae60;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.stack-play-button:hover {
+  background: #219a52;
+}
+
+.game-layout > .hand-container .multiple-discard-inline-stack > .stack-play-button {
+  left: -8px;
+  transform: none;
+}
+
+.stack-rotate-button {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 21;
+  width: 44px;
+  height: 44px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 10px;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.stack-rotate-button:focus-visible {
+  opacity: 1;
+  outline: 3px solid #f8c56b;
+  background: #102b22;
+  color: #fff;
+  font-size: 9px;
+}
+
+/* Fix: online-match-layout card size should match stack dimensions */
+.online-match-layout .online-hand-container .multiple-discard-inline-stack {
+  --inline-card-width: 82px;
+  --inline-card-height: 118px;
+}
+
 .online-hand-container .multiple-discard-inline-stack {
-  --inline-card-width: 92px;
-  --inline-card-height: 132px;
+  --inline-card-width: 82px;
+  --inline-card-height: 118px;
+}
+
+/* Drop zone for drag-to-execute in Online mode */
+.discard-drop-zone {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 50%;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(39, 174, 96, 0.18);
+  border: 2px dashed #27ae60;
+  border-radius: 18px;
+  color: #27ae60;
+  font-weight: 800;
+  font-size: 15px;
+  pointer-events: none;
+  text-align: center;
 }
 
 @media (max-width: 600px) {
   .hand-container .hand-cards,
-  .online-hand-container .hand-cards {
+  .online-hand-container .hand-cards,
+  .online-match-layout .online-hand-container .hand-cards {
     min-height: 218px;
     padding-top: 64px;
     overflow-y: visible;
@@ -3126,14 +3242,23 @@ h5 {
 
   .hand-container .multiple-discard-inline-stack,
   .online-hand-container .multiple-discard-inline-stack {
-    --stack-strip-height: 9px;
+    --stack-strip-height: 22px;
   }
 
   .multiple-discard-inline-stack-card {
-    transform: translateY(max(-48px, calc((var(--stack-count) - var(--stack-index) - 1) * -9px)));
+    transform: translateY(max(-48px, calc((var(--stack-count) - var(--stack-index) - 1) * -22px)));
   }
 
   .online-hand-container {
     min-height: 250px;
+  }
+
+  .online-match-layout .online-hand-container .multiple-discard-inline-stack {
+    --inline-card-width: 74px;
+    --inline-card-height: 106px;
+  }
+
+  .online-match-layout .online-hand-container .hand-cards {
+    overflow-y: visible;
   }
 }
