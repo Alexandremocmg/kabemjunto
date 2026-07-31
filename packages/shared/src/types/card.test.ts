@@ -26,8 +26,14 @@ import type {
   EstadoPartida,
   EstadoPartidaPublico,
   EventoPartida,
+  JanelaInterceptacao,
 } from './game.js';
-import type { SocketEventMap } from './socket-events.js';
+import type {
+  SocketEventMap,
+  ClientInterceptarEvent,
+  ServerInterceptacaoAbertaEvent,
+  ServerInterceptacaoResolvidaEvent,
+} from './socket-events.js';
 
 describe('constantes de domínio (card.ts)', () => {
   it('CORES tem 5 valores: 4 coloridas + NEUTRO', () => {
@@ -170,6 +176,96 @@ describe('objetos de exemplo compilam (compile-time type check)', () => {
       cartaId: '7-LARANJA',
     };
     expect(e.tipo).toBe('CARTA_JOGADA');
+  });
+
+  it('JanelaInterceptacao (fase de Corta-Frente) não expõe mãos privadas', () => {
+    const janela: JanelaInterceptacao = {
+      janelaId: 'janela-1',
+      cartaAlvoId: '7-AZUL',
+      jogadorOrigemId: 'jog-1',
+      fechaEm: Date.now() + 3000,
+      proximaVezId: 'jog-2',
+      revisao: 1,
+    };
+    expect(janela.janelaId).toBe('janela-1');
+    // Compile-time: EstadoPartida aceita `interceptacao` opcional.
+    const estadoComJanela: EstadoPartida = {
+      partidaId: 'part-1',
+      salaId: 'sala-1',
+      jogadores: [],
+      monteCompra: [],
+      monteDescarte: [],
+      vezDe: 'jog-1',
+      sentido: 1,
+      corAtiva: 'AZUL',
+      ataqueAcumulado: 0,
+      ataqueStack: [],
+      silencio: { ativo: false, jogadoresQuebraram: [] },
+      historico: [],
+      finalizada: false,
+      interceptacao: janela,
+    };
+    expect(estadoComJanela.interceptacao?.janelaId).toBe('janela-1');
+    // Compile-time: EstadoPartidaPublico também aceita `interceptacao`
+    // (sem revelar cartas privadas — só metadados públicos da janela).
+    const publico: EstadoPartidaPublico = {
+      partidaId: 'part-1',
+      salaId: 'sala-1',
+      jogadores: [],
+      topo: {
+        id: '7-AZUL',
+        cor: 'AZUL',
+        tipo: 'NUMERADA',
+        valor: 7,
+        raridade: 'COMUM',
+        colecao: 'base-v1',
+        efeito_texto_curto: '7',
+        efeito_texto_longo: 'Carta numérica',
+      },
+      quantidadeMonteCompra: 10,
+      vezDe: 'jog-1',
+      sentido: 1,
+      corAtiva: 'AZUL',
+      ataqueAcumulado: 0,
+      ataqueStack: [],
+      silencio: { ativo: false, jogadoresQuebraram: [] },
+      finalizada: false,
+      interceptacao: janela,
+    };
+    expect(publico.interceptacao?.proximaVezId).toBe('jog-2');
+  });
+
+  it('ClientInterceptarEvent e eventos de servidor de interceptação são indexáveis via SocketEventMap', () => {
+    const clientEvt: ClientInterceptarEvent = { janelaId: 'janela-1', cartaId: 'carta-x' };
+    expect(clientEvt.janelaId).toBe('janela-1');
+
+    const aberta: ServerInterceptacaoAbertaEvent = {
+      janela: {
+        janelaId: 'janela-1',
+        cartaAlvoId: '7-AZUL',
+        jogadorOrigemId: 'jog-1',
+        fechaEm: Date.now() + 3000,
+        proximaVezId: 'jog-2',
+        revisao: 1,
+      },
+    };
+    expect(aberta.janela.janelaId).toBe('janela-1');
+
+    const resolvida: ServerInterceptacaoResolvidaEvent = {
+      janelaId: 'janela-1',
+      resultado: 'INTERCEPTADA',
+      interceptadorId: 'jog-2',
+      proximaVezId: 'jog-2',
+    };
+    expect(resolvida.resultado).toBe('INTERCEPTADA');
+
+    type EventosChave = keyof SocketEventMap;
+    const _clientKey: EventosChave = 'client:interceptar';
+    const _abertaKey: EventosChave = 'server:interceptacao:aberta';
+    const _resolvidaKey: EventosChave = 'server:interceptacao:resolvida';
+    expect(_clientKey).toBe('client:interceptar');
+    expect(_abertaKey).toBe('server:interceptacao:aberta');
+    expect(_resolvidaKey).toBe('server:interceptacao:resolvida');
   });
 });
 

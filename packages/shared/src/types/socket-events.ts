@@ -13,7 +13,12 @@
 
 import type { Carta, Cor, Acao } from './card.js';
 import type { JogadorId, JogadorPublico } from './player.js';
-import type { EstadoPartidaPublico, SalaId, VisibilidadeSala } from './game.js';
+import type {
+  EstadoPartidaPublico,
+  SalaId,
+  VisibilidadeSala,
+  JanelaInterceptacao,
+} from './game.js';
 
 // ─── Cliente → Servidor ────────────────────────────────────────────
 
@@ -87,6 +92,16 @@ export type ClientAbandonarPartidaEvent = Record<string, never>;
 
 /** Host quer iniciar a partida. */
 export type ClientIniciarPartidaEvent = Record<string, never>;
+
+/**
+ * Jogador quer interceptar a carta alvo de uma janela de Corta-Frente
+ * ativa, jogando uma carta idêntica (mesma cor e mesmo número/símbolo)
+ * fora da própria vez.
+ */
+export interface ClientInterceptarEvent {
+  janelaId: string;
+  cartaId: string;
+}
 
 // ─── Servidor → Cliente ────────────────────────────────────────────
 
@@ -195,6 +210,23 @@ export interface ServerErroEvent {
   mensagem: string;
 }
 
+/** Servidor abre uma janela de Corta-Frente após uma carta ser descartada. */
+export interface ServerInterceptacaoAbertaEvent {
+  janela: JanelaInterceptacao;
+}
+
+/**
+ * Servidor resolveu uma janela de Corta-Frente — seja por interceptação
+ * bem-sucedida, seja por expiração do prazo. `interceptadorId` só existe
+ * quando `resultado === 'INTERCEPTADA'`.
+ */
+export interface ServerInterceptacaoResolvidaEvent {
+  janelaId: string;
+  resultado: 'INTERCEPTADA' | 'EXPIRADA';
+  interceptadorId?: JogadorId;
+  proximaVezId: JogadorId;
+}
+
 /** Mapa de tipos de evento para o Socket.IO. */
 export interface SocketEventMap {
   // client → server
@@ -209,6 +241,7 @@ export interface SocketEventMap {
   'client:sair:sala': ClientSairSalaEvent;
   'client:abandonar:partida': ClientAbandonarPartidaEvent;
   'client:iniciar:partida': ClientIniciarPartidaEvent;
+  'client:interceptar': ClientInterceptarEvent;
   // server → client
   'server:estado:atualizado': ServerEstadoAtualizadoEvent;
   'server:sessao:emitida': ServerSessaoEmitidaEvent;
@@ -223,6 +256,8 @@ export interface SocketEventMap {
   'server:sala:atualizada': ServerSalaAtualizadaEvent;
   'server:mao:atualizada': ServerMaoAtualizadaEvent;
   'server:erro': ServerErroEvent;
+  'server:interceptacao:aberta': ServerInterceptacaoAbertaEvent;
+  'server:interceptacao:resolvida': ServerInterceptacaoResolvidaEvent;
 }
 
 /**

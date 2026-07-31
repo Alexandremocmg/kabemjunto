@@ -68,6 +68,45 @@ export interface Sala {
  *   - +4 sobre +4 OK
  * - `silencio.ativo` é desativado na próxima carta no topo (qualquer).
  */
+/** ID opaco de uma janela de interceptação (Corta-Frente). */
+export type JanelaInterceptacaoId = string;
+
+/**
+ * Fase explícita e persistível de "Corta-Frente" (interceptação fora da
+ * vez). Aberta pelo servidor sempre que uma carta é descartada e existe a
+ * possibilidade teórica de outro jogador ter uma carta 100% idêntica
+ * (mesma cor e mesmo número/símbolo) na mão.
+ *
+ * Regras (Fase 2 — Corta-Frente V1):
+ * - Qualquer jogador (exceto quem acabou de descartar) pode interceptar se
+ *   tiver, na própria mão, uma carta idêntica a `cartaAlvoId`.
+ * - O primeiro pedido válido que o servidor recebe antes de `fechaEm`
+ *   vence ("server-first"); não há compensação de latência de rede.
+ * - Interceptação bem-sucedida cancela a vez do jogador atual e o jogo
+ *   segue a partir do interceptador, respeitando `sentido`.
+ * - Se a janela expira sem interceptação, o turno segue para
+ *   `proximaVezId` (calculado no momento da abertura da janela).
+ * - `revisao` protege contra resolução de estado obsoleto (uma janela
+ *   antiga/já resolvida não pode reabrir ou reprocessar).
+ *
+ * IMPORTANTE: esta fase não expõe qual jogador tem carta elegível nem o
+ * conteúdo de nenhuma mão — apenas metadados públicos (o alvo, o prazo e
+ * o próximo turno por timeout). É seguro incluir em `EstadoPartidaPublico`.
+ */
+export interface JanelaInterceptacao {
+  janelaId: JanelaInterceptacaoId;
+  /** ID da carta recém-descartada que pode ser interceptada. */
+  cartaAlvoId: string;
+  /** Jogador que descartou a carta alvo (não pode interceptar a própria carta). */
+  jogadorOrigemId: JogadorId;
+  /** Timestamp absoluto (autoritativo, do servidor) em que a janela fecha. */
+  fechaEm: number;
+  /** Próximo turno caso a janela expire sem interceptação. */
+  proximaVezId: JogadorId;
+  /** Incrementada a cada resolução; usada para descartar respostas obsoletas. */
+  revisao: number;
+}
+
 export interface EstadoPartida {
   partidaId: PartidaId;
   salaId: SalaId;
@@ -110,6 +149,11 @@ export interface EstadoPartida {
   finalizada: boolean;
   /** ID do jogador que venceu (último a descartar todas as cartas). */
   vencedor?: JogadorId;
+  /**
+   * Janela ativa de interceptação (Corta-Frente), se houver. Ausente
+   * significa que ninguém pode interceptar no momento.
+   */
+  interceptacao?: JanelaInterceptacao;
 }
 
 /**
@@ -184,6 +228,29 @@ export type EventoPartida =
       jogadorId: JogadorId;
       cartasSolicitadas: number;
       cartasObtidas: number;
+    }
+  | {
+      /** Janela de Corta-Frente aberta após uma carta ser descartada. */
+      tipo: 'INTERCEPTACAO_ABERTA';
+      timestamp: number;
+      janelaId: string;
+      cartaAlvoId: string;
+      jogadorOrigemId: JogadorId;
+    }
+  | {
+      /** Um jogador interceptou com sucesso a carta alvo da janela. */
+      tipo: 'INTERCEPTACAO_ACEITA';
+      timestamp: number;
+      janelaId: string;
+      interceptadorId: JogadorId;
+      cartaId: string;
+    }
+  | {
+      /** Janela expirou sem interceptação; turno segue normalmente. */
+      tipo: 'INTERCEPTACAO_EXPIRADA';
+      timestamp: number;
+      janelaId: string;
+      proximaVezId: JogadorId;
     };
 
 /**
@@ -206,4 +273,10 @@ export interface EstadoPartidaPublico {
   silencio: EstadoPartida['silencio'];
   finalizada: boolean;
   vencedor?: JogadorId;
+  /**
+   * Janela ativa de interceptação (Corta-Frente), se houver. Seguro expor
+   * publicamente: não revela qual jogador tem carta elegível nem
+   * conteúdo de mão — apenas o alvo, prazo e turno de fallback.
+   */
+  interceptacao?: JanelaInterceptacao;
 }
