@@ -153,7 +153,7 @@ export interface EstadoPartida {
    * Janela ativa de interceptação (Corta-Frente), se houver. Ausente
    * significa que ninguém pode interceptar no momento.
    */
-  interceptacao?: JanelaInterceptacao;
+  interceptacao?: JanelaInterceptacao | undefined;
 }
 
 /**
@@ -278,5 +278,5 @@ export interface EstadoPartidaPublico {
    * publicamente: não revela qual jogador tem carta elegível nem
    * conteúdo de mão — apenas o alvo, prazo e turno de fallback.
    */
-  interceptacao?: JanelaInterceptacao;
+  interceptacao?: JanelaInterceptacao | undefined;
 }

@@ -760,3 +760,94 @@ test('layout online fullscreen nao tem overflow nem colisoes entre assentos, bar
   await host.context().close();
   await convidado.context().close();
 });
+
+test('mobile 390x844 local — Corta-Frente: humano intercepta descarte elegível do bot', async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true,
+  });
+  const page = await context.newPage();
+  const carta = (id: string, cor: Carta['cor'], valor: number): Carta => ({
+    id,
+    tipo: 'NUMERADA',
+    cor,
+    valor,
+    raridade: 'COMUM',
+    colecao: 'base-v1',
+    efeito_texto_curto: `${valor}`,
+    efeito_texto_longo: `Carta ${valor}`,
+  });
+  const cartaIdentica = carta('sete-azul-humano', 'AZUL', 7);
+  const topo = carta('sete-azul-bot', 'AZUL', 7);
+  const estado: EstadoPartida = {
+    partidaId: 'partida-corta-frente',
+    salaId: 'sala-corta-frente',
+    jogadores: [
+      {
+        id: 'humano',
+        nome: 'Você',
+        mao: [cartaIdentica, carta('dois-verde', 'VERDE', 2)],
+        isBot: false,
+        conectado: true,
+        disseUno: false,
+        avatar: '\ud83d\udc64',
+        pontos: 0,
+      },
+      {
+        id: 'bot',
+        nome: 'Bot',
+        mao: [carta('tres-preto', 'PRETO', 3)],
+        isBot: true,
+        conectado: true,
+        disseUno: false,
+        avatar: '\ud83e\udd16',
+        pontos: 0,
+      },
+    ],
+    monteCompra: [carta('reserva', 'AZUL', 1)],
+    monteDescarte: [topo],
+    vezDe: 'humano',
+    sentido: 1,
+    corAtiva: 'AZUL',
+    ataqueAcumulado: 0,
+    ataqueStack: [],
+    silencio: { ativo: false, jogadoresQuebraram: [] },
+    // Histórico já registra que o BOT acabou de descartar `topo` — dispara a
+    // janela de Corta-Frente para o humano interceptar, mesmo não sendo a
+    // vez dele (vezDe permanece 'humano' propositalmente: a interceptação é
+    // uma ação fora-de-vez independente de quem está marcado como vezDe).
+    historico: [
+      { tipo: 'CARTA_JOGADA', timestamp: Date.now(), jogadorId: 'bot', cartaId: topo.id },
+    ],
+    finalizada: false,
+  };
+
+  await page.addInitScript((fixture) => {
+    window.sessionStorage.setItem('kabemjunto.modo', 'local');
+    window.sessionStorage.setItem('kabemjunto.estado', JSON.stringify(fixture));
+  }, estado);
+
+  await page.goto('/');
+
+  const banner = page.locator('.interceptacao-banner');
+  await expect(banner).toBeVisible();
+  await expect(banner).toContainText('Corta-Frente');
+
+  const botaoInterceptar = page.locator('.interceptacao-carta-botao');
+  await expect(botaoInterceptar).toBeVisible();
+  await botaoInterceptar.click();
+
+  // Após interceptar, a janela deve fechar e a carta idêntica deve sair da
+  // mão do humano e ir para o topo do descarte.
+  await expect(banner).toHaveCount(0);
+  await expect(page.locator('.discard-slot .card-wrapper')).toHaveAttribute(
+    'aria-label',
+    'Carta 7 AZUL',
+  );
+  await expect(page.locator('[data-card-id="sete-azul-humano"]')).toHaveCount(0);
+
+  await context.close();
+});

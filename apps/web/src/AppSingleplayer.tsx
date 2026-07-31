@@ -8,11 +8,17 @@ import {
   jogarCarta,
   jogarMultiplasCartas,
   turnoBot,
+  abrirJanelaDeInterceptacao,
+  interceptar,
+  expirarJanelaDeInterceptacao,
+  isEligibleForInterception,
+  saoCartasIdenticas,
 } from './services/gameEngine';
 import { Lobby } from './components/Lobby';
 import { HUDJogador } from './components/HUDJogador';
 import { MesaDeJogo } from './components/MesaDeJogo';
 import { MaoDoJogador } from './components/MaoDoJogador';
+import { InterceptacaoBanner } from './components/InterceptacaoBanner';
 import { ModalEscolhaCor } from './components/ModalEscolhaCor';
 import { SelecionarAlvoTrocaMao } from './components/SelecionarAlvoTrocaMao';
 import { RegraDoSilencioBanner } from './components/RegraDoSilencioBanner';
@@ -21,6 +27,8 @@ import { TutorialModal } from './components/TutorialModal';
 import { audioService } from './services/audioService';
 import { EventoPartidaOverlay } from './components/EventoPartidaOverlay';
 import { descreverZeroMais } from './services/zeroPlusFeedback';
+
+const JANELA_INTERCEPTACAO_MS = 4000;
 
 type Feedback = {
   tipo: 'info' | 'erro' | 'sucesso';
@@ -115,14 +123,93 @@ export const App: React.FC = () => {
     return () => window.clearTimeout(timer);
   }, [flyingCarta]);
 
+  // ── Corta-Frente (interceptação fora da vez) ────────────────────────────
+  // O jogador humano local é sempre quem NÃO é bot (modo Bots) ou o jogador
+  // da vez em HOTSEAT — a mesma limitação arquitetural documentada para as
+  // pilhas preparadas: HOTSEAT com 2+ humanos só renderiza a mão de quem
+  // está na vez, então a interceptação "fora da vez" fica indisponível para
+  // o segundo humano nesse modo.
+  const humanosNaPartida = estado?.jogadores.filter((j) => !j.isBot) ?? [];
+  const jogadorHumanoLocalId =
+    humanosNaPartida.length === 1 ? humanosNaPartida[0]!.id : (estado?.vezDe ?? null);
+
   useEffect(() => {
-    if (!estado || estado.finalizada) return undefined;
+    if (!estado || estado.finalizada || estado.interceptacao) return undefined;
+    const topo = estado.monteDescarte[estado.monteDescarte.length - 1];
+    const jogadorQueDescartou = estado.historico.at(-1);
+    if (
+      !topo ||
+      jogadorQueDescartou?.tipo !== 'CARTA_JOGADA' ||
+      jogadorQueDescartou.cartaId !== topo.id ||
+      !isEligibleForInterception(topo)
+    ) {
+      return undefined;
+    }
+    // Só abre janela se existe pelo menos um outro jogador (potencial
+    // interceptador) além de quem descartou.
+    if (estado.jogadores.length < 2) return undefined;
+
+    const janelaId = `janela-${Date.now()}-${topo.id}`;
+    const fechaEm = Date.now() + JANELA_INTERCEPTACAO_MS;
+    setEstado((prev) =>
+      prev
+        ? abrirJanelaDeInterceptacao(prev, {
+            cartaAlvoId: topo.id,
+            jogadorOrigemId: jogadorQueDescartou.jogadorId,
+            janelaId,
+            fechaEm,
+            proximaVezId: prev.vezDe,
+          })
+        : null,
+    );
+    return undefined;
+  }, [estado?.monteDescarte, estado?.historico.length]);
+
+  useEffect(() => {
+    const janela = estado?.interceptacao;
+    if (!janela) return undefined;
+    const restante = janela.fechaEm - Date.now();
+    const timer = window.setTimeout(
+      () => {
+        setEstado((prev) =>
+          prev?.interceptacao?.janelaId === janela.janelaId
+            ? expirarJanelaDeInterceptacao(prev, janela.janelaId)
+            : prev,
+        );
+      },
+      Math.max(0, restante),
+    );
+    return () => window.clearTimeout(timer);
+  }, [estado?.interceptacao]);
+
+  const handleInterceptar = (cartaId: string) => {
+    if (!estado?.interceptacao || !jogadorHumanoLocalId) return;
+    try {
+      const novoEstado = interceptar(estado, {
+        janelaId: estado.interceptacao.janelaId,
+        cartaId,
+        jogadorId: jogadorHumanoLocalId,
+      });
+      setEstado(novoEstado);
+      mostrarFeedback({ tipo: 'sucesso', texto: 'Corta-Frente! Você interceptou a jogada.' });
+    } catch (err) {
+      mostrarFeedback({
+        tipo: 'erro',
+        texto: err instanceof Error ? err.message : String(err),
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (!estado || estado.finalizada || estado.interceptacao) return undefined;
 
     const jogadorAtual = estado.jogadores.find((j: Jogador) => j.id === estado.vezDe);
     if (jogadorAtual?.isBot) {
       mostrarFeedback({ tipo: 'info', texto: `${jogadorAtual.nome} esta pensando...` });
       const timer = window.setTimeout(() => {
-        setEstado((prev: EstadoPartida | null) => (prev ? turnoBot(prev) : null));
+        setEstado((prev: EstadoPartida | null) =>
+          prev && !prev.interceptacao ? turnoBot(prev) : prev,
+        );
       }, 750);
       return () => window.clearTimeout(timer);
     }
@@ -356,6 +443,26 @@ export const App: React.FC = () => {
       />
 
       {estado.silencio?.ativo && <RegraDoSilencioBanner />}
+
+      {estado.interceptacao &&
+        jogadorHumanoLocalId &&
+        estado.interceptacao.jogadorOrigemId !== jogadorHumanoLocalId &&
+        (() => {
+          const cartaAlvo = estado.monteDescarte[estado.monteDescarte.length - 1];
+          const jogadorLocal = estado.jogadores.find((j) => j.id === jogadorHumanoLocalId);
+          if (!cartaAlvo || !jogadorLocal) return null;
+          const cartasElegiveis = jogadorLocal.mao.filter((carta) =>
+            saoCartasIdenticas(carta, cartaAlvo),
+          );
+          return (
+            <InterceptacaoBanner
+              cartaAlvo={cartaAlvo}
+              fechaEm={estado.interceptacao!.fechaEm}
+              cartasElegiveis={cartasElegiveis}
+              onInterceptar={handleInterceptar}
+            />
+          );
+        })()}
 
       <MesaDeJogo estado={estado} onComprarCarta={handleComprar} />
 

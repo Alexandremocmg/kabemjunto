@@ -437,6 +437,50 @@ h5 {
   z-index: 15;
 }
 
+/* Corta-Frente interception banner */
+.interceptacao-banner {
+  position: absolute;
+  top: 75px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(340px, calc(100% - 24px));
+  background: rgba(196, 60, 40, 0.95);
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 16px;
+  font-family: var(--font-title);
+  font-weight: 700;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 0 20px rgba(196, 60, 40, 0.7);
+  z-index: 20;
+  text-align: center;
+}
+
+.interceptacao-cartas {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.interceptacao-carta-botao {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  width: 60px;
+  height: 86px;
+}
+
+.interceptacao-carta-botao .card-wrapper {
+  width: 60px !important;
+  height: 86px !important;
+}
+
 @keyframes bounceIn {
   0% {
     opacity: 0;

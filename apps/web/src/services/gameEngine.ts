@@ -20,6 +20,11 @@ import {
   executarDescarteMultiplo,
   comprarCartas,
   executarTurnoBot,
+  abrirJanelaInterceptacao,
+  interceptar as interceptarPure,
+  resolverJanelaExpirada,
+  isEligibleForInterception,
+  saoCartasIdenticas,
   configureTelemetry,
   logEvent,
   logEvents,
@@ -50,7 +55,7 @@ configureTelemetry({
 // ─────────────────────────────────────────────────────────────────────
 
 export { embaralharPure as embaralhar };
-export { validarJogada };
+export { validarJogada, isEligibleForInterception, saoCartasIdenticas };
 export type { EstadoPartida, Carta, Cor };
 
 // ─────────────────────────────────────────────────────────────────────
@@ -143,6 +148,47 @@ export function turnoBot(estado: EstadoPartida): EstadoPartida {
   tocarSFX(resultado.sfx);
   logEvents(resultado.eventos);
   return resultado.novoEstado;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Corta-Frente (interceptação fora da vez) — modo Local
+// ─────────────────────────────────────────────────────────────────────
+
+/** Abre uma janela de Corta-Frente para a carta recém-descartada. */
+export function abrirJanelaDeInterceptacao(
+  estado: EstadoPartida,
+  opcoes: {
+    cartaAlvoId: string;
+    jogadorOrigemId: JogadorId;
+    janelaId: string;
+    fechaEm: number;
+    proximaVezId: JogadorId;
+  },
+): EstadoPartida {
+  const novoEstado = abrirJanelaInterceptacao({ estado, ...opcoes });
+  logEvents(novoEstado.historico.slice(estado.historico.length));
+  return novoEstado;
+}
+
+/** Tenta interceptar a janela ativa com uma carta idêntica da mão do jogador. */
+export function interceptar(
+  estado: EstadoPartida,
+  opcoes: { janelaId: string; cartaId: string; jogadorId: JogadorId },
+): EstadoPartida {
+  const resultado = interceptarPure({ estado, ...opcoes });
+  logEvents(resultado.eventos);
+  audioService.play('descarte');
+  return resultado.novoEstado;
+}
+
+/** Resolve a janela de Corta-Frente por expiração de prazo (timeout local). */
+export function expirarJanelaDeInterceptacao(
+  estado: EstadoPartida,
+  janelaId: string,
+): EstadoPartida {
+  const novoEstado = resolverJanelaExpirada({ estado, janelaId });
+  logEvents(novoEstado.historico.slice(estado.historico.length));
+  return novoEstado;
 }
 
 // ─────────────────────────────────────────────────────────────────────

@@ -26,6 +26,17 @@ export {
   executarDescarteMultiplo,
   type ExecutarDescarteMultiploOpcoes,
 } from './multiple-discard.js';
+export {
+  abrirJanelaInterceptacao,
+  interceptar,
+  resolverJanelaExpirada,
+  isEligibleForInterception,
+  saoCartasIdenticas,
+  type AbrirJanelaOpcoes,
+  type InterceptarOpcoes,
+  type ResultadoInterceptacao,
+  type ResolverJanelaExpiradaOpcoes,
+} from './interception.js';
 export { comprarCartas, type ComprarOpcoes, type ResultadoCompra } from './buy-cards.js';
 export { penalizarQuebraSilencio, type ResultadoQuebraSilencio } from './silence.js';
 export { executarTurnoBot, type BotOpcoes, type NivelBot, type ResultadoBot } from './bot-turn.js';
