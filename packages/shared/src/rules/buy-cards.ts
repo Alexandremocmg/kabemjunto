@@ -19,7 +19,7 @@
 import type { Carta } from '../types/card.js';
 import type { EstadoPartida, EventoPartida } from '../types/game.js';
 import { embaralhar } from './shuffle.js';
-import { validarJogada } from './validate-play.js';
+import { validarJogada, temJogadaQueBloqueiaCompra } from './validate-play.js';
 import type { SfxEvent } from './execute-play.js';
 
 export interface ResultadoCompra {
@@ -79,10 +79,7 @@ export function comprarCartas(opcoes: ComprarOpcoes): ResultadoCompra {
   // comprar com uma carta válida na mão abriria uma forma de "fishing"
   // (comprar de novo, repetidamente, tentando uma carta melhor) que a
   // regra canônica não prevê.
-  if (
-    !pagandoAtaque &&
-    jogador.mao.some((carta) => validarJogada(estado, carta, jogadorId).valida)
-  ) {
+  if (!pagandoAtaque && temJogadaQueBloqueiaCompra(estado, jogador.mao, jogadorId)) {
     throw new Error('Você tem uma carta válida na mão — jogue-a em vez de comprar.');
   }
 
@@ -175,6 +172,13 @@ export function comprarCartas(opcoes: ComprarOpcoes): ResultadoCompra {
 
   // GDD §7/§5.2: só a compra voluntária de UMA carta jogável conserva o
   // turno. Pagar ataque sempre perde, e monte esgotado passa a vez.
+  //
+  // Nota (revisão Mavis): intencionalmente usa `validarJogada` "cru" aqui,
+  // SEM excluir TROCA_MAO como `temJogadaQueBloqueiaCompra` faz acima. São
+  // regras diferentes: a exceção de produto é só sobre TROCA_MAO na mão
+  // não bloquear o botão de comprar — uma vez que o jogador já comprou e
+  // a carta obtida do monte é TROCA_MAO, ela conta normalmente para a
+  // decisão de manter o turno, igual qualquer outra carta jogável.
   const unicaCarta = cartasCompradas.length === 1 ? cartasCompradas[0] : undefined;
   const turnoMantido =
     !pagandoAtaque &&

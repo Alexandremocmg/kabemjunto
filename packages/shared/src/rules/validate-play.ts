@@ -129,5 +129,26 @@ export function cartasAPagar(estado: EstadoPartida): number {
   return Math.max(estado.ataqueAcumulado, 1);
 }
 
+/**
+ * Helper: determina se o jogador tem alguma carta que **bloqueia** a
+ * compra voluntária (GDD §7: "Sem carta válida: comprar 1 do Monte de
+ * Compra"). Usado tanto pela UI (para habilitar/desabilitar o monte)
+ * quanto pelo motor (`buy-cards.ts`), para manter a mesma decisão em
+ * todos os lugares.
+ *
+ * Exceção de produto: TROCA_MAO é tecnicamente sempre jogável (carta
+ * NEUTRA), mas o jogador não é obrigado a trocar de mão só para poder
+ * comprar — ela nunca conta como bloqueio de compra.
+ */
+export function temJogadaQueBloqueiaCompra(
+  estado: EstadoPartida,
+  mao: readonly Carta[],
+  jogadorId: JogadorId,
+): boolean {
+  return mao.some(
+    (carta) => carta.acao !== 'TROCA_MAO' && validarJogada(estado, carta, jogadorId).valida,
+  );
+}
+
 /** Helper: tipo só para o compilador não reclamar de imports não usados. */
 export type _AcaoInterna = Acao;

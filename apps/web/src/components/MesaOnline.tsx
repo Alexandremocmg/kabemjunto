@@ -158,8 +158,13 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
   const minhaVez = estado.vezDe === jogadorId;
   const podeJogarCarta = (carta: Carta): boolean =>
     validarJogadaPublica(estado, carta, jogadorId ?? '').valida;
+  // GDD §7: comprar só existe pra quem não tem carta válida na mão. TROCA_MAO
+  // nunca bloqueia a compra — o jogador não é obrigado a trocar de mão só
+  // para poder comprar (decisão de produto, ver buy-cards.ts no shared).
   const temCartaValida =
-    minhaVez && estado.ataqueAcumulado === 0 && mao.some((carta) => podeJogarCarta(carta));
+    minhaVez &&
+    estado.ataqueAcumulado === 0 &&
+    mao.some((carta) => carta.acao !== 'TROCA_MAO' && podeJogarCarta(carta));
   const jogadorAtual = estado.jogadores.find((jogador) => jogador.id === estado.vezDe);
   const jogadorLocal = estado.jogadores.find((jogador) => jogador.id === jogadorId);
   const jogadoresRemotos = estado.jogadores.filter((jogador) => jogador.id !== jogadorId);

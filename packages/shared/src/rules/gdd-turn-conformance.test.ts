@@ -122,6 +122,51 @@ describe('GDD §7 / §5.2 — compra de 1 carta e posse do turno', () => {
     );
   });
 
+  it('permite compra voluntária quando a única carta "jogável" na mão é TROCA_MAO (decisão de produto)', () => {
+    // Jogador não é obrigado a trocar de mão: TROCA_MAO não bloqueia a
+    // compra, mesmo sendo tecnicamente uma carta neutra sempre jogável.
+    const trocaMao = {
+      id: 'troca-mao-teste',
+      tipo: 'NEUTRA' as const,
+      cor: 'NEUTRO' as const,
+      acao: 'TROCA_MAO' as const,
+      raridade: 'RARA' as const,
+      colecao: 'base-v1',
+      efeito_texto_curto: 'Troca Mão',
+      efeito_texto_longo: 'Escolha um jogador e troque toda a sua mão com a dele!',
+    };
+    const estado = estadoBase({
+      jogadores: [
+        {
+          id: 'j1',
+          nome: 'J1',
+          mao: [trocaMao],
+          isBot: false,
+          conectado: true,
+          disseUno: false,
+          avatar: '⭐',
+          pontos: 0,
+        },
+        {
+          id: 'j2',
+          nome: 'J2',
+          mao: [cartaNum('VERDE', 3)],
+          isBot: false,
+          conectado: true,
+          disseUno: false,
+          avatar: '⭐',
+          pontos: 0,
+        },
+      ],
+    });
+
+    const r = comprarCartas({ estado });
+    expect(r.cartasCompradasIds).toHaveLength(1);
+    // TROCA_MAO permanece na mão — apenas não bloqueia o botão de compra.
+    const jogadorAtualizado = r.novoEstado.jogadores.find((j) => j.id === 'j1');
+    expect(jogadorAtualizado?.mao.some((c) => c.id === 'troca-mao-teste')).toBe(true);
+  });
+
   it('permite pagar ataque mesmo com carta válida na mão (pagar é diferente de comprar voluntário)', () => {
     const estado = estadoBase({
       jogadores: [

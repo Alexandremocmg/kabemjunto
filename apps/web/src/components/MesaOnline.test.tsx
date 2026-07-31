@@ -126,6 +126,51 @@ function renderMesa(onSelecionarCarta = vi.fn(), onPlayMultiple = vi.fn()) {
 }
 
 describe('MesaOnline — toque e descarte múltiplo', () => {
+  it('permite comprar do monte quando a única carta jogável na mão é TROCA_MAO', () => {
+    const trocaMao: Carta = {
+      id: 'troca-mao',
+      tipo: 'NEUTRA',
+      cor: 'NEUTRO',
+      acao: 'TROCA_MAO',
+      raridade: 'RARA',
+      colecao: 'base-v1',
+      efeito_texto_curto: 'Troca Mão',
+      efeito_texto_longo: 'Escolha um jogador e troque toda a sua mão com a dele!',
+    };
+    const maoComTroca: ReadonlyArray<Carta> = [trocaMao];
+    const estadoComTroca: EstadoPartidaPublico = {
+      ...estado,
+      jogadores: estado.jogadores.map((j) =>
+        j.id === 'jogador' ? { ...j, quantidadeCartas: maoComTroca.length } : j,
+      ),
+    };
+
+    Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+    const container = document.createElement('div');
+    const root = createRoot(container);
+    const onComprarCarta = vi.fn();
+    act(() => {
+      root.render(
+        <MesaOnline
+          estado={estadoComTroca}
+          mao={maoComTroca}
+          mensagens={[]}
+          jogadorId="jogador"
+          onSelecionarCarta={() => {}}
+          onPlayMultiple={() => {}}
+          onComprarCarta={onComprarCarta}
+          onEnviarFalaRapida={() => {}}
+        />,
+      );
+    });
+
+    const deckSlot = container.querySelector<HTMLElement>('.deck-slot');
+    expect(deckSlot?.getAttribute('title')).toBe('Comprar carta');
+    expect(deckSlot?.textContent).not.toContain('Você tem uma carta válida na mão');
+
+    act(() => root.unmount());
+  });
+
   it('confirma a jogada única no segundo toque da mesma carta', () => {
     const rendered = renderMesa();
     const primeira = rendered.container.querySelector<HTMLElement>('[data-card-id="sete-azul"]');

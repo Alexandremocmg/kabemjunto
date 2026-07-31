@@ -10,7 +10,12 @@
 
 export { embaralhar, embaralharComSeed } from './shuffle.js';
 export { criarPartidaInicial, AVATARES_DEFAULT, type CriarPartidaOpcoes } from './create-game.js';
-export { validarJogada, cartasAPagar, type ResultadoValidacao } from './validate-play.js';
+export {
+  validarJogada,
+  cartasAPagar,
+  temJogadaQueBloqueiaCompra,
+  type ResultadoValidacao,
+} from './validate-play.js';
 export {
   executarJogada,
   type ExecutarJogadaOpcoes,

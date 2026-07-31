@@ -1,7 +1,7 @@
 import React from 'react';
 import { Cor, EstadoPartida, Jogador } from '@kabemjunto/shared/types';
 import { PALETA_CORES } from '@kabemjunto/shared/constants/cards';
-import { validarJogada } from '@kabemjunto/shared';
+import { temJogadaQueBloqueiaCompra } from '@kabemjunto/shared';
 import { CartaView } from './CartaView';
 
 interface MesaDeJogoProps {
@@ -74,11 +74,11 @@ export const MesaDeJogo: React.FC<MesaDeJogoProps> = ({ estado, onComprarCarta }
   const jogadorAtual = estado.jogadores.find((j) => j.id === estado.vezDe);
   const totalJogadores = estado.jogadores.length;
   // GDD §7: comprar só existe pra quem não tem carta válida na mão. Pagar
-  // ataque é sempre permitido (não depende de jogabilidade).
+  // ataque é sempre permitido (não depende de jogabilidade). TROCA_MAO
+  // nunca bloqueia a compra — ver `temJogadaQueBloqueiaCompra`.
   const temCartaValida =
     estado.ataqueAcumulado === 0 &&
-    (jogadorAtual?.mao.some((carta) => validarJogada(estado, carta, jogadorAtual.id).valida) ??
-      false);
+    Boolean(jogadorAtual && temJogadaQueBloqueiaCompra(estado, jogadorAtual.mao, jogadorAtual.id));
   const compraDisponivel = Boolean(
     jogadorAtual && !jogadorAtual.isBot && !estado.finalizada && !temCartaValida,
   );
