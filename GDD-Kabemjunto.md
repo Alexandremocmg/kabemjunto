@@ -59,21 +59,21 @@
 
 ## 0. Resumo Executivo
 
-**Kabemjunto** é um jogo de cartas digital para 2-10 jogadores, baseado em um baralho de 108 cartas, com partidas de 8-15 minutos. Combina a familiaridade do "tipo UNO" com três camadas estratégicas próprias: **regra do 7 (silêncio social)**, **acúmulo assimétrico de ataques** (+2 sobre +2 / +4 sobre +2 / +4 sobre +4, mas +2 sobre +4 proibido) e a carta **0+ (Zero Mais)** que reflete ataques para o último atacante. Suporta hot-seat local e multiplayer online, é projetado para mobile/web/desktop, e combina motor de regras determinístico (servidor autoritativo) com UX social focada em viralização.
+**Kabemjunto** é um jogo de cartas digital para 2-10 jogadores, baseado em um baralho de 109 cartas, com partidas de 8-15 minutos. Combina a familiaridade do "tipo UNO" com três camadas estratégicas próprias: **regra do 7 (silêncio social)**, **acúmulo assimétrico de ataques** (+2 sobre +2 / +4 sobre +2 / +4 sobre +4, mas +2 sobre +4 proibido) e a carta **0+ (Zero Mais)** que reflete ataques para o último atacante. Suporta hot-seat local e multiplayer online, é projetado para mobile/web/desktop, e combina motor de regras determinístico (servidor autoritativo) com UX social focada em viralização.
 
 ### Dados-chave do projeto
 
-| Métrica                | Valor                                                                                                  |
-| ---------------------- | ------------------------------------------------------------------------------------------------------ |
-| Gênero                 | Shedding game + party game social                                                                      |
-| Jogadores              | 2 a 10 (sweet spot 4-6)                                                                                |
-| Duração de partida     | 8-15 min                                                                                               |
-| Cartas no baralho      | 108 (100 coloridas: 25 por cor × 4 cores + 8 neutras: 4x +4, Troca Mão, Gira Mão, 0+, Coringa Simples) |
-| Setup                  | < 30s                                                                                                  |
-| Complexidade de regras | Explicável em < 90s                                                                                    |
-| Plataforma-alvo        | Web (PWA) + Mobile (iOS/Android) + Desktop                                                             |
-| Modelo de negócio      | F2P com baralhos temáticos pagos + passe de temporada                                                  |
-| Time de partida        | < 2-3 meses para MVP                                                                                   |
+| Métrica                | Valor                                                                                                                 |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Gênero                 | Shedding game + party game social                                                                                     |
+| Jogadores              | 2 a 10 (sweet spot 4-6)                                                                                               |
+| Duração de partida     | 8-15 min                                                                                                              |
+| Cartas no baralho      | 109 (100 coloridas: 25 por cor × 4 cores + 9 neutras: 4x +4, Troca Mão, Gira Mão, 0+, Coringa Simples, +2 Para Todos) |
+| Setup                  | < 30s                                                                                                                 |
+| Complexidade de regras | Explicável em < 90s                                                                                                   |
+| Plataforma-alvo        | Web (PWA) + Mobile (iOS/Android) + Desktop                                                                            |
+| Modelo de negócio      | F2P com baralhos temáticos pagos + passe de temporada                                                                 |
+| Time de partida        | < 2-3 meses para MVP                                                                                                  |
 
 ### Pilares de design (resumo)
 
@@ -87,7 +87,7 @@
 
 - **Servidor autoritativo** para validação anti-trapaça em modo online
 - **TypeScript + React** para web; bridge para React Native no mobile
-- **Arte flat/low-poly** para reduzir custo (108 cartas)
+- **Arte flat/low-poly** para reduzir custo (109 cartas)
 - **Playtest fechado de ≥100 partidas** antes de balancear o 0+
 - **Tematização brasileira** como diferencial cultural vs UNO
 
@@ -114,6 +114,7 @@ Termos canônicos usados em todo o GDD. Cada termo mantém o mesmo significado e
 | **Coringa Simples (Wild)**  | Coringa que apenas muda a cor ativa.                                                                                                                                         |
 | **+4**                      | Coringa que obriga o próximo a comprar 4 cartas.                                                                                                                             |
 | **+2**                      | Carta colorida que obriga o próximo a comprar 2 cartas.                                                                                                                      |
+| **+2 Para Todos**           | Coringa (ADR-013) que obriga **todos** os adversários a comprar 2 cartas cada, imediatamente e sem acúmulo/defesa; quem jogou não compra nada.                               |
 | **Ataque Acumulado**        | Soma de +2/+4 encadeados que o próximo jogador deve cobrir ou comprar.                                                                                                       |
 | **Reflexo**                 | Efeito do 0+ (Zero Mais): o ataque acumulado é devolvido ao último atacante.                                                                                                 |
 | **Regra do 7 / Silêncio**   | Ao jogar uma carta 7, todos os jogadores ficam em silêncio até a próxima carta; quem falar paga +2.                                                                          |
@@ -136,6 +137,7 @@ Termos canônicos usados em todo o GDD. Cada termo mantém o mesmo significado e
 | Versão | Data       | Status         | Notas                                                                                                                                     |
 | ------ | ---------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | 1.0    | 2026-07-26 | Draft para Dev | Versão inicial consolidada a partir das 4 seções de pesquisa, design, produção e pitch. Aprovado para repasse ao time de desenvolvimento. |
+| 1.1    | 2026-08-01 | Aprovado       | ADR-013: baralho expandido de 108 para 109 cartas com a nova carta neutra "+2 Para Todos" (ataque global/AoE, `MAIS_DOIS_TODOS`).         |
 
 ---
 
@@ -147,8 +149,8 @@ Termos canônicos usados em todo o GDD. Cada termo mantém o mesmo significado e
 
 - **Cartas numeradas 0-9** em 4 cores (Laranja, Azul, Verde, Preto)
 - **Ações coloridas:** Skip, Reverse, +2 (em 4 cores)
-- **Neutras / Coringas:** 4x +4, 1x Troca Mão, 1x Gira Mão, 1x 0+, 1x Coringa Simples
-- **Total:** 108 cartas
+- **Neutras / Coringas:** 4x +4, 1x Troca Mão, 1x Gira Mão, 1x 0+, 1x Coringa Simples, 1x +2 Para Todos
+- **Total:** 109 cartas (ADR-013)
 
 ### Setup
 
@@ -187,6 +189,7 @@ Termos canônicos usados em todo o GDD. Cada termo mantém o mesmo significado e
 - **0+ (Zero Mais):** sem ataque acumulado, é somente um coringa neutro: escolhe a cor ativa e o turno segue normalmente, sem giro/troca de mãos. Com ataque acumulado, identifica o último atacante pelo histórico canônico, obriga-o a comprar integralmente a pilha (reciclando o descarte quando necessário), encerra a pilha e passa o turno a partir desse alvo; quem recebe o reflexo não pode rebater.
 - **Troca Mão:** escolha um jogador e troque toda a sua mão com a dele; se for a última carta de quem a jogou, esse jogador vence imediatamente e o efeito não acontece
 - **Gira Mão:** escolha um sentido; todos passam suas mãos para o vizinho; se for a última carta de quem a jogou, esse jogador vence imediatamente e o efeito não acontece
+- **+2 Para Todos (ADR-013):** coringa de ataque global — assim que descartada, todos os adversários (nunca quem jogou) compram 2 cartas cada, imediatamente, em ordem de turno; você escolhe a nova cor ativa. É atômica e não acumula: não entra no sistema de ataque acumulado, não pode ser jogada como resposta a um `+2`/`+4` em andamento, e não abre janela de defesa/repasse. Se o baralho não tiver 2 cartas completas (mesmo reciclando o descarte) para algum adversário, a partida termina pelo critério determinístico da menor mão. Se for a última carta de quem a jogou, esse jogador vence imediatamente e a distribuição não acontece.
 - **Coringa Simples:** altera a cor ativa do jogo
 - **Regra do 7 (Silêncio):** jogar 7 abre uma janela até a próxima carta. Chat escrito e Falas rápidas seguem disponíveis; a primeira mensagem de cada jogador na janela é entregue e gera +2 cartas imediatas, sem passar o turno. Novas mensagens daquele mesmo jogador não acumulam punição até outro 7 abrir uma nova janela.
 

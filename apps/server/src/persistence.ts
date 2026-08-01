@@ -77,6 +77,7 @@ const ACTIONS = [
   'REVERSE',
   'MAIS_DOIS',
   'MAIS_QUATRO',
+  'MAIS_DOIS_TODOS',
   'TROCA_MAO',
   'GIRA_MAO',
   'ZERO_MAIS',

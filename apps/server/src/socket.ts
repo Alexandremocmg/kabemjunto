@@ -70,7 +70,7 @@ type GameServer = Server<ClientEvents, ServerEvents>;
 type GameSocket = Socket<ClientEvents, ServerEvents>;
 
 const EMPTY_EVENT: ClientIniciarPartidaEvent = {};
-const MAX_MULTIPLE_DISCARD_CARD_IDS = 108; // O baralho canônico não contém mais que 108 cartas.
+const MAX_MULTIPLE_DISCARD_CARD_IDS = 109; // ADR-013: baralho canônico não contém mais que 109 cartas.
 void EMPTY_EVENT;
 
 function emitError(socket: GameSocket, error: unknown): void {

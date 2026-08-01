@@ -308,7 +308,7 @@ describe('socket — descarte múltiplo', () => {
     const { url, store } = await harness();
     const socket = await connect(url);
     const errorEvent = once<ServerErroEvent>(socket, 'server:erro');
-    const cartaIds = Array.from({ length: 109 }, (_, index) => `carta-${index}`);
+    const cartaIds = Array.from({ length: 110 }, (_, index) => `carta-${index}`);
 
     socket.emit('client:descarte:multiplo', { cartaIds });
 

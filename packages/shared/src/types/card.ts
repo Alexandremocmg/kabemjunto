@@ -33,6 +33,7 @@ export const ACOES = [
   'REVERSE',
   'MAIS_DOIS',
   'MAIS_QUATRO',
+  'MAIS_DOIS_TODOS',
   'TROCA_MAO',
   'GIRA_MAO',
   'ZERO_MAIS',
@@ -52,7 +53,7 @@ export type Raridade = (typeof RARIDADES)[number];
  * - `cor === 'NEUTRO'` ⇔ `tipo === 'NEUTRA'`
  * - `tipo === 'NUMERADA'` ⇒ `valor ∈ [0, 9]`
  * - `tipo === 'ACAO'` ⇒ `acao ∈ {SKIP, REVERSE, MAIS_DOIS, SILENCIO}` e `cor ≠ 'NEUTRO'`
- * - `tipo === 'NEUTRA'` ⇒ `acao ∈ {MAIS_QUATRO, TROCA_MAO, GIRA_MAO, ZERO_MAIS, CORINGA_SIMPLES}` e `cor === 'NEUTRO'`
+ * - `tipo === 'NEUTRA'` ⇒ `acao ∈ {MAIS_QUATRO, MAIS_DOIS_TODOS, TROCA_MAO, GIRA_MAO, ZERO_MAIS, CORINGA_SIMPLES}` e `cor === 'NEUTRO'`
  * - `acao === 'SILENCIO'` ⇔ `valor === 7` (a regra do 7 é literalmente a carta 7)
  *
  * O `id` segue o padrão:

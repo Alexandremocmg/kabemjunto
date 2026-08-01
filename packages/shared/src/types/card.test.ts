@@ -51,11 +51,12 @@ describe('constantes de domínio (card.ts)', () => {
     expect(TIPOS_CARTA).toEqual(['NUMERADA', 'ACAO', 'NEUTRA']);
   });
 
-  it('ACOES contém as 9 ações canônicas do GDD §04.6', () => {
-    expect(ACOES).toHaveLength(9);
+  it('ACOES contém as 10 ações canônicas do GDD §04.6 (ADR-013 adicionou MAIS_DOIS_TODOS)', () => {
+    expect(ACOES).toHaveLength(10);
     expect(ACOES).toContain('SILENCIO');
     expect(ACOES).toContain('ZERO_MAIS');
     expect(ACOES).toContain('MAIS_QUATRO');
+    expect(ACOES).toContain('MAIS_DOIS_TODOS');
   });
 
   it('RARIDADES tem 4 valores', () => {

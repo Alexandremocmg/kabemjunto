@@ -37,6 +37,7 @@ export type SfxEvent =
   | 'reverse'
   | 'plus2'
   | 'plus4'
+  | 'plus2todos'
   | 'zeroplus'
   | 'silencio_ativado'
   | 'silencio_quebrado'
@@ -87,7 +88,8 @@ export function executarJogada(opcoes: ExecutarJogadaOpcoes): ResultadoJogada {
   }
 
   const venceAntesDeEfeitoDeMao =
-    jogador.mao.length === 1 && (carta.acao === 'TROCA_MAO' || carta.acao === 'GIRA_MAO');
+    jogador.mao.length === 1 &&
+    (carta.acao === 'TROCA_MAO' || carta.acao === 'GIRA_MAO' || carta.acao === 'MAIS_DOIS_TODOS');
   if (carta.tipo === 'NEUTRA' && corEscolhida === undefined && !venceAntesDeEfeitoDeMao) {
     throw new Error('Cartas neutras requerem corEscolhida.');
   }
@@ -277,6 +279,46 @@ function resolverAcao(
           ataqueAcumulado: novoAtaque,
           ataqueStack: novoStack,
         },
+        sfx,
+        eventos,
+      };
+    }
+
+    case 'MAIS_DOIS_TODOS': {
+      // ADR-013: ataque global/AoE — efeito direto e atômico, fora do
+      // sistema de ataqueAcumulado/ataqueStack (sem acúmulo, sem janela de
+      // defesa/repasse; `validarJogadaEmAtaque` já rejeita esta ação como
+      // resposta a um ataque em andamento). Cada adversário, em ordem de
+      // turno a partir do próximo jogador, compra 2 cartas reaproveitando
+      // `comprarCartas` (mesmo truque de `ZERO_MAIS`: aponta `vezDe`
+      // temporariamente para o alvo) — herda de graça a reciclagem do
+      // descarte e a regra all-or-nothing de esgotamento do monte.
+      sfx.push('plus2todos');
+      eventos.push({ tipo: 'ACAO_RESOLVIDA', timestamp: ts, acao: 'MAIS_DOIS_TODOS' });
+
+      const idxOrigem = estado.jogadores.findIndex((j) => j.id === jogadorId);
+      const n = estado.jogadores.length;
+      let estadoCorrente = estado;
+      for (let i = 1; i < n; i++) {
+        const idxAlvo = (idxOrigem + i * estado.sentido + n) % n;
+        const alvoId = estado.jogadores[idxAlvo]!.id;
+        const compra = comprarCartas({
+          estado: { ...estadoCorrente, vezDe: alvoId, ataqueAcumulado: 2, ataqueStack: [] },
+          quantidade: 2,
+          rng,
+        });
+        sfx.push(...compra.sfx);
+        eventos.push(...compra.eventos);
+        estadoCorrente = compra.novoEstado;
+        if (estadoCorrente.finalizada) {
+          // Monte+descarte não bastaram para um alvo: all-or-nothing, a
+          // partida já terminou pelo critério de menor mão.
+          return { novoEstado: estadoCorrente, sfx, eventos, turnoJaAvancado: true };
+        }
+      }
+
+      return {
+        novoEstado: { ...estadoCorrente, vezDe: jogadorId },
         sfx,
         eventos,
       };

@@ -84,6 +84,8 @@ describe('isEligibleForInterception / saoCartasIdenticas', () => {
     expect(isEligibleForInterception(neutra('n2', 'MAIS_QUATRO'))).toBe(false);
     expect(isEligibleForInterception(neutra('n3', 'ZERO_MAIS'))).toBe(false);
     expect(isEligibleForInterception({ ...acao('a4', 'AZUL', 'SILENCIO') })).toBe(false);
+    // ADR-013: +2 Para Todos é NEUTRA — fora da V1 por construção.
+    expect(isEligibleForInterception(neutra('n4', 'MAIS_DOIS_TODOS'))).toBe(false);
   });
 
   it('exige mesma cor E mesmo número/ação — não basta a mesma face', () => {

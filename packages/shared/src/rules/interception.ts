@@ -8,7 +8,7 @@
  *
  * Regras (Fase 2 — Corta-Frente V1, ver .hermes/plans/2026-07-29_083500-combos-e-corta-frente.md):
  * - Elegível: cartas coloridas (números sem ação, +2, Skip, Reverse). Neutras
- *   (+4, Coringa Simples) ficam fora da V1.
+ *   (+4, +2 Para Todos, Coringa Simples) ficam fora da V1.
  * - Interceptação exige carta 100% idêntica: mesma cor E mesmo número/ação.
  * - O jogador que descartou a carta alvo não pode interceptar a própria carta.
  * - Primeiro pedido válido recebido antes de `fechaEm` vence; sem compensação

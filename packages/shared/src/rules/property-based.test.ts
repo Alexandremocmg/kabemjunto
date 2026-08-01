@@ -49,6 +49,7 @@ const acaoArbitrary: fc.Arbitrary<Acao> = fc.constantFrom(
   'REVERSE',
   'MAIS_DOIS',
   'MAIS_QUATRO',
+  'MAIS_DOIS_TODOS',
   'TROCA_MAO',
   'GIRA_MAO',
   'ZERO_MAIS',

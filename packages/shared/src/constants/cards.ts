@@ -214,6 +214,18 @@ export function gerarBaralho108(): Carta[] {
     efeito_texto_longo: `Altera a cor ativa do jogo para a cor de sua escolha.`,
   });
 
+  // MAIS_DOIS_TODOS (+2 Para Todos) - 1 carta (ADR-013: baralho expandido para 109)
+  baralho.push({
+    id: `NEUTRA_PLUS2ALL_1`,
+    cor: 'NEUTRO',
+    tipo: 'NEUTRA',
+    acao: 'MAIS_DOIS_TODOS',
+    raridade: 'RARA',
+    colecao: 'base-v1',
+    efeito_texto_curto: `+2 Para Todos`,
+    efeito_texto_longo: `Todos os adversários compram 2 cartas imediatamente. Quem jogou não compra nada. Você escolhe a nova cor ativa.`,
+  });
+
   return baralho;
 }
 

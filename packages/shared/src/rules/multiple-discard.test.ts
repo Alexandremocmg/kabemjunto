@@ -172,10 +172,12 @@ describe('executarDescarteMultiplo', () => {
 
   it.each([
     ['faces diferentes', [numero('cinco', 'AZUL', 5), numero('seis', 'AZUL', 6)]],
-    ...(['MAIS_QUATRO', 'ZERO_MAIS', 'TROCA_MAO', 'GIRA_MAO'] as const).map((acaoComplexa) => [
-      `a neutra ${acaoComplexa}`,
-      [neutra(`${acaoComplexa}-1`, acaoComplexa), neutra(`${acaoComplexa}-2`, acaoComplexa)],
-    ]),
+    ...(['MAIS_QUATRO', 'MAIS_DOIS_TODOS', 'ZERO_MAIS', 'TROCA_MAO', 'GIRA_MAO'] as const).map(
+      (acaoComplexa) => [
+        `a neutra ${acaoComplexa}`,
+        [neutra(`${acaoComplexa}-1`, acaoComplexa), neutra(`${acaoComplexa}-2`, acaoComplexa)],
+      ],
+    ),
     [
       'uma ação complexa',
       [

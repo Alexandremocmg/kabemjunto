@@ -16,6 +16,7 @@ Este arquivo registra as Decisões de Arquitetura (ADRs) do projeto Kabemjunto.
 - [ADR-010: Redesign da Mesa Mobile e Carta 7 Visualmente Secreta](#adr-010-redesign-da-mesa-mobile-e-carta-7-visualmente-secreta)
 - [ADR-011: Persistência Atômica em Instância Única e Container Same-Origin](#adr-011-persistência-atômica-em-instância-única-e-container-same-origin)
 - [ADR-012: Remover a API de State Machine sem Consumidor](#adr-012-remover-a-api-de-state-machine-sem-consumidor)
+- [ADR-013: Carta "+2 Para Todos" (MAIS_DOIS_TODOS) e Expansão do Baralho para 109](#adr-013-carta-2-para-todos-mais_dois_todos-e-expansão-do-baralho-para-109)
 
 ---
 
@@ -390,3 +391,70 @@ Este arquivo registra as Decisões de Arquitetura (ADRs) do projeto Kabemjunto.
   - ✅ Preserva o vocabulário de estados no GDD sem fingir que ele é uma API.
   - ❌ Integrações internas que quisessem adotar uma máquina executável no futuro
     precisarão de nova decisão e testes dirigidos por um consumidor real.
+
+---
+
+### ADR-013: Carta "+2 Para Todos" (MAIS_DOIS_TODOS) e Expansão do Baralho para 109
+
+- **Status:** Aprovado · 2026-08-01 · @User
+- **Contexto:** O produto propôs uma nova carta de ataque global/AoE: ao ser
+  descartada, todos os adversários (não quem a jogou) compram 2 cartas
+  imediatamente, sem janela de defesa/repasse. Isso não se encaixa no sistema
+  de `ataqueAcumulado`/`ataqueStack` existente (`+2`/`+4`), que é sempre
+  direcional (um único alvo, empilhável, com resposta). O produto também
+  decidiu expandir o baralho canônico de 108 para 109 cartas para acomodar
+  exatamente 1 cópia dessa carta nova.
+- **Decisão:**
+  1. Nova ação `MAIS_DOIS_TODOS` no enum `Acao`, carta do tipo **NEUTRA**
+     (`cor: 'NEUTRO'`), com escolha de cor pós-jogada reaproveitando o mesmo
+     fluxo já usado por `MAIS_QUATRO` (`corEscolhida`). Ser NEUTRA já a exclui
+     automaticamente de: Corta-Frente (`isEligibleForInterception` só aceita
+     números e `+2`/Skip/Reverse coloridos) e Descarte Múltiplo
+     (`podeParticiparDoLote` só aceita números e `+2`/Skip/Reverse coloridos)
+     — nenhuma das duas listas precisou mudar.
+  2. Efeito resolvido como **transição pura atômica** em `execute-play.ts`
+     (mesmo padrão de `TROCA_MAO`/`GIRA_MAO`), **fora** do sistema de
+     ataque acumulado: nunca soma a `ataqueAcumulado`, nunca é aceita pela
+     janela de resposta a ataque (`validarJogadaEmAtaque` só permite
+     `ZERO_MAIS`/`MAIS_DOIS`/`MAIS_QUATRO`; qualquer outra ação já cai no
+     `catch-all` de rejeição — nenhuma mudança de código necessária ali).
+  3. Distribuição de 2 cartas por adversário, em ordem de turno a partir do
+     próximo jogador, reaproveitando a mecânica de compra com reciclagem de
+     `comprarCartas` (mesmo truque já usado por `ZERO_MAIS` ao refletir um
+     ataque: chama `comprarCartas` com `vezDe` temporariamente apontado para
+     cada alvo). Herda de graça o comportamento canônico de reciclagem do
+     descarte e a regra all-or-nothing: se o baralho não tiver as 2 cartas
+     completas para um alvo, a partida termina imediatamente pelo critério
+     de menor mão (mesma regra que já vale para `+2`/`+4`).
+  4. Vitória imediata: se `MAIS_DOIS_TODOS` é a última carta da mão de quem
+     jogou, a vitória acontece no instante do descarte e a distribuição é
+     cancelada — mesmo padrão já existente para `TROCA_MAO`/`GIRA_MAO`
+     (`venceAntesDeEfeitoDeMao` em `execute-play.ts`).
+  5. Baralho expandido de 108 para 109 cartas (`gerarBaralho108()` ganha uma
+     carta a mais). Os identificadores `BARALHO_COMPLETO_108`/
+     `gerarBaralho108` **não foram renomeados** — tratados como rótulo
+     histórico, não como contrato; renomear é uma decisão separada, de
+     escopo puramente cosmético, se o produto quiser.
+  6. Consequência direta no schema de persistência do servidor
+     (`apps/server/src/persistence.ts`): a whitelist local `ACTIONS` (que
+     espelha `Acao` para validar snapshots) precisa incluir `MAIS_DOIS_TODOS`
+     — sem isso, qualquer evento/carta com essa ação falharia a validação do
+     snapshot ao salvar/restaurar uma sala. Não é uma extensão de escopo: é
+     a mesma lista que já teria quebrado silenciosamente se esquecida.
+- **Fora de escopo desta ADR (follow-up):** arte/ícone dedicado da carta
+  (hoje ela renderiza com o fallback textual genérico, sem `.webp` próprio),
+  atualização da tabela de composição do baralho no GDD/§7, exposição na
+  Coleção local (`PainelColecao`), e qualquer decisão de raridade final
+  (usado `RARA` como placeholder, no mesmo nível de `TROCA_MAO`/`GIRA_MAO`).
+- **Consequências:**
+  - ✅ Zero mudança nas regras de Corta-Frente ou Descarte Múltiplo: a
+    exclusão é uma consequência automática de ser `NEUTRA`, não uma lista
+    especial mantida à mão.
+  - ✅ Reaproveita 100% da mecânica de compra-com-reciclagem já testada;
+    nenhuma lógica de baralho/reembaralhamento nova foi escrita.
+  - ❌ O baralho deixa de ser literalmente "108 cartas" — um traço citado
+    como identidade do produto em vários lugares (GDD, memória do projeto,
+    branding). Fica registrado aqui como decisão deliberada do produto, não
+    como efeito colateral.
+  - ❌ UI/arte ficam pendentes; a carta é jogável (motor completo, testado),
+    mas sem apresentação visual própria até um follow-up.
