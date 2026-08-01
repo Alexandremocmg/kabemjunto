@@ -1015,3 +1015,111 @@ describe('MesaOnline — regressões carta única', () => {
     act(() => rendered.root.unmount());
   });
 });
+
+// ---------------------------------------------------------------------------
+// Corta-Frente (interceptação) — Task 6
+// ---------------------------------------------------------------------------
+
+describe('MesaOnline — Corta-Frente (interceptação)', () => {
+  const janela: NonNullable<EstadoPartidaPublico['interceptacao']> = {
+    janelaId: 'janela-1',
+    cartaAlvoId: estado.topo.id,
+    jogadorOrigemId: 'oponente',
+    fechaEm: Date.now() + 4000,
+    proximaVezId: 'jogador',
+    revisao: 3,
+  };
+
+  function renderComJanela(onInterceptar = vi.fn(), overrides: Partial<EstadoPartidaPublico> = {}) {
+    Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+    const container = document.createElement('div');
+    const root = createRoot(container);
+    act(() => {
+      root.render(
+        <MesaOnline
+          estado={{ ...estado, interceptacao: janela, ...overrides }}
+          mao={cartas}
+          mensagens={[]}
+          jogadorId="jogador"
+          onSelecionarCarta={() => {}}
+          onPlayMultiple={() => {}}
+          onComprarCarta={() => {}}
+          onEnviarFalaRapida={() => {}}
+          onInterceptar={onInterceptar}
+        />,
+      );
+    });
+    return { container, root, onInterceptar };
+  }
+
+  it('mostra o banner só para quem não descartou a carta alvo, com as cartas idênticas da própria mão', () => {
+    const { container, root } = renderComJanela();
+
+    expect(container.querySelector('.interceptacao-banner')).not.toBeNull();
+    // `cartas[0]` (sete-azul) é idêntica ao topo (também sete-azul); as
+    // demais (cores/valores diferentes) não devem virar botão de interceptar.
+    expect(container.querySelectorAll('.interceptacao-carta-botao')).toHaveLength(1);
+
+    act(() => root.unmount());
+  });
+
+  it('clicar na carta elegível dispara onInterceptar com janelaId, revisão e cartaId corretos', () => {
+    const { container, onInterceptar, root } = renderComJanela();
+
+    const botao = container.querySelector<HTMLButtonElement>('.interceptacao-carta-botao');
+    expect(botao).not.toBeNull();
+    act(() => botao!.click());
+
+    expect(onInterceptar).toHaveBeenCalledWith('janela-1', 3, 'sete-azul');
+
+    act(() => root.unmount());
+  });
+
+  it('não mostra o banner para quem descartou a própria carta alvo (regra #6)', () => {
+    const onInterceptar = vi.fn();
+    Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+    const container = document.createElement('div');
+    const root = createRoot(container);
+    act(() => {
+      root.render(
+        <MesaOnline
+          estado={{ ...estado, interceptacao: { ...janela, jogadorOrigemId: 'jogador' } }}
+          mao={cartas}
+          mensagens={[]}
+          jogadorId="jogador"
+          onSelecionarCarta={() => {}}
+          onPlayMultiple={() => {}}
+          onComprarCarta={() => {}}
+          onEnviarFalaRapida={() => {}}
+          onInterceptar={onInterceptar}
+        />,
+      );
+    });
+
+    expect(container.querySelector('.interceptacao-banner')).toBeNull();
+    act(() => root.unmount());
+  });
+
+  it('sem janela ativa, não renderiza o banner', () => {
+    Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+    const container = document.createElement('div');
+    const root = createRoot(container);
+    act(() => {
+      root.render(
+        <MesaOnline
+          estado={estado}
+          mao={cartas}
+          mensagens={[]}
+          jogadorId="jogador"
+          onSelecionarCarta={() => {}}
+          onPlayMultiple={() => {}}
+          onComprarCarta={() => {}}
+          onEnviarFalaRapida={() => {}}
+        />,
+      );
+    });
+
+    expect(container.querySelector('.interceptacao-banner')).toBeNull();
+    act(() => root.unmount());
+  });
+});

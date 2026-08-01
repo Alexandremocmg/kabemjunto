@@ -8,6 +8,7 @@ import {
   type ClientComprarEvent,
   type ClientEntrarSalaEvent,
   type ClientIniciarPartidaEvent,
+  type ClientInterceptarEvent,
   type ClientJogarEvent,
   type EstadoPartidaPublico,
   type JogadorPublico,
@@ -35,6 +36,7 @@ type ClientEvents = {
   'client:jogar': (payload: ClientJogarEvent) => void;
   'client:descarte:multiplo': (payload: ClientDescarteMultiploEvent) => void;
   'client:comprar': (payload: ClientComprarEvent) => void;
+  'client:interceptar': (payload: ClientInterceptarEvent) => void;
   'client:chat:msg': (payload: ClientChatEvent) => void;
   'client:sair:sala': (payload: Record<string, never>) => void;
   'client:abandonar:partida': (payload: Record<string, never>) => void;
@@ -199,6 +201,8 @@ export function useGameSocket(): {
     alvoTrocaId?: ClientJogarEvent['alvoTrocaId'],
   ) => void;
   jogarMultiplasCartas: (cartaIds: ReadonlyArray<string>) => void;
+  /** Corta-Frente: tenta interceptar a janela ativa. O servidor decide o vencedor. */
+  interceptar: (janelaId: string, revisao: number, cartaId: string) => void;
   comprarCarta: () => void;
   enviarChat: (texto: string) => void;
   sair: () => void;
@@ -437,6 +441,11 @@ export function useGameSocket(): {
     },
     [socket],
   );
+  const interceptar = useCallback(
+    (janelaId: string, revisao: number, cartaId: string) =>
+      socket.emit('client:interceptar', { janelaId, revisao, cartaId }),
+    [socket],
+  );
   const comprarCarta = useCallback(() => socket.emit('client:comprar', {}), [socket]);
   const enviarChat = useCallback(
     (texto: string) => socket.emit('client:chat:msg', { texto: texto.trim() }),
@@ -490,6 +499,7 @@ export function useGameSocket(): {
       iniciarPartida,
       jogarCarta,
       jogarMultiplasCartas,
+      interceptar,
       comprarCarta,
       enviarChat,
       sair,
@@ -504,6 +514,7 @@ export function useGameSocket(): {
       entrarSala,
       enviarChat,
       hostId,
+      interceptar,
       iniciarPartida,
       jogarCarta,
       jogarMultiplasCartas,

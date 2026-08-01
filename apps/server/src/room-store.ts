@@ -10,6 +10,7 @@ import {
   interceptar as interceptarPure,
   resolverJanelaExpirada,
   isEligibleForInterception,
+  saoCartasIdenticas,
   type Carta,
   type EstadoPartida,
   type EstadoPartidaPublico,
@@ -68,6 +69,15 @@ export interface DeterministicVictoryFixture {
   vencedorCardId: string;
   vencedorCardLabel: string;
   oponenteCardLabels: [string, string];
+}
+
+export interface InterceptacaoFixture {
+  salaId: SalaId;
+  origemId: JogadorId;
+  interceptadorId: JogadorId;
+  cartaOrigemId: string;
+  cartaOrigemLabel: string;
+  cartaInterceptadoraId: string;
 }
 
 export class RoomError extends Error {
@@ -878,6 +888,103 @@ export class RoomStore {
         vencedorCardId: cartaVencedora.id,
         vencedorCardLabel,
         oponenteCardLabels: [labelSegredo, labelApoio],
+      },
+    };
+  }
+
+  /**
+   * Prepara deterministicamente uma janela de Corta-Frente pra E2E: dá ao
+   * host uma carta elegível e a um segundo jogador uma carta real idêntica
+   * (mesma cor e mesmo número/ação) — ambas já existem no baralho embaralhado,
+   * nunca são clonadas. Só `corAtiva` é ajustada pra garantir que a jogada do
+   * host seja válida (GDD: mesma cor ativa sempre é jogável, independente do
+   * topo atual).
+   */
+  prepareInterceptacaoFixture(salaId: string): {
+    session: RoomSession & { estado: EstadoPartida };
+    fixture: InterceptacaoFixture;
+  } {
+    const session = this.requireActive(salaId);
+    const estado = session.estado;
+    const origemId = session.sala.hostId;
+    const interceptadorJogador = estado.jogadores.find((jogador) => jogador.id !== origemId);
+    if (!estado.jogadores.some((jogador) => jogador.id === origemId) || !interceptadorJogador) {
+      throw new RoomError(
+        'INTERNAL',
+        'Fixture de Corta-Frente precisa do host e de pelo menos mais um jogador.',
+      );
+    }
+
+    const allCards = [
+      ...estado.jogadores.flatMap((jogador) => jogador.mao),
+      ...estado.monteCompra,
+      ...estado.monteDescarte,
+    ];
+
+    let par: [Carta, Carta] | undefined;
+    for (const a of allCards) {
+      if (!isEligibleForInterception(a)) continue;
+      const b = allCards.find(
+        (candidata) => candidata.id !== a.id && saoCartasIdenticas(a, candidata),
+      );
+      if (b) {
+        par = [a, b];
+        break;
+      }
+    }
+    if (!par) {
+      throw new RoomError(
+        'INTERNAL',
+        'Não há duas cartas reais idênticas elegíveis para a fixture E2E de Corta-Frente.',
+      );
+    }
+    const [cartaOrigem, cartaInterceptadora] = par;
+    const cartaOrigemLabel = cardLabel(cartaOrigem);
+
+    const idsReservados = new Set([cartaOrigem.id, cartaInterceptadora.id]);
+    const restantes = allCards.filter((carta) => !idsReservados.has(carta.id));
+    const fillerOrigem = restantes[0];
+    const fillerInterceptador = restantes.find((carta) => carta.id !== fillerOrigem?.id);
+    if (!fillerOrigem || !fillerInterceptador) {
+      throw new RoomError('INTERNAL', 'Sem cartas de apoio suficientes para a fixture E2E.');
+    }
+    idsReservados.add(fillerOrigem.id);
+    idsReservados.add(fillerInterceptador.id);
+
+    const monteCompra = allCards.filter((carta) => !idsReservados.has(carta.id));
+
+    const jogadores = estado.jogadores.map((jogador) => {
+      if (jogador.id === origemId) {
+        return { ...jogador, mao: [cartaOrigem, fillerOrigem], disseUno: false };
+      }
+      if (jogador.id === interceptadorJogador.id) {
+        return { ...jogador, mao: [cartaInterceptadora, fillerInterceptador], disseUno: false };
+      }
+      return { ...jogador, mao: [], disseUno: false };
+    });
+
+    const novoEstado: EstadoPartida = {
+      ...estado,
+      jogadores,
+      monteCompra,
+      vezDe: origemId,
+      corAtiva: cartaOrigem.cor !== 'NEUTRO' ? cartaOrigem.cor : estado.corAtiva,
+      ataqueAcumulado: 0,
+      ataqueStack: [],
+      finalizada: false,
+    };
+
+    const next = this.saveState(session, novoEstado) as RoomSession & { estado: EstadoPartida };
+
+    return {
+      session: next,
+      fixture: {
+        salaId: session.sala.id,
+        origemId,
+        interceptadorId: interceptadorJogador.id,
+        cartaOrigemId: cartaOrigem.id,
+        cartaOrigemLabel,
+        cartaInterceptadoraId: cartaInterceptadora.id,
       },
     };
   }

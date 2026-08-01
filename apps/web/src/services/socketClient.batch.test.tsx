@@ -104,3 +104,52 @@ describe('correlação do descarte múltiplo', () => {
     act(() => root.unmount());
   });
 });
+
+describe('Corta-Frente (interceptação) — Task 6', () => {
+  beforeEach(() => {
+    Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+    fakeSocket.emit.mockClear();
+    sessionStorage.clear();
+    latestHook = undefined;
+  });
+
+  it('interceptar() emite client:interceptar com janelaId, revisão e cartaId', () => {
+    const container = document.createElement('div');
+    const root = createRoot(container);
+    act(() => root.render(<HookHarness />));
+    if (!latestHook) throw new Error('Hook não renderizado.');
+
+    act(() => latestHook!.interceptar('janela-1', 3, 'carta-x'));
+
+    expect(fakeSocket.emit).toHaveBeenCalledWith('client:interceptar', {
+      janelaId: 'janela-1',
+      revisao: 3,
+      cartaId: 'carta-x',
+    });
+    act(() => root.unmount());
+  });
+
+  it('a janela de interceptação chega ao estado via server:estado:atualizado, como qualquer outro campo público', () => {
+    const container = document.createElement('div');
+    const root = createRoot(container);
+    act(() => root.render(<HookHarness />));
+    if (!latestHook) throw new Error('Hook não renderizado.');
+
+    const janela = {
+      janelaId: 'janela-1',
+      cartaAlvoId: 'topo',
+      jogadorOrigemId: 'oponente',
+      fechaEm: Date.now() + 4000,
+      proximaVezId: 'jogador-local',
+      revisao: 1,
+    };
+    act(() =>
+      fakeSocket.serverEmit('server:estado:atualizado', {
+        estado: { interceptacao: janela },
+      }),
+    );
+
+    expect(latestHook!.state.estado?.interceptacao).toEqual(janela);
+    act(() => root.unmount());
+  });
+});

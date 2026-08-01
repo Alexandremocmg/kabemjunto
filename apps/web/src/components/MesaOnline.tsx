@@ -5,9 +5,11 @@ import type {
   JogadorPublico,
   ServerChatEvent,
 } from '@kabemjunto/shared';
+import { saoCartasIdenticas } from '@kabemjunto/shared';
 import { PALETA_CORES } from '@kabemjunto/shared/constants/cards';
 import { validarJogadaPublica } from '../services/validarJogadaPublica';
 import { CartaView } from './CartaView';
+import { InterceptacaoBanner } from './InterceptacaoBanner';
 import {
   appendCardToMultipleDiscardStack,
   canSelectMultipleDiscardCard,
@@ -32,6 +34,8 @@ interface MesaOnlineProps {
   onEnviarFalaRapida: (texto: string) => void;
   /** Incrementado pelo socketClient cada vez que server:erro dispara com batch pendente. */
   descarteMultiploErro?: number | undefined;
+  /** Corta-Frente: envia o pedido de interceptação. O servidor decide o vencedor. */
+  onInterceptar?: (janelaId: string, revisao: number, cartaId: string) => void;
 }
 
 const FALAS_RAPIDAS = [
@@ -128,6 +132,7 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
   onComprarCarta,
   onEnviarFalaRapida,
   descarteMultiploErro,
+  onInterceptar,
 }) => {
   const [falasRapidasAbertas, setFalasRapidasAbertas] = useState(false);
   // Multiple ordered stacks; each inner array is card IDs in play order
@@ -171,6 +176,16 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
   const corAtiva = estado.corAtiva ?? 'LARANJA';
   const infoCor = PALETA_CORES[corAtiva] ?? PALETA_CORES.NEUTRO;
   const balaoLocal = jogadorId ? baloesDeFala.get(jogadorId) : undefined;
+  // Corta-Frente: quem descartou a carta alvo não pode interceptar a própria
+  // jogada (regra #6 do plano); os demais veem o banner com as cartas da
+  // própria mão que são idênticas (mesma cor e mesmo número/ação) ao topo.
+  const janelaInterceptacao =
+    estado.interceptacao && jogadorId && estado.interceptacao.jogadorOrigemId !== jogadorId
+      ? estado.interceptacao
+      : undefined;
+  const cartasElegiveisParaInterceptar = janelaInterceptacao
+    ? mao.filter((carta) => saoCartasIdenticas(carta, estado.topo))
+    : [];
 
   // Build card-to-stack-index lookup for rendering
   const cardToStackIndex = new Map<string, number>();
@@ -606,6 +621,16 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
       </div>
 
       <div className="online-play-stage">
+        {janelaInterceptacao && (
+          <InterceptacaoBanner
+            cartaAlvo={estado.topo}
+            fechaEm={janelaInterceptacao.fechaEm}
+            cartasElegiveis={cartasElegiveisParaInterceptar}
+            onInterceptar={(cartaId) =>
+              onInterceptar?.(janelaInterceptacao.janelaId, janelaInterceptacao.revisao, cartaId)
+            }
+          />
+        )}
         <div
           className={`player-table player-table-ring player-count-${Math.min(jogadoresRemotos.length, 10)}`}
           aria-label="Jogadores remotos na mesa online"

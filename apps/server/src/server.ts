@@ -114,6 +114,40 @@ function registerE2EFixtureRoutes(
       }
     },
   );
+
+  app.post<{ Body: { salaId?: string } }>(
+    '/__e2e/fixture/online-corta-frente-deterministica',
+    async (request, reply) => {
+      const salaId = request.body?.salaId?.trim();
+      if (!salaId) {
+        return reply.code(400).send({
+          codigo: 'SALA_INEXISTENTE',
+          mensagem: 'Informe o salaId para a fixture E2E.',
+        });
+      }
+
+      try {
+        const { session, fixture } = store.prepareInterceptacaoFixture(salaId);
+        io.to(session.sala.id).emit('server:estado:atualizado', {
+          estado: toPublicState(session.estado),
+        });
+        for (const [jogadorId, socketId] of session.socketByPlayer) {
+          const jogador = session.estado.jogadores.find((item) => item.id === jogadorId);
+          const playerSocket = io.sockets.sockets.get(socketId);
+          if (jogador && playerSocket) {
+            playerSocket.emit('server:mao:atualizada', { mao: jogador.mao });
+          }
+        }
+        return reply.code(200).send(fixture);
+      } catch (error) {
+        const roomError =
+          error instanceof RoomError
+            ? error
+            : new RoomError('INTERNAL', 'Falha ao aplicar fixture E2E.');
+        return reply.code(400).send({ codigo: roomError.code, mensagem: roomError.message });
+      }
+    },
+  );
 }
 
 function registerGracefulShutdown(app: Awaited<ReturnType<typeof buildServer>>['app']): void {

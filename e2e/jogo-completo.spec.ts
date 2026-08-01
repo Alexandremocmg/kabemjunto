@@ -106,6 +106,27 @@ async function aplicarFixtureVitoriaDeterministica(
   return (await response.json()) as OnlineVictoryFixture;
 }
 
+interface OnlineInterceptacaoFixture {
+  salaId: string;
+  origemId: string;
+  interceptadorId: string;
+  cartaOrigemId: string;
+  cartaOrigemLabel: string;
+  cartaInterceptadoraId: string;
+}
+
+async function aplicarFixtureCortaFrenteDeterministica(
+  request: APIRequestContext,
+  salaId: string,
+): Promise<OnlineInterceptacaoFixture> {
+  const response = await request.post(
+    'http://127.0.0.1:3101/__e2e/fixture/online-corta-frente-deterministica',
+    { data: { salaId } },
+  );
+  expect(response.ok()).toBeTruthy();
+  return (await response.json()) as OnlineInterceptacaoFixture;
+}
+
 async function abrirPartida(
   browser: Browser,
 ): Promise<{ host: Page; convidado: Page; salaId: string }> {
@@ -850,4 +871,49 @@ test('mobile 390x844 local — Corta-Frente: humano intercepta descarte elegíve
   await expect(page.locator('[data-card-id="sete-azul-humano"]')).toHaveCount(0);
 
   await context.close();
+});
+
+test('online — Corta-Frente: convidado intercepta a carta do host e os dois convergem para o mesmo estado', async ({
+  browser,
+  request,
+}) => {
+  const { host, convidado, salaId } = await abrirPartida(browser);
+  const fixture = await aplicarFixtureCortaFrenteDeterministica(request, salaId);
+
+  // O host (origem da fixture) descarta a carta elegível pelo fluxo normal
+  // de UI online — dois toques (seleciona, confirma), igual à jogada única.
+  const cartaDoHost = host.locator(`[data-card-id="${fixture.cartaOrigemId}"] .card-wrapper`);
+  await expect(cartaDoHost).toBeVisible();
+  await cartaDoHost.click();
+  await cartaDoHost.click();
+
+  // Só quem NÃO descartou vê o banner (regra #6 do plano): o convidado vê,
+  // o host (jogadorOrigemId) não.
+  const bannerConvidado = convidado.locator('.interceptacao-banner');
+  await expect(bannerConvidado).toBeVisible();
+  await expect(bannerConvidado).toContainText('Corta-Frente');
+  await expect(host.locator('.interceptacao-banner')).toHaveCount(0);
+
+  // O convidado intercepta com a carta real idêntica (mesma cor e número)
+  // dada pela fixture — o servidor é quem decide, o cliente só envia o pedido.
+  const botaoInterceptar = bannerConvidado.locator('.interceptacao-carta-botao');
+  await expect(botaoInterceptar).toBeVisible();
+  await botaoInterceptar.click();
+
+  await expect(bannerConvidado).toHaveCount(0);
+  await expect(convidado.locator(`[data-card-id="${fixture.cartaInterceptadoraId}"]`)).toHaveCount(
+    0,
+  );
+
+  // Convergência: os dois clientes veem o mesmo topo de descarte resolvido
+  // pelo servidor (a carta do convidado é idêntica à do host — mesma face).
+  for (const page of [host, convidado]) {
+    await expect(page.locator('.discard-slot .card-wrapper')).toHaveAttribute(
+      'aria-label',
+      fixture.cartaOrigemLabel,
+    );
+  }
+
+  await host.context().close();
+  await convidado.context().close();
 });
