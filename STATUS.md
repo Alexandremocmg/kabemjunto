@@ -7,6 +7,16 @@
 **Branch:** `main`
 **Sprint atual:** Sprint 6 — **EM ANDAMENTO** — persistência, produção e operação v0.5.0
 
+### 2026-08-01 · Corta-Frente V1 (interceptação fora da vez) — completo Local + Online
+
+- ✅ **Motor puro** (`packages/shared/src/rules/interception.ts`): `abrirJanelaInterceptacao`, `interceptar` e `resolverJanelaExpirada`. Elegibilidade V1: números sem ação e `+2`/Skip/Reverse coloridos; `+4`, Coringa Simples, 0+, Troca Mão, Gira Mão e Silêncio ficam fora. Interceptação exige carta 100% idêntica (mesma cor **e** mesmo número/ação); quem descartou não pode interceptar a própria carta; interceptação bem-sucedida encadeia (a carta interceptadora, se elegível, abre nova janela a partir de quem acabou de interceptar).
+- ✅ **RoomStore/Socket.IO autoritativos** (Task 5): janela armada com `setTimeout().unref()` por sala — sem `await sleep` no handler nem polling; CAS por `janelaId` + `revisao` garante que só o primeiro pedido válido antes de `fechaEm` vence; persistida e rearmada (ou resolvida na hora, se já vencida) ao restaurar snapshot; timer cancelado em interceptação antecipada e em abandono. Novos eventos `client:interceptar` / `server:interceptacao:aberta` / `server:interceptacao:resolvida`.
+- ✅ **UI Local e Online**: `InterceptacaoBanner` (compartilhado) mostra a carta alvo, contagem regressiva derivada de `fechaEm` do servidor (nunca autoridade real) e as cartas idênticas da própria mão; o banner só aparece pra quem não descartou a carta alvo. No Online, o cliente só envia o pedido (`client:interceptar`) — quem decide o vencedor é sempre o servidor.
+- 🧪 Cobertura: 13 testes do motor puro, testes de `RoomStore` (janela, timer, persistência/restart, revisão obsoleta, corrida com primeiro-pedido-vence), testes de `socket.ts` fim-a-fim (abertura, interceptação, rejeição por janela/revisão obsoleta, corrida entre dois pedidos válidos, expiração), testes de componente (`InterceptacaoBanner`, `MesaOnline`) e 2 E2E Playwright (Local: humano intercepta bot; Online: dois contextos reais confirmam a jogada do host, a interceptação do convidado e a convergência de ambos pro mesmo topo de descarte).
+- ✅ `npm run validate` (typecheck + lint + prettier + testes + build) e `npx playwright test` (30/30) verdes.
+- ⚠️ Ainda **não publicado** em produção: aguarda decisão de deploy. O temporizador por sala é seguro no serviço Railway atual (instância única); uma futura execução multi-instância exigiria lock/CAS transacional por sala e afinidade de adapter Socket.IO antes de ativar a mecânica.
+- 📄 Plano completo: [`.hermes/plans/2026-07-29_083500-combos-e-corta-frente.md`](./.hermes/plans/2026-07-29_083500-combos-e-corta-frente.md).
+
 ### 2026-07-30 · Correções canônicas em validação local
 
 - ✅ `TROCA_MAO`/`GIRA_MAO` como última carta encerram imediatamente a partida antes de qualquer troca/giro.

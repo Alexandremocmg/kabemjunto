@@ -190,6 +190,15 @@ Termos canônicos usados em todo o GDD. Cada termo mantém o mesmo significado e
 - **Coringa Simples:** altera a cor ativa do jogo
 - **Regra do 7 (Silêncio):** jogar 7 abre uma janela até a próxima carta. Chat escrito e Falas rápidas seguem disponíveis; a primeira mensagem de cada jogador na janela é entregue e gera +2 cartas imediatas, sem passar o turno. Novas mensagens daquele mesmo jogador não acumulam punição até outro 7 abrir uma nova janela.
 
+### Corta-Frente (interceptação fora da vez)
+
+- Quando um jogador descarta uma carta **elegível** (número sem ação, ou `+2`/Skip/Reverse coloridos), o servidor abre uma janela de alguns segundos antes de confirmar o próximo turno normal. `+4`, Coringa Simples, 0+, Troca Mão, Gira Mão e Silêncio ficam fora desta V1.
+- Qualquer outro jogador com uma carta **idêntica** (mesma cor **e** mesmo número/ação — não basta a mesma face) pode jogá-la fora da vez para "cortar a frente": o turno passa a seguir a partir de quem interceptou, no sentido vigente, e a carta interceptadora aplica seu próprio efeito normalmente (`+2` acumula, Skip pula, Reverse inverte).
+- Quem descartou a carta alvo não pode interceptar a própria jogada.
+- O servidor é a única autoridade: primeiro pedido válido recebido antes do prazo vence, sem compensação por latência de rede; o cliente nunca decide o resultado, só envia o pedido e exibe a contagem regressiva.
+- Se ninguém interceptar dentro do prazo, o turno segue normalmente para quem seria o próximo jogador.
+- Uma interceptação bem-sucedida pode encadear: se a carta usada para interceptar também for elegível, abre-se uma nova janela imediatamente, agora a partir de quem acabou de interceptar.
+
 ### Fim de jogo
 
 - Vence quem descartar a última carta da mão
