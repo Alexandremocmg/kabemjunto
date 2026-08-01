@@ -142,12 +142,21 @@ export function comprar(estado: EstadoPartida): {
 
 /**
  * Executa o turno do bot (com delay visual decidido pelo caller).
+ *
+ * Retorna também a carta jogada (quando houve jogada) pra o wrapper de UI
+ * poder disparar o mesmo feedback visual (banner de ataque, "MOMENTO
+ * VIRAL!" do 0+, etc.) que já existe pra jogadas do humano — sem isso, um
+ * bot respondendo com 0+ reflete o ataque de volta silenciosamente, sem
+ * nenhum indício visual de que uma carta especial foi jogada.
  */
-export function turnoBot(estado: EstadoPartida): EstadoPartida {
+export function turnoBot(estado: EstadoPartida): { estado: EstadoPartida; cartaJogada?: Carta } {
   const resultado = executarTurnoBot({ estado });
   tocarSFX(resultado.sfx);
   logEvents(resultado.eventos);
-  return resultado.novoEstado;
+  const cartaJogada = resultado.cartaJogadaId
+    ? resultado.novoEstado.monteDescarte.find((carta) => carta.id === resultado.cartaJogadaId)
+    : undefined;
+  return { estado: resultado.novoEstado, ...(cartaJogada ? { cartaJogada } : {}) };
 }
 
 // ─────────────────────────────────────────────────────────────────────

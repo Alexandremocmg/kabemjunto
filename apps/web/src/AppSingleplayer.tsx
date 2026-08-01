@@ -207,9 +207,14 @@ export const App: React.FC = () => {
     if (jogadorAtual?.isBot) {
       mostrarFeedback({ tipo: 'info', texto: `${jogadorAtual.nome} esta pensando...` });
       const timer = window.setTimeout(() => {
-        setEstado((prev: EstadoPartida | null) =>
-          prev && !prev.interceptacao ? turnoBot(prev) : prev,
-        );
+        const resultado = turnoBot(estado);
+        // Mesmo feedback visual (banner de ataque, "MOMENTO VIRAL!" do 0+,
+        // Silêncio) que já existe pra jogadas do humano — sem isso, um bot
+        // respondendo com 0+ reflete o ataque de volta silenciosamente.
+        if (resultado.cartaJogada) {
+          registrarTransicao(estado, resultado.estado, resultado.cartaJogada, jogadorAtual.nome);
+        }
+        setEstado((prev) => (prev && !prev.interceptacao ? resultado.estado : prev));
       }, 750);
       return () => window.clearTimeout(timer);
     }
