@@ -6,6 +6,8 @@ import {
   Constants,
   type ServerChatEvent,
   type ServerErroEvent,
+  type ServerInterceptacaoAbertaEvent,
+  type ServerInterceptacaoResolvidaEvent,
   ServerSessaoEmitidaEvent,
   ServerSilencioQuebradoEvent,
 } from '@kabemjunto/shared';
@@ -20,6 +22,21 @@ afterEach(async () => {
 
 function once<T>(socket: ClientSocket, event: string): Promise<T> {
   return new Promise((resolve) => socket.once(event, resolve));
+}
+
+function onceWhere<T>(
+  socket: ClientSocket,
+  event: string,
+  predicate: (payload: T) => boolean,
+): Promise<T> {
+  return new Promise((resolve) => {
+    const listener = (payload: T): void => {
+      if (!predicate(payload)) return;
+      socket.off(event, listener);
+      resolve(payload);
+    };
+    socket.on(event, listener);
+  });
 }
 
 async function harness(): Promise<{ url: string; store: RoomStore }> {
@@ -439,4 +456,229 @@ describe('socket — descarte múltiplo', () => {
     const maoRecebidaPeloGuest = (await guestHand).mao.map((carta) => carta.id);
     expect(maoRecebidaPeloGuest).toEqual(maoEsperadaDoGuest.map((carta) => carta.id));
   });
+});
+
+describe('socket — Corta-Frente (interceptação)', () => {
+  async function startGameWithEligibleTopo(): Promise<{
+    url: string;
+    store: RoomStore;
+    host: ClientSocket;
+    guest: ClientSocket;
+    cartaJogavel: ReturnType<typeof Constants.BARALHO_COMPLETO_108.find>;
+    cartaIdentica: ReturnType<typeof Constants.BARALHO_COMPLETO_108.find>;
+  }> {
+    const { url, store } = await harness();
+    const host = await connect(url);
+    const guest = await connect(url);
+    const hostSession = once<ServerSessaoEmitidaEvent>(host, 'server:sessao:emitida');
+    host.emit('client:entrar:sala', { jogadorId: 'host', salaId: 'CORTA1', nome: 'Ana' });
+    await hostSession;
+    const guestSession = once<ServerSessaoEmitidaEvent>(guest, 'server:sessao:emitida');
+    guest.emit('client:entrar:sala', { jogadorId: 'guest', salaId: 'CORTA1', nome: 'Bia' });
+    await guestSession;
+    const started = once(host, 'server:estado:atualizado');
+    host.emit('client:iniciar:partida', {});
+    await started;
+
+    const session = store.get('CORTA1')!;
+    const estado = session.estado!;
+    const cartaJogavel = Constants.BARALHO_COMPLETO_108.find(
+      (carta) =>
+        carta.tipo === 'NUMERADA' &&
+        carta.acao === undefined &&
+        carta.cor === 'AZUL' &&
+        carta.valor === 1,
+    )!;
+    const cartaIdentica = Constants.BARALHO_COMPLETO_108.find(
+      (carta) =>
+        carta.tipo === 'NUMERADA' &&
+        carta.valor === cartaJogavel.valor &&
+        carta.cor === 'AZUL' &&
+        carta.id !== cartaJogavel.id,
+    )!;
+    session.estado = {
+      ...estado,
+      vezDe: 'host',
+      jogadores: estado.jogadores.map((jogador) => {
+        if (jogador.id === 'host')
+          return { ...jogador, mao: [cartaJogavel, ...jogador.mao.slice(0, 1)] };
+        if (jogador.id === 'guest')
+          return { ...jogador, mao: [cartaIdentica, ...jogador.mao.slice(0, 1)] };
+        return jogador;
+      }),
+      monteDescarte: [{ ...cartaJogavel, id: 'topo-preexistente', cor: 'AZUL' as const }],
+      corAtiva: 'AZUL',
+      ataqueAcumulado: 0,
+      ataqueStack: [],
+    };
+
+    return { url, store, host, guest, cartaJogavel, cartaIdentica };
+  }
+
+  it('abre janela para ambos após a jogada e resolve com interceptação, sem vazar mãos', async () => {
+    const { store, host, guest, cartaJogavel, cartaIdentica } = await startGameWithEligibleTopo();
+
+    const hostOpened = once<ServerInterceptacaoAbertaEvent>(host, 'server:interceptacao:aberta');
+    const guestOpened = once<ServerInterceptacaoAbertaEvent>(guest, 'server:interceptacao:aberta');
+    host.emit('client:jogar', { cartaId: cartaJogavel!.id });
+
+    const [hostJanela, guestJanela] = await Promise.all([hostOpened, guestOpened]);
+    expect(hostJanela.janela.jogadorOrigemId).toBe('host');
+    expect(hostJanela.janela.cartaAlvoId).toBe(cartaJogavel!.id);
+    expect(guestJanela).toEqual(hostJanela);
+    expect(JSON.stringify(hostJanela)).not.toContain(cartaIdentica!.id);
+
+    const resolved = once<ServerInterceptacaoResolvidaEvent>(
+      host,
+      'server:interceptacao:resolvida',
+    );
+    const guestHand = once<{ mao: Array<{ id: string }> }>(guest, 'server:mao:atualizada');
+    guest.emit('client:interceptar', {
+      janelaId: hostJanela.janela.janelaId,
+      revisao: hostJanela.janela.revisao,
+      cartaId: cartaIdentica!.id,
+    });
+
+    await expect(resolved).resolves.toMatchObject({
+      janelaId: hostJanela.janela.janelaId,
+      resultado: 'INTERCEPTADA',
+      interceptadorId: 'guest',
+    });
+    const maoDoGuest = (await guestHand).mao;
+    expect(maoDoGuest.map((carta) => carta.id)).not.toContain(cartaIdentica!.id);
+    expect(store.get('CORTA1')?.estado?.monteDescarte.at(-1)?.id).toBe(cartaIdentica!.id);
+    // A carta usada para interceptar (cartaIdentica) também é elegível, e o
+    // decisão de regra #6 (encadeamento) manda abrir nova janela para ela,
+    // agora com o próprio interceptador como origem.
+    const proximaJanela = store.get('CORTA1')?.estado?.interceptacao;
+    expect(proximaJanela?.jogadorOrigemId).toBe('guest');
+    expect(proximaJanela?.cartaAlvoId).toBe(cartaIdentica!.id);
+  });
+
+  it('rejeita interceptação com janelaId ou revisão incorretos sem alterar a janela ativa', async () => {
+    const { store, host, guest, cartaJogavel, cartaIdentica } = await startGameWithEligibleTopo();
+
+    const opened = once<ServerInterceptacaoAbertaEvent>(host, 'server:interceptacao:aberta');
+    host.emit('client:jogar', { cartaId: cartaJogavel!.id });
+    const janela = (await opened).janela;
+
+    const staleWindow = once<ServerErroEvent>(guest, 'server:erro');
+    guest.emit('client:interceptar', {
+      janelaId: 'janela-inexistente',
+      revisao: janela.revisao,
+      cartaId: cartaIdentica!.id,
+    });
+    await expect(staleWindow).resolves.toMatchObject({ codigo: 'INTERCEPTACAO_INVALIDA' });
+
+    const staleRevision = once<ServerErroEvent>(guest, 'server:erro');
+    guest.emit('client:interceptar', {
+      janelaId: janela.janelaId,
+      revisao: janela.revisao + 1,
+      cartaId: cartaIdentica!.id,
+    });
+    await expect(staleRevision).resolves.toMatchObject({ codigo: 'INTERCEPTACAO_INVALIDA' });
+
+    expect(store.get('CORTA1')?.estado?.interceptacao).toEqual(janela);
+  });
+
+  it('entre duas interceptações concorrentes para a mesma janela, aceita exatamente uma', async () => {
+    const { url, store } = await harness();
+    const host = await connect(url);
+    const guest = await connect(url);
+    const third = await connect(url);
+    const hostSession = once<ServerSessaoEmitidaEvent>(host, 'server:sessao:emitida');
+    host.emit('client:entrar:sala', { jogadorId: 'host', salaId: 'CORTA2', nome: 'Ana' });
+    await hostSession;
+    const guestSession = once<ServerSessaoEmitidaEvent>(guest, 'server:sessao:emitida');
+    guest.emit('client:entrar:sala', { jogadorId: 'guest', salaId: 'CORTA2', nome: 'Bia' });
+    await guestSession;
+    const thirdSession = once<ServerSessaoEmitidaEvent>(third, 'server:sessao:emitida');
+    third.emit('client:entrar:sala', { jogadorId: 'third', salaId: 'CORTA2', nome: 'Cai' });
+    await thirdSession;
+    const started = once(host, 'server:estado:atualizado');
+    host.emit('client:iniciar:partida', {});
+    await started;
+
+    const session = store.get('CORTA2')!;
+    const cartaJogavel = Constants.BARALHO_COMPLETO_108.find(
+      (carta) =>
+        carta.tipo === 'NUMERADA' &&
+        carta.acao === undefined &&
+        carta.cor === 'AZUL' &&
+        carta.valor === 1,
+    )!;
+    const cartaIdentica = Constants.BARALHO_COMPLETO_108.find(
+      (carta) =>
+        carta.tipo === 'NUMERADA' &&
+        carta.valor === cartaJogavel.valor &&
+        carta.cor === 'AZUL' &&
+        carta.id !== cartaJogavel.id,
+    )!;
+    const cartaIdenticaOutraCopia = { ...cartaIdentica, id: 'azul-1-terceira-copia' };
+    session.estado = {
+      ...session.estado!,
+      vezDe: 'host',
+      jogadores: session.estado!.jogadores.map((jogador) => {
+        if (jogador.id === 'host')
+          return { ...jogador, mao: [cartaJogavel, ...jogador.mao.slice(0, 1)] };
+        if (jogador.id === 'guest')
+          return { ...jogador, mao: [cartaIdentica, ...jogador.mao.slice(0, 1)] };
+        if (jogador.id === 'third')
+          return { ...jogador, mao: [cartaIdenticaOutraCopia, ...jogador.mao.slice(0, 1)] };
+        return jogador;
+      }),
+      monteDescarte: [{ ...cartaJogavel, id: 'topo-preexistente', cor: 'AZUL' as const }],
+      corAtiva: 'AZUL',
+      ataqueAcumulado: 0,
+      ataqueStack: [],
+    };
+
+    const opened = once<ServerInterceptacaoAbertaEvent>(host, 'server:interceptacao:aberta');
+    host.emit('client:jogar', { cartaId: cartaJogavel.id });
+    const janela = (await opened).janela;
+
+    const resolved = onceWhere<ServerInterceptacaoResolvidaEvent>(
+      host,
+      'server:interceptacao:resolvida',
+      (payload) => payload.resultado === 'INTERCEPTADA',
+    );
+    const rejected = once<ServerErroEvent>(third, 'server:erro');
+    guest.emit('client:interceptar', {
+      janelaId: janela.janelaId,
+      revisao: janela.revisao,
+      cartaId: cartaIdentica.id,
+    });
+    third.emit('client:interceptar', {
+      janelaId: janela.janelaId,
+      revisao: janela.revisao,
+      cartaId: cartaIdenticaOutraCopia.id,
+    });
+
+    await expect(resolved).resolves.toMatchObject({
+      resultado: 'INTERCEPTADA',
+      interceptadorId: 'guest',
+    });
+    await expect(rejected).resolves.toMatchObject({ codigo: 'INTERCEPTACAO_INVALIDA' });
+    expect(store.get('CORTA2')?.estado?.monteDescarte.at(-1)?.id).toBe(cartaIdentica.id);
+  });
+
+  it('a janela expira sozinha e avança para o próximo turno sem interceptação', async () => {
+    const { store, host, guest, cartaJogavel } = await startGameWithEligibleTopo();
+
+    const opened = once<ServerInterceptacaoAbertaEvent>(host, 'server:interceptacao:aberta');
+    host.emit('client:jogar', { cartaId: cartaJogavel!.id });
+    const janela = (await opened).janela;
+
+    const resolved = once<ServerInterceptacaoResolvidaEvent>(
+      guest,
+      'server:interceptacao:resolvida',
+    );
+    await expect(resolved).resolves.toMatchObject({
+      janelaId: janela.janelaId,
+      resultado: 'EXPIRADA',
+      proximaVezId: janela.proximaVezId,
+    });
+    expect(store.get('CORTA1')?.estado?.interceptacao).toBeUndefined();
+    expect(store.get('CORTA1')?.estado?.vezDe).toBe(janela.proximaVezId);
+  }, 10000);
 });

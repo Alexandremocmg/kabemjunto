@@ -100,6 +100,7 @@ export type ClientIniciarPartidaEvent = Record<string, never>;
  */
 export interface ClientInterceptarEvent {
   janelaId: string;
+  revisao: number;
   cartaId: string;
 }
 
@@ -206,6 +207,7 @@ export interface ServerErroEvent {
     | 'NAO_SUA_VEZ'
     | 'JOGADOR_EM_OUTRA_SALA'
     | 'AUTH_REQUIRED'
+    | 'INTERCEPTACAO_INVALIDA'
     | 'INTERNAL';
   mensagem: string;
 }

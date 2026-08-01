@@ -1,4 +1,4 @@
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import {
   Constants,
   comprarCartas,
@@ -6,6 +6,10 @@ import {
   executarDescarteMultiplo,
   executarJogada,
   penalizarQuebraSilencio,
+  abrirJanelaInterceptacao,
+  interceptar as interceptarPure,
+  resolverJanelaExpirada,
+  isEligibleForInterception,
   type Carta,
   type EstadoPartida,
   type EstadoPartidaPublico,
@@ -18,6 +22,13 @@ import {
   type VisibilidadeSala,
 } from '@kabemjunto/shared';
 import type { PersistedRoomSession, RoomPersistence } from './persistence.js';
+
+/**
+ * Duração da janela de Corta-Frente no servidor (autoridade). O cliente
+ * (Local) usa sua própria constante para simular o timer — não precisa
+ * bater exatamente, pois quem decide o resultado real é sempre o servidor.
+ */
+export const INTERCEPTION_WINDOW_MS = 5000;
 
 export interface RoomSession {
   sala: Sala;
@@ -68,6 +79,7 @@ export class RoomError extends Error {
       | 'JOGADA_INVALIDA'
       | 'JOGADOR_EM_OUTRA_SALA'
       | 'AUTH_REQUIRED'
+      | 'INTERCEPTACAO_INVALIDA'
       | 'INTERNAL',
     message: string,
   ) {
@@ -153,14 +165,31 @@ export function toPublicState(estado: EstadoPartida): EstadoPartidaPublico {
     silencio: estado.silencio,
     finalizada: estado.finalizada,
     ...(estado.vencedor !== undefined ? { vencedor: estado.vencedor } : {}),
+    ...(estado.interceptacao !== undefined ? { interceptacao: estado.interceptacao } : {}),
   };
 }
 
 export class RoomStore {
   private readonly rooms = new Map<SalaId, RoomSession>();
+  /** Timers de janelas de Corta-Frente ativas, indexados por `janelaId`. */
+  private readonly interceptionTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private interceptionExpiredHandler:
+    | ((salaId: SalaId, session: RoomSession, janelaId: string, proximaVezId: JogadorId) => void)
+    | undefined;
 
   constructor(private readonly persistence?: RoomPersistence) {
     if (persistence) this.restoreState(persistence.load());
+  }
+
+  setInterceptionExpiredHandler(
+    handler: (
+      salaId: SalaId,
+      session: RoomSession,
+      janelaId: string,
+      proximaVezId: JogadorId,
+    ) => void,
+  ): void {
+    this.interceptionExpiredHandler = handler;
   }
 
   exportState(): PersistedRoomSession[] {
@@ -179,6 +208,9 @@ export class RoomStore {
   }
 
   restoreState(rooms: readonly PersistedRoomSession[]): void {
+    for (const timer of this.interceptionTimers.values()) clearTimeout(timer);
+    this.interceptionTimers.clear();
+
     const restored = new Map<SalaId, RoomSession>();
     for (const room of rooms) {
       const sala = {
@@ -214,6 +246,16 @@ export class RoomStore {
     }
     this.rooms.clear();
     for (const [roomId, session] of restored) this.rooms.set(roomId, session);
+
+    for (const [salaId, session] of this.rooms) {
+      const janela = session.estado?.interceptacao;
+      if (!janela) continue;
+      if (janela.fechaEm <= Date.now()) {
+        this.resolveExpiredInterceptionWindow(salaId, janela.janelaId);
+      } else {
+        this.armInterceptionTimer(salaId, janela.janelaId, janela.fechaEm, janela.proximaVezId);
+      }
+    }
   }
 
   /**
@@ -543,6 +585,126 @@ export class RoomStore {
     }
   }
 
+  /**
+   * Abre uma janela de Corta-Frente para a carta recém-descartada por
+   * `jogadorOrigemId` (via jogada normal ou descarte múltiplo). Chamado
+   * pelo orquestrador (socket.ts) logo após `play`/`playMultiple`/`buy`
+   * deixarem uma carta elegível no topo, desde que ninguém já tenha
+   * interceptado nesse meio-tempo (checagem best-effort: se já existe
+   * janela ativa, não abre outra por cima).
+   *
+   * O prazo é armado internamente via `setTimeout`; o observador registrado
+   * com `setInterceptionExpiredHandler` é notificado quando a resolução é
+   * efetivada. Nunca há polling/`await sleep`, e o timer é cancelável em
+   * abandono, restauração ou interceptação antecipada.
+   */
+  openInterceptionWindow(salaId: string, jogadorOrigemId: JogadorId): RoomSession | undefined {
+    const session = this.requireActive(salaId);
+    if (session.estado.interceptacao) return undefined; // já existe janela ativa
+    if (session.estado.finalizada) return undefined;
+
+    const topo = session.estado.monteDescarte[session.estado.monteDescarte.length - 1];
+    if (!topo || !isEligibleForInterception(topo)) return undefined;
+    // Precisa de pelo menos um outro jogador conectado além de quem descartou.
+    if (session.estado.jogadores.length < 2) return undefined;
+
+    const janelaId = randomUUID();
+    const fechaEm = Date.now() + INTERCEPTION_WINDOW_MS;
+    const proximaVezId = session.estado.vezDe;
+
+    const novoEstado = abrirJanelaInterceptacao({
+      estado: session.estado,
+      cartaAlvoId: topo.id,
+      jogadorOrigemId,
+      janelaId,
+      fechaEm,
+      proximaVezId,
+    });
+    const next = this.saveState(session, novoEstado);
+    this.armInterceptionTimer(salaId, janelaId, fechaEm, proximaVezId);
+    return next;
+  }
+
+  /** Um jogador tenta interceptar a janela ativa da sala. Primeiro pedido válido vence. */
+  intercept(
+    salaId: string,
+    jogadorId: JogadorId,
+    janelaId: string,
+    revisao: number,
+    cartaId: string,
+  ): RoomSession {
+    const session = this.requireActive(salaId);
+    if (
+      !session.estado.interceptacao ||
+      session.estado.interceptacao.janelaId !== janelaId ||
+      session.estado.interceptacao.revisao !== revisao
+    ) {
+      throw new RoomError(
+        'INTERCEPTACAO_INVALIDA',
+        'Janela de interceptação inexistente, obsoleta ou já resolvida.',
+      );
+    }
+    let resultado: ReturnType<typeof interceptarPure>;
+    try {
+      resultado = interceptarPure({ estado: session.estado, janelaId, cartaId, jogadorId });
+    } catch (error) {
+      throw new RoomError(
+        'INTERCEPTACAO_INVALIDA',
+        error instanceof Error ? error.message : 'Não foi possível interceptar.',
+      );
+    }
+    this.clearInterceptionTimer(janelaId);
+    return this.saveState(session, resultado.novoEstado);
+  }
+
+  private armInterceptionTimer(
+    salaId: SalaId,
+    janelaId: string,
+    fechaEm: number,
+    proximaVezId: JogadorId,
+  ): void {
+    this.clearInterceptionTimer(janelaId);
+    const timer = setTimeout(
+      () => {
+        this.interceptionTimers.delete(janelaId);
+        try {
+          const resolved = this.resolveExpiredInterceptionWindow(salaId, janelaId);
+          if (resolved) {
+            this.interceptionExpiredHandler?.(salaId, resolved, janelaId, proximaVezId);
+          }
+        } catch {
+          // A janela foi resolvida por interceptação ou a sala deixou de
+          // existir. O callback é deliberadamente idempotente.
+        }
+      },
+      Math.max(0, fechaEm - Date.now()),
+    );
+    // Timers não devem manter o processo vivo sozinhos (ex.: testes/CLI).
+    timer.unref?.();
+    this.interceptionTimers.set(janelaId, timer);
+  }
+
+  /** Resolve a janela por expiração de prazo. Idempotente: chamado só uma vez pelo próprio timer. */
+  private resolveExpiredInterceptionWindow(
+    salaId: string,
+    janelaId: string,
+  ): RoomSession | undefined {
+    const session = this.get(salaId);
+    if (!session?.estado?.interceptacao || session.estado.interceptacao.janelaId !== janelaId) {
+      return undefined;
+    }
+    const novoEstado = resolverJanelaExpirada({ estado: session.estado, janelaId });
+    return this.saveState(session, novoEstado);
+  }
+
+  private clearInterceptionTimer(janelaId: string): void {
+    const timer = this.interceptionTimers.get(janelaId);
+    if (timer) {
+      clearTimeout(timer);
+      this.interceptionTimers.delete(janelaId);
+    }
+  }
+
   buy(salaId: string, jogadorId: JogadorId): RoomSession {
     const session = this.requireActive(salaId);
     if (session.estado.vezDe !== jogadorId) {
@@ -575,8 +737,11 @@ export class RoomStore {
     if (!session.sala.jogadores.some((player) => player.id === jogadorId)) {
       throw new RoomError('AUTH_REQUIRED', AUTH_REQUIRED_MESSAGE);
     }
+    if (session.estado.interceptacao)
+      this.clearInterceptionTimer(session.estado.interceptacao.janelaId);
     const estado: EstadoPartida = {
       ...session.estado,
+      interceptacao: undefined,
       finalizada: true,
       historico: [
         ...session.estado.historico,

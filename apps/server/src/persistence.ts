@@ -105,6 +105,9 @@ const EVENT_TYPES = [
   'VITORIA',
   'PARTIDA_FINALIZADA',
   'MONTE_ESGOTADO',
+  'INTERCEPTACAO_ABERTA',
+  'INTERCEPTACAO_ACEITA',
+  'INTERCEPTACAO_EXPIRADA',
 ] as const;
 
 function hasOptionalString(record: Record<string, unknown>, key: string): boolean {
@@ -280,7 +283,42 @@ function isGameEvent(
         value['cartasObtidas'] >= 0 &&
         value['cartasObtidas'] < value['cartasSolicitadas']
       );
+    case 'INTERCEPTACAO_ABERTA':
+      return (
+        isString(value['janelaId']) &&
+        isString(value['cartaAlvoId']) &&
+        isString(value['jogadorOrigemId']) &&
+        playerIds.has(value['jogadorOrigemId'])
+      );
+    case 'INTERCEPTACAO_ACEITA':
+      return (
+        isString(value['janelaId']) &&
+        isString(value['interceptadorId']) &&
+        playerIds.has(value['interceptadorId']) &&
+        isString(value['cartaId'])
+      );
+    case 'INTERCEPTACAO_EXPIRADA':
+      return (
+        isString(value['janelaId']) &&
+        isString(value['proximaVezId']) &&
+        playerIds.has(value['proximaVezId'])
+      );
   }
+}
+
+function isInterceptionWindow(value: unknown, playerIds: ReadonlySet<string>): boolean {
+  return (
+    isRecord(value) &&
+    isString(value['janelaId']) &&
+    isString(value['cartaAlvoId']) &&
+    isString(value['jogadorOrigemId']) &&
+    playerIds.has(value['jogadorOrigemId']) &&
+    isFiniteNumber(value['fechaEm']) &&
+    isString(value['proximaVezId']) &&
+    playerIds.has(value['proximaVezId']) &&
+    isInteger(value['revisao']) &&
+    value['revisao'] >= 1
+  );
 }
 
 function isGameState(
@@ -315,6 +353,8 @@ function isGameState(
         silence['jogadoresQuebraram'].every(isString)) &&
     Array.isArray(value['historico']) &&
     value['historico'].every((event) => isGameEvent(event, snapshotVersion, playerIds)) &&
+    (value['interceptacao'] === undefined ||
+      isInterceptionWindow(value['interceptacao'], playerIds)) &&
     isBoolean(value['finalizada']) &&
     hasOptionalString(value, 'vencedor')
   );

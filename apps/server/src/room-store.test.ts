@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Constants, validarJogada, type JogadorId } from '@kabemjunto/shared';
 import {
   JsonRoomPersistence,
@@ -29,12 +29,55 @@ function uuid(n: number): JogadorId {
   return `jogador-${n.toString().padStart(4, '0')}-aaaa-bbbb-cccc-ddddeeeeffff`;
 }
 
-function createStartedStore(): RoomStore {
-  const store = new RoomStore();
+function createStartedStore(persistence?: RoomPersistence): RoomStore {
+  const store = new RoomStore(persistence);
   store.join({ jogadorId: uuid(1), salaId: 'KJTEST', nome: 'Ana', socketId: 'socket-a' });
   store.join({ jogadorId: uuid(2), salaId: 'KJTEST', nome: 'Bia', socketId: 'socket-b' });
   store.start('KJTEST', 'socket-a');
   return store;
+}
+
+function prepareOpenNumberedInterception(store: RoomStore) {
+  const session = store.get('KJTEST')!;
+  const estado = session.estado!;
+  const jogadorOrigem = estado.jogadores.find((jogador) => jogador.id === estado.vezDe)!;
+  const jogadorInterceptador = estado.jogadores.find((jogador) => jogador.id !== jogadorOrigem.id)!;
+  const cartaJogavel = Constants.BARALHO_COMPLETO_108.find(
+    (carta) => carta.tipo === 'NUMERADA' && carta.cor === 'AZUL' && carta.valor === 1,
+  )!;
+  const cartaIdentica = Constants.BARALHO_COMPLETO_108.find(
+    (carta) =>
+      carta.tipo === 'NUMERADA' &&
+      carta.valor === cartaJogavel.valor &&
+      carta.cor === cartaJogavel.cor &&
+      carta.id !== cartaJogavel.id,
+  )!;
+
+  session.estado = {
+    ...estado,
+    jogadores: estado.jogadores.map((jogador) => {
+      if (jogador.id === jogadorOrigem.id) {
+        return { ...jogador, mao: [cartaJogavel, ...jogador.mao.slice(0, 1)] };
+      }
+      if (jogador.id === jogadorInterceptador.id) {
+        return { ...jogador, mao: [cartaIdentica, ...jogador.mao] };
+      }
+      return jogador;
+    }),
+    monteDescarte: [{ ...cartaJogavel, id: 'topo-atual' }],
+    corAtiva: 'AZUL',
+    ataqueAcumulado: 0,
+    ataqueStack: [],
+  };
+  store.play('KJTEST', jogadorOrigem.id, cartaJogavel.id);
+  const opened = store.openInterceptionWindow('KJTEST', jogadorOrigem.id)!;
+  return {
+    jogadorOrigem,
+    jogadorInterceptador,
+    cartaJogavel,
+    cartaIdentica,
+    janela: opened.estado!.interceptacao!,
+  };
 }
 
 describe('RoomStore — básico', () => {
@@ -217,6 +260,397 @@ describe('RoomStore — descarte múltiplo', () => {
     expect(after.ataqueAcumulado).toBe(0);
     expect(after.ataqueStack).toEqual([]);
     expect(after.jogadores.find((jogador) => jogador.id === jogadorAtual.id)?.mao).toEqual([]);
+  });
+});
+
+describe('RoomStore — Corta-Frente (interceptação)', () => {
+  it('abre janela para a carta elegível que está no topo, com pelo menos 2 jogadores', () => {
+    const store = createStartedStore();
+    const session = store.get('KJTEST')!;
+    const estado = session.estado!;
+    const jogadorAtual = estado.jogadores.find((jogador) => jogador.id === estado.vezDe)!;
+    const cartaJogavel = Constants.BARALHO_COMPLETO_108.find(
+      (carta) => carta.tipo === 'NUMERADA' && carta.cor === 'AZUL' && carta.valor === 1,
+    )!;
+    session.estado = {
+      ...estado,
+      jogadores: estado.jogadores.map((jogador) =>
+        jogador.id === jogadorAtual.id
+          ? { ...jogador, mao: [cartaJogavel, ...jogador.mao.slice(0, 1)] }
+          : jogador,
+      ),
+      monteDescarte: [{ ...cartaJogavel, id: 'topo-preexistente' }],
+      corAtiva: 'AZUL',
+    };
+
+    const opened = store.openInterceptionWindow('KJTEST', jogadorAtual.id);
+    expect(opened?.estado?.interceptacao).toBeDefined();
+    expect(opened?.estado?.interceptacao?.cartaAlvoId).toBe('topo-preexistente');
+    expect(opened?.estado?.interceptacao?.jogadorOrigemId).toBe(jogadorAtual.id);
+  });
+
+  it('play() seguido de openInterceptionWindow() abre janela para carta elegível recém-descartada', () => {
+    const store = createStartedStore();
+    const session = store.get('KJTEST')!;
+    const estado = session.estado!;
+    const jogadorAtual = estado.jogadores.find((jogador) => jogador.id === estado.vezDe)!;
+    const cartaJogavel = Constants.BARALHO_COMPLETO_108.find(
+      (carta) =>
+        carta.tipo === 'NUMERADA' &&
+        carta.acao === undefined &&
+        carta.cor === 'AZUL' &&
+        carta.valor === 1,
+    )!;
+    const topoAtual = { ...cartaJogavel, id: 'topo-atual', cor: 'AZUL' as const };
+    session.estado = {
+      ...estado,
+      jogadores: estado.jogadores.map((jogador) =>
+        jogador.id === jogadorAtual.id
+          ? { ...jogador, mao: [cartaJogavel, ...jogador.mao.slice(0, 1)] }
+          : jogador,
+      ),
+      monteDescarte: [topoAtual],
+      corAtiva: 'AZUL',
+      ataqueAcumulado: 0,
+      ataqueStack: [],
+    };
+
+    const played = store.play('KJTEST', jogadorAtual.id, cartaJogavel.id);
+    expect(played.estado?.monteDescarte.at(-1)?.id).toBe(cartaJogavel.id);
+
+    const opened = store.openInterceptionWindow('KJTEST', jogadorAtual.id);
+    expect(opened?.estado?.interceptacao).toBeDefined();
+    expect(opened?.estado?.interceptacao?.cartaAlvoId).toBe(cartaJogavel.id);
+    expect(opened?.estado?.interceptacao?.jogadorOrigemId).toBe(jogadorAtual.id);
+  });
+
+  it('não abre uma segunda janela se já existir uma ativa', () => {
+    const store = createStartedStore();
+    const session = store.get('KJTEST')!;
+    const estado = session.estado!;
+    const jogadorAtual = estado.jogadores.find((jogador) => jogador.id === estado.vezDe)!;
+    const cartaJogavel = Constants.BARALHO_COMPLETO_108.find(
+      (carta) =>
+        carta.tipo === 'NUMERADA' &&
+        carta.acao === undefined &&
+        carta.cor === 'AZUL' &&
+        carta.valor === 1,
+    )!;
+    session.estado = {
+      ...estado,
+      jogadores: estado.jogadores.map((jogador) =>
+        jogador.id === jogadorAtual.id
+          ? { ...jogador, mao: [cartaJogavel, ...jogador.mao.slice(0, 1)] }
+          : jogador,
+      ),
+      monteDescarte: [{ ...cartaJogavel, id: 'topo-atual', cor: 'AZUL' as const }],
+      corAtiva: 'AZUL',
+      ataqueAcumulado: 0,
+      ataqueStack: [],
+    };
+    store.play('KJTEST', jogadorAtual.id, cartaJogavel.id);
+    const first = store.openInterceptionWindow('KJTEST', jogadorAtual.id);
+    expect(first?.estado?.interceptacao).toBeDefined();
+
+    const second = store.openInterceptionWindow('KJTEST', jogadorAtual.id);
+    expect(second).toBeUndefined();
+  });
+
+  it('intercept() valida a carta idêntica na mão do interceptador e resolve a janela', () => {
+    const store = createStartedStore();
+    const session = store.get('KJTEST')!;
+    const estado = session.estado!;
+    const jogadorOrigem = estado.jogadores.find((jogador) => jogador.id === estado.vezDe)!;
+    const jogadorInterceptador = estado.jogadores.find(
+      (jogador) => jogador.id !== jogadorOrigem.id,
+    )!;
+    const cartaJogavel = Constants.BARALHO_COMPLETO_108.find(
+      (carta) =>
+        carta.tipo === 'NUMERADA' &&
+        carta.acao === undefined &&
+        carta.cor === 'AZUL' &&
+        carta.valor === 1,
+    )!;
+    const cartaIdentica = Constants.BARALHO_COMPLETO_108.find(
+      (carta) =>
+        carta.tipo === 'NUMERADA' &&
+        carta.valor === cartaJogavel.valor &&
+        carta.cor === 'AZUL' &&
+        carta.id !== cartaJogavel.id,
+    )!;
+    session.estado = {
+      ...estado,
+      jogadores: estado.jogadores.map((jogador) => {
+        if (jogador.id === jogadorOrigem.id)
+          return { ...jogador, mao: [cartaJogavel, ...jogador.mao.slice(0, 1)] };
+        if (jogador.id === jogadorInterceptador.id)
+          return { ...jogador, mao: [cartaIdentica, ...jogador.mao] };
+        return jogador;
+      }),
+      monteDescarte: [{ ...cartaJogavel, id: 'topo-atual', cor: 'AZUL' as const }],
+      corAtiva: 'AZUL',
+      ataqueAcumulado: 0,
+      ataqueStack: [],
+    };
+    store.play('KJTEST', jogadorOrigem.id, cartaJogavel.id);
+    const opened = store.openInterceptionWindow('KJTEST', jogadorOrigem.id);
+    const janela = opened!.estado!.interceptacao!;
+
+    const resolved = store.intercept(
+      'KJTEST',
+      jogadorInterceptador.id,
+      janela.janelaId,
+      janela.revisao,
+      cartaIdentica.id,
+    );
+
+    expect(resolved.estado?.interceptacao).toBeUndefined();
+    expect(resolved.estado?.monteDescarte.at(-1)?.id).toBe(cartaIdentica.id);
+    expect(
+      resolved.estado?.jogadores.find((jogador) => jogador.id === jogadorInterceptador.id)?.mao,
+    ).not.toContainEqual(expect.objectContaining({ id: cartaIdentica.id }));
+  });
+
+  it('rejeita interceptação com carta não idêntica (mesma face, cor diferente)', () => {
+    const store = createStartedStore();
+    const session = store.get('KJTEST')!;
+    const estado = session.estado!;
+    const jogadorOrigem = estado.jogadores.find((jogador) => jogador.id === estado.vezDe)!;
+    const jogadorInterceptador = estado.jogadores.find(
+      (jogador) => jogador.id !== jogadorOrigem.id,
+    )!;
+    const cartaJogavel = Constants.BARALHO_COMPLETO_108.find(
+      (carta) =>
+        carta.tipo === 'NUMERADA' &&
+        carta.acao === undefined &&
+        carta.cor === 'AZUL' &&
+        carta.valor === 1,
+    )!;
+    const cartaMesmaFace = Constants.BARALHO_COMPLETO_108.find(
+      (carta) =>
+        carta.tipo === 'NUMERADA' && carta.valor === cartaJogavel.valor && carta.cor === 'VERDE',
+    )!;
+    session.estado = {
+      ...estado,
+      jogadores: estado.jogadores.map((jogador) => {
+        if (jogador.id === jogadorOrigem.id)
+          return { ...jogador, mao: [cartaJogavel, ...jogador.mao.slice(0, 1)] };
+        if (jogador.id === jogadorInterceptador.id)
+          return { ...jogador, mao: [cartaMesmaFace, ...jogador.mao] };
+        return jogador;
+      }),
+      monteDescarte: [{ ...cartaJogavel, id: 'topo-atual', cor: 'AZUL' as const }],
+      corAtiva: 'AZUL',
+      ataqueAcumulado: 0,
+      ataqueStack: [],
+    };
+    store.play('KJTEST', jogadorOrigem.id, cartaJogavel.id);
+    const opened = store.openInterceptionWindow('KJTEST', jogadorOrigem.id);
+    const janela = opened!.estado!.interceptacao!;
+
+    expect(() =>
+      store.intercept(
+        'KJTEST',
+        jogadorInterceptador.id,
+        janela.janelaId,
+        janela.revisao,
+        cartaMesmaFace.id,
+      ),
+    ).toThrow(RoomError);
+  });
+
+  it('a janela expira sozinha via setTimeout e chama onExpire, sem polling', () => {
+    vi.useFakeTimers();
+    try {
+      const store = createStartedStore();
+      const session = store.get('KJTEST')!;
+      const estado = session.estado!;
+      const jogadorOrigem = estado.jogadores.find((jogador) => jogador.id === estado.vezDe)!;
+      const cartaJogavel = Constants.BARALHO_COMPLETO_108.find(
+        (carta) =>
+          carta.tipo === 'NUMERADA' &&
+          carta.acao === undefined &&
+          carta.cor === 'AZUL' &&
+          carta.valor === 1,
+      )!;
+      session.estado = {
+        ...estado,
+        jogadores: estado.jogadores.map((jogador) =>
+          jogador.id === jogadorOrigem.id
+            ? { ...jogador, mao: [cartaJogavel, ...jogador.mao.slice(0, 1)] }
+            : jogador,
+        ),
+        monteDescarte: [{ ...cartaJogavel, id: 'topo-atual', cor: 'AZUL' as const }],
+        corAtiva: 'AZUL',
+        ataqueAcumulado: 0,
+        ataqueStack: [],
+      };
+      store.play('KJTEST', jogadorOrigem.id, cartaJogavel.id);
+
+      let expirou = false;
+      let recebeuJanelaId: string | undefined;
+      store.setInterceptionExpiredHandler((_salaId, _session, janelaId) => {
+        expirou = true;
+        recebeuJanelaId = janelaId;
+      });
+      store.openInterceptionWindow('KJTEST', jogadorOrigem.id);
+      const janelaId = store.get('KJTEST')!.estado!.interceptacao!.janelaId;
+
+      expect(expirou).toBe(false);
+      vi.advanceTimersByTime(6000);
+
+      expect(expirou).toBe(true);
+      expect(recebeuJanelaId).toBe(janelaId);
+      expect(store.get('KJTEST')!.estado!.interceptacao).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('interceptar antes do timeout cancela o timer — onExpire nunca é chamado', () => {
+    vi.useFakeTimers();
+    try {
+      const store = createStartedStore();
+      const session = store.get('KJTEST')!;
+      const estado = session.estado!;
+      const jogadorOrigem = estado.jogadores.find((jogador) => jogador.id === estado.vezDe)!;
+      const jogadorInterceptador = estado.jogadores.find(
+        (jogador) => jogador.id !== jogadorOrigem.id,
+      )!;
+      const cartaJogavel = Constants.BARALHO_COMPLETO_108.find(
+        (carta) =>
+          carta.tipo === 'NUMERADA' &&
+          carta.acao === undefined &&
+          carta.cor === 'AZUL' &&
+          carta.valor === 1,
+      )!;
+      const cartaIdentica = Constants.BARALHO_COMPLETO_108.find(
+        (carta) =>
+          carta.tipo === 'NUMERADA' &&
+          carta.valor === cartaJogavel.valor &&
+          carta.cor === 'AZUL' &&
+          carta.id !== cartaJogavel.id,
+      )!;
+      session.estado = {
+        ...estado,
+        jogadores: estado.jogadores.map((jogador) => {
+          if (jogador.id === jogadorOrigem.id)
+            return { ...jogador, mao: [cartaJogavel, ...jogador.mao.slice(0, 1)] };
+          if (jogador.id === jogadorInterceptador.id)
+            return { ...jogador, mao: [cartaIdentica, ...jogador.mao] };
+          return jogador;
+        }),
+        monteDescarte: [{ ...cartaJogavel, id: 'topo-atual', cor: 'AZUL' as const }],
+        corAtiva: 'AZUL',
+        ataqueAcumulado: 0,
+        ataqueStack: [],
+      };
+      store.play('KJTEST', jogadorOrigem.id, cartaJogavel.id);
+
+      let expirou = false;
+      store.setInterceptionExpiredHandler(() => {
+        expirou = true;
+      });
+      store.openInterceptionWindow('KJTEST', jogadorOrigem.id);
+      const janela = store.get('KJTEST')!.estado!.interceptacao!;
+      store.intercept(
+        'KJTEST',
+        jogadorInterceptador.id,
+        janela.janelaId,
+        janela.revisao,
+        cartaIdentica.id,
+      );
+
+      vi.advanceTimersByTime(6000);
+      expect(expirou).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it('rejeita revisão obsoleta sem alterar a janela ativa', () => {
+    const store = createStartedStore();
+    const { jogadorInterceptador, cartaIdentica, janela } = prepareOpenNumberedInterception(store);
+
+    expect(() =>
+      store.intercept(
+        'KJTEST',
+        jogadorInterceptador.id,
+        janela.janelaId,
+        janela.revisao + 1,
+        cartaIdentica.id,
+      ),
+    ).toThrow('obsoleta');
+    expect(store.get('KJTEST')?.estado?.interceptacao).toEqual(janela);
+  });
+
+  it('aceita exatamente o primeiro pedido válido para a mesma janela', () => {
+    const store = createStartedStore();
+    const { jogadorInterceptador, cartaIdentica, janela } = prepareOpenNumberedInterception(store);
+
+    const accepted = store.intercept(
+      'KJTEST',
+      jogadorInterceptador.id,
+      janela.janelaId,
+      janela.revisao,
+      cartaIdentica.id,
+    );
+    expect(accepted.estado?.interceptacao).toBeUndefined();
+
+    expect(() =>
+      store.intercept(
+        'KJTEST',
+        jogadorInterceptador.id,
+        janela.janelaId,
+        janela.revisao,
+        cartaIdentica.id,
+      ),
+    ).toThrow('já resolvida');
+  });
+
+  it('persiste e rearma uma janela futura após restart', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-31T12:00:00Z'));
+    try {
+      const file = persistenceFile();
+      const store = createStartedStore(new JsonRoomPersistence(file));
+      const { janela } = prepareOpenNumberedInterception(store);
+
+      const restored = new RoomStore(new JsonRoomPersistence(file));
+      expect(restored.get('KJTEST')?.estado?.interceptacao).toEqual(janela);
+
+      let expirou = false;
+      restored.setInterceptionExpiredHandler(() => {
+        expirou = true;
+      });
+      vi.advanceTimersByTime(6000);
+
+      expect(expirou).toBe(true);
+      expect(restored.get('KJTEST')?.estado?.interceptacao).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('resolve imediatamente uma janela já vencida ao restaurar o snapshot', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-31T12:00:00Z'));
+    try {
+      const file = persistenceFile();
+      const store = createStartedStore(new JsonRoomPersistence(file));
+      const { janela } = prepareOpenNumberedInterception(store);
+
+      vi.setSystemTime(janela.fechaEm + 1);
+      const restored = new RoomStore(new JsonRoomPersistence(file));
+
+      expect(restored.get('KJTEST')?.estado?.interceptacao).toBeUndefined();
+      expect(restored.get('KJTEST')?.estado?.vezDe).toBe(janela.proximaVezId);
+      expect(restored.get('KJTEST')?.estado?.historico.at(-1)).toMatchObject({
+        tipo: 'INTERCEPTACAO_EXPIRADA',
+        janelaId: janela.janelaId,
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

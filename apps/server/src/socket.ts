@@ -6,6 +6,7 @@ import type {
   ClientEntrarSalaEvent,
   ClientEscolherCorEvent,
   ClientIniciarPartidaEvent,
+  ClientInterceptarEvent,
   ClientJogarEvent,
   ClientComprarEvent,
   ClientListarSalasEvent,
@@ -15,6 +16,8 @@ import type {
   ServerCorTrocadaEvent,
   ServerEstadoAtualizadoEvent,
   ServerErroEvent,
+  ServerInterceptacaoAbertaEvent,
+  ServerInterceptacaoResolvidaEvent,
   ServerJogadaAceitaEvent,
   ServerJogadaRejeitadaEvent,
   ServerMaoAtualizadaEvent,
@@ -42,6 +45,7 @@ type ClientEvents = {
   'client:descarte:multiplo': (payload: ClientDescarteMultiploEvent) => void;
   'client:comprar': (payload: ClientComprarEvent) => void;
   'client:escolher:cor': (payload: ClientEscolherCorEvent) => void;
+  'client:interceptar': (payload: ClientInterceptarEvent) => void;
   'client:chat:msg': (payload: ClientChatEvent) => void;
 };
 
@@ -57,6 +61,8 @@ type ServerEvents = {
   'server:silencio:quebrado': (payload: ServerSilencioQuebradoEvent) => void;
   'server:chat:msg': (payload: ServerChatEvent) => void;
   'server:mao:atualizada': (payload: ServerMaoAtualizadaEvent) => void;
+  'server:interceptacao:aberta': (payload: ServerInterceptacaoAbertaEvent) => void;
+  'server:interceptacao:resolvida': (payload: ServerInterceptacaoResolvidaEvent) => void;
   'server:erro': (payload: ServerErroEvent) => void;
 };
 
@@ -99,12 +105,40 @@ function sendPrivateHands(io: GameServer, session: ReturnType<RoomStore['get']>)
   }
 }
 
+/**
+ * Após qualquer ação que possa deixar uma carta elegível no topo do
+ * descarte (jogada normal, descarte múltiplo, compra que descarta — hoje
+ * só as duas primeiras se aplicam), tenta abrir uma janela de Corta-Frente.
+ * Sem efeito se não houver carta elegível, se já existir janela ativa, ou
+ * se a partida já tiver terminado.
+ */
+function maybeOpenInterceptionWindow(
+  io: GameServer,
+  store: RoomStore,
+  salaId: string,
+  jogadorOrigemId: string,
+): void {
+  const opened = store.openInterceptionWindow(salaId, jogadorOrigemId);
+  if (!opened?.estado?.interceptacao) return;
+  io.to(salaId).emit('server:interceptacao:aberta', { janela: opened.estado.interceptacao });
+  broadcastState(io, salaId, { estado: toPublicState(opened.estado) });
+}
+
 export function registerSocketHandlers(
   io: GameServer,
   store: RoomStore,
   metrics: MetricsRegistry = createNoopMetrics(),
 ): void {
   const limiter = new SocketRateLimiter();
+
+  store.setInterceptionExpiredHandler((salaId, session, janelaId, proximaVezId) => {
+    io.to(salaId).emit('server:interceptacao:resolvida', {
+      janelaId,
+      resultado: 'EXPIRADA',
+      proximaVezId,
+    });
+    broadcastState(io, salaId, { estado: toPublicState(session.estado!) });
+  });
 
   /** Aplica o limite da categoria; se excedido, avisa o cliente e sinaliza pra abortar o handler. */
   function checkRateLimit(socket: GameSocket, category: SocketActionCategory): boolean {
@@ -269,6 +303,7 @@ export function registerSocketHandlers(
         socket.emit('server:jogada:aceita', { cartaId: payload.cartaId, jogadorId });
         broadcastState(io, salaId, { estado: toPublicState(session.estado!) });
         sendPrivateHands(io, session);
+        maybeOpenInterceptionWindow(io, store, salaId, jogadorId);
         metrics.recordEventOutcome('jogo', 'accepted');
       } catch (error) {
         metrics.recordEventOutcome('jogo', 'rejected');
@@ -307,6 +342,7 @@ export function registerSocketHandlers(
         socket.emit('server:descarte:multiplo:aceito', { cartaIds: payload.cartaIds, jogadorId });
         broadcastState(io, salaId, { estado: toPublicState(session.estado!) });
         sendPrivateHands(io, session);
+        maybeOpenInterceptionWindow(io, store, salaId, jogadorId);
         metrics.recordEventOutcome('jogo', 'accepted');
       } catch (error) {
         metrics.recordEventOutcome('jogo', 'rejected');
@@ -337,6 +373,50 @@ export function registerSocketHandlers(
         codigo: 'INTERNAL',
         mensagem: 'A cor deve ser enviada junto com a jogada da carta coringa.',
       });
+    });
+
+    socket.on('client:interceptar', (payload) => {
+      if (!checkRateLimit(socket, 'jogo')) return;
+      if (
+        !isNonEmptyString(payload.janelaId, 128) ||
+        !Number.isSafeInteger(payload.revisao) ||
+        payload.revisao < 1 ||
+        !isNonEmptyString(payload.cartaId, 128)
+      ) {
+        emitError(
+          socket,
+          new RoomError('INTERCEPTACAO_INVALIDA', 'Payload inválido para interceptar.'),
+        );
+        return;
+      }
+      try {
+        const salaId = roomId(socket);
+        const jogadorId = jogadorIdFromSocket(socket);
+        if (!salaId || !jogadorId) {
+          throw new RoomError('SALA_INEXISTENTE', 'Entre em uma sala primeiro.');
+        }
+        const session = store.intercept(
+          salaId,
+          jogadorId,
+          payload.janelaId,
+          payload.revisao,
+          payload.cartaId,
+        );
+        io.to(salaId).emit('server:interceptacao:resolvida', {
+          janelaId: payload.janelaId,
+          resultado: 'INTERCEPTADA',
+          interceptadorId: jogadorId,
+          proximaVezId: session.estado!.vezDe,
+        });
+        broadcastState(io, salaId, { estado: toPublicState(session.estado!) });
+        sendPrivateHands(io, session);
+        maybeOpenInterceptionWindow(io, store, salaId, jogadorId);
+        metrics.recordEventOutcome('jogo', 'accepted');
+      } catch (error) {
+        metrics.recordEventOutcome('jogo', 'rejected');
+        if (!(error instanceof RoomError)) metrics.recordPersistenceFailure();
+        emitError(socket, error);
+      }
     });
 
     socket.on('client:chat:msg', (payload) => {
