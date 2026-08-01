@@ -26,6 +26,7 @@ function getCartaLabel(carta: Carta): string {
     REVERSE: 'Inverte',
     MAIS_DOIS: 'Mais dois',
     MAIS_QUATRO: 'Mais quatro',
+    MAIS_DOIS_TODOS: '+2 Para Todos',
     ZERO_MAIS: 'Zero Mais',
     TROCA_MAO: 'Troca mão',
     GIRA_MAO: 'Gira mão',
@@ -33,7 +34,7 @@ function getCartaLabel(carta: Carta): string {
     SILENCIO: 'Silêncio',
   };
 
-  return labels[carta.acao ?? ''] ?? 'Carta';
+  return labels[carta.acao ?? ''] ?? carta.efeito_texto_curto;
 }
 
 function getIconeTexto(carta: Carta): string {
@@ -42,6 +43,7 @@ function getIconeTexto(carta: Carta): string {
   if (carta.acao === 'REVERSE') return '⇄';
   if (carta.acao === 'MAIS_DOIS') return '+2';
   if (carta.acao === 'MAIS_QUATRO') return '+4';
+  if (carta.acao === 'MAIS_DOIS_TODOS') return '+2🌐';
   if (carta.acao === 'ZERO_MAIS') return '0+';
   if (carta.acao === 'TROCA_MAO') return '⇌';
   if (carta.acao === 'GIRA_MAO') return '↻';
