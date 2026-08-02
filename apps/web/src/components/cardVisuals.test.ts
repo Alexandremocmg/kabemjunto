@@ -49,6 +49,15 @@ describe('cardVisuals — catálogo visual', () => {
       expect(v.kind).toBe('asset');
       if (v.kind === 'asset') expect(v.src).toContain('coringa.webp');
     });
+
+    it('MAIS_DOIS_TODOS mapeia para mais-dois-todos.svg (ADR-013)', () => {
+      const v = getCardVisual(carta({ tipo: 'NEUTRA', cor: 'NEUTRO', acao: 'MAIS_DOIS_TODOS' }));
+      expect(v.kind).toBe('asset');
+      if (v.kind === 'asset') {
+        expect(v.src).toContain('mais-dois-todos.svg');
+        expect(v.src).toContain('/assets/cards/kabemjunto/');
+      }
+    });
   });
 
   describe('MAIS_DOIS — +2 canônico', () => {

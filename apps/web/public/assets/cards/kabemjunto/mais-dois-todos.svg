@@ -1,0 +1,28 @@
+<svg viewBox="0 0 240 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="+2 Para Todos">
+  <rect width="240" height="340" fill="#0a0a0a"/>
+  <defs>
+    <clipPath id="leaf">
+      <path d="M228,14 A210,210 0 0,1 12,326 A210,210 0 0,1 228,14 Z"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#leaf)">
+    <g transform="rotate(-56 120 170)">
+      <rect x="-200" y="-360" width="640" height="72" fill="#3498DB"/>
+      <rect x="-200" y="-288" width="640" height="72" fill="#F1C40F"/>
+      <rect x="-200" y="-216" width="640" height="72" fill="#F39C12"/>
+      <rect x="-200" y="-144" width="640" height="72" fill="#0a0a0a"/>
+      <rect x="-200" y="-72" width="640" height="72" fill="#0a0a0a"/>
+      <rect x="-200" y="0" width="640" height="72" fill="#27AE60"/>
+      <rect x="-200" y="72" width="640" height="72" fill="#16A085"/>
+      <rect x="-200" y="144" width="640" height="72" fill="#3EC6E0"/>
+    </g>
+  </g>
+  <g font-family="Arial, Helvetica, sans-serif" font-weight="900" fill="#ffffff" stroke="#000000" paint-order="stroke fill">
+    <text x="18" y="58" font-size="46" stroke-width="4">+2</text>
+    <text x="150" y="54" font-size="30" stroke-width="3">&#8635;</text>
+    <text x="120" y="215" font-size="98" stroke-width="6" text-anchor="middle">+2</text>
+    <text x="120" y="258" font-size="30" stroke-width="4" text-anchor="middle" letter-spacing="1">+ PARA TODOS</text>
+    <text x="105" y="312" font-size="34" stroke-width="4" text-anchor="middle">&#8634;</text>
+  </g>
+  <path d="M218,308 l6,10 l-6,10 l-6,-10 Z" fill="#d9d9d9"/>
+</svg>

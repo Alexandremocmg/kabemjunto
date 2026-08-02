@@ -8,6 +8,7 @@ const SPECIAL_ASSETS: Partial<Record<string, string>> = {
   TROCA_MAO: '/assets/cards/kabemjunto/troca-mao.webp',
   GIRA_MAO: '/assets/cards/kabemjunto/gira-mao.webp',
   CORINGA_SIMPLES: '/assets/cards/kabemjunto/coringa.webp',
+  MAIS_DOIS_TODOS: '/assets/cards/kabemjunto/mais-dois-todos.svg',
 };
 
 export type CardVisualTemplate = 'numeric' | 'acao-colorida' | 'neutra-especial';
