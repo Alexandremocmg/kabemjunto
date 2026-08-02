@@ -86,15 +86,25 @@ const estado: EstadoPartidaPublico = {
 
 function dispatchPointer(
   element: HTMLElement,
-  type: 'pointerdown' | 'pointerup',
+  type: 'pointerdown' | 'pointerup' | 'pointercancel',
   pointerType: 'touch' | 'mouse',
+  clientX = 20,
+  clientY = 20,
 ): void {
-  const event = new MouseEvent(type, { bubbles: true, clientX: 20, clientY: 20 });
+  const event = new MouseEvent(type, { bubbles: true, clientX, clientY });
   Object.defineProperties(event, {
     pointerId: { value: 1 },
     pointerType: { value: pointerType },
   });
   element.dispatchEvent(event);
+}
+
+/** Arrasta de (0,0) até (dx,dy) e solta — inclui o clique sintético do browser. */
+function drag(slot: HTMLElement, pointerType: 'touch' | 'mouse', dx: number, dy: number): void {
+  const target = slot.querySelector<HTMLElement>('.card-wrapper') ?? slot;
+  dispatchPointer(target, 'pointerdown', pointerType, 0, 0);
+  dispatchPointer(target, 'pointerup', pointerType, dx, dy);
+  target.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 }
 
 function tap(slot: HTMLElement, pointerType: 'touch' | 'mouse'): void {
@@ -1019,6 +1029,54 @@ describe('MesaOnline — regressões carta única', () => {
 // ---------------------------------------------------------------------------
 // Corta-Frente (interceptação) — Task 6
 // ---------------------------------------------------------------------------
+
+describe('MesaOnline — arrasto não pode virar descarte acidental', () => {
+  it('arrasto que NÃO agrupa não joga a carta (regressão: descarte por movimento)', () => {
+    const onSelecionarCarta = vi.fn();
+    const rendered = renderMesa(onSelecionarCarta);
+    // 'oito-azul' arrastada sobre 'sete-azul' (face diferente) — o agrupamento
+    // falha, e antes disso o clique sintético caía como confirmação de jogada.
+    const slot = rendered.container.querySelector<HTMLElement>('[data-card-id="oito-azul"]');
+    if (!slot) throw new Error('Carta não encontrada');
+
+    act(() => drag(slot, 'touch', 40, 40));
+
+    expect(onSelecionarCarta).not.toHaveBeenCalled();
+    act(() => rendered.root.unmount());
+  });
+
+  it('movimento abaixo do limiar de toque continua sendo um toque normal', () => {
+    const onSelecionarCarta = vi.fn();
+    const rendered = renderMesa(onSelecionarCarta);
+    const slot = rendered.container.querySelector<HTMLElement>('[data-card-id="sete-azul"]');
+    if (!slot) throw new Error('Carta não encontrada');
+
+    // 5px de tremida de dedo: abaixo do slop de touch, ainda conta como toque.
+    act(() => drag(slot, 'touch', 3, 4));
+
+    expect(onSelecionarCarta).toHaveBeenCalledWith(cartas[0]);
+    act(() => rendered.root.unmount());
+  });
+
+  it('pointercancel limpa o arrasto e o gesto seguinte funciona normalmente', () => {
+    const onSelecionarCarta = vi.fn();
+    const rendered = renderMesa(onSelecionarCarta);
+    const slot = rendered.container.querySelector<HTMLElement>('[data-card-id="sete-azul"]');
+    if (!slot) throw new Error('Carta não encontrada');
+    const alvo = slot.querySelector<HTMLElement>('.card-wrapper') ?? slot;
+
+    // Gesto interrompido pelo browser (scroll/multi-touch): sem tratar, o estado
+    // de arrasto ficava preso e travava os toques seguintes.
+    act(() => {
+      dispatchPointer(alvo, 'pointerdown', 'touch', 0, 0);
+      dispatchPointer(alvo, 'pointercancel', 'touch', 0, 0);
+    });
+    act(() => tap(slot, 'touch'));
+
+    expect(onSelecionarCarta).toHaveBeenCalledWith(cartas[0]);
+    act(() => rendered.root.unmount());
+  });
+});
 
 describe('MesaOnline — Corta-Frente (interceptação)', () => {
   const janela: NonNullable<EstadoPartidaPublico['interceptacao']> = {

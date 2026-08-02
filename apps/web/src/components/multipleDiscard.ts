@@ -139,3 +139,20 @@ export function findFirstValidInStack(
   if (firstValidIdx <= 0) return stack;
   return [...stack.slice(firstValidIdx), ...stack.slice(0, firstValidIdx)];
 }
+
+/**
+ * Distância mínima (px) para um gesto contar como arrasto e não como toque.
+ *
+ * Dedo é impreciso: o "touch slop" dos browsers fica na faixa de 10–16px, então
+ * um limiar apertado demais faz tremida normal de dedo cruzar a fronteira entre
+ * toque e arrasto — e, no leque, cair do lado errado dessa fronteira significava
+ * descartar uma carta sem querer. Mouse é preciso e mantém limiar baixo.
+ */
+export function dragSlopFor(pointerType: string): number {
+  return pointerType === 'touch' ? 14 : 6;
+}
+
+/** `true` quando o ponteiro andou o suficiente para o gesto ser um arrasto. */
+export function passouDoLimiarDeArrasto(pointerType: string, dx: number, dy: number): boolean {
+  return Math.hypot(dx, dy) > dragSlopFor(pointerType);
+}

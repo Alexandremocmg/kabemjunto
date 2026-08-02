@@ -17,6 +17,7 @@ import {
   findFirstValidInStack,
   getSelectedMultipleDiscardCards,
   isEligibleForMultipleDiscard,
+  passouDoLimiarDeArrasto,
   reconcileStacks,
   rotateStack,
   temMesmaFace,
@@ -153,6 +154,7 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
     /** index into `stacks` array if dragging a stack for execution, else -1 */
     stackIndex: number;
     locked: 'none' | 'horizontal' | 'vertical';
+    pointerType: string;
   }>();
   const suppressNextClickRef = useRef(false);
   const ultimoPonteiroFoiToqueRef = useRef(false);
@@ -248,6 +250,22 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
     batchPendingRef.current = false;
     setStackFeedback('Jogada rejeitada — pilha preservada. Tente novamente.');
   }, [descarteMultiploErro]);
+
+  // ── Destrava de segurança do estado "enviando" ───────────────────────────
+  // `.stack-sending` aplica `pointer-events: none`. Se o aceite não correlacionar
+  // e nenhum erro chegar (queda de rede, evento perdido), a pilha ficaria sem
+  // resposta para sempre — as cartas "travam". Nunca deixamos a UI presa por
+  // falta de resposta: o servidor continua sendo a autoridade da jogada, isto só
+  // devolve o controle ao jogador.
+  useEffect(() => {
+    if (!sendingStack) return undefined;
+    const timer = window.setTimeout(() => {
+      setSendingStack(null);
+      batchPendingRef.current = false;
+      setStackFeedback('Sem resposta do servidor. Pilha preservada — tente novamente.');
+    }, 8000);
+    return () => window.clearTimeout(timer);
+  }, [sendingStack]);
 
   // ── Bug-2 fix: always reconcile stacks on mao change ─────────────────────
   // Handles Troca/Gira and other off-turn events removing cards from stacks.
@@ -403,10 +421,9 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
         y: event.clientY,
         stackIndex: stackIdx,
         locked: 'none',
+        pointerType: event.pointerType,
       };
-      if (event.pointerType === 'touch') {
-        event.currentTarget.setPointerCapture?.(event.pointerId);
-      }
+      capturarPonteiro(event);
       return;
     }
 
@@ -423,11 +440,37 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
         y: event.clientY,
         stackIndex: -1,
         locked: 'none',
+        pointerType: event.pointerType,
       };
-      if (event.pointerType === 'touch') {
-        event.currentTarget.setPointerCapture?.(event.pointerId);
-      }
+      capturarPonteiro(event);
     }
+  }
+
+  function capturarPonteiro(event: React.PointerEvent<HTMLDivElement>): void {
+    if (event.pointerType !== 'touch') return;
+    try {
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+    } catch {
+      // Eventos sintéticos E2E não representam um ponteiro físico capturável.
+    }
+  }
+
+  function liberarCaptura(event: React.PointerEvent<HTMLDivElement>): void {
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      event.currentTarget.releasePointerCapture?.(event.pointerId);
+    }
+  }
+
+  /**
+   * `pointercancel` é comum em touch (o browser assume scroll, gesto do sistema,
+   * segundo dedo na tela). Sem tratar, o `pointerup` nunca chega: o estado de
+   * arrasto fica preenchido e a captura do ponteiro fica pendurada, deixando as
+   * cartas sem responder ao próximo toque.
+   */
+  function cancelarArrasto(event: React.PointerEvent<HTMLDivElement>): void {
+    dragAnchorRef.current = undefined;
+    setDropZoneActive(false);
+    liberarCaptura(event);
   }
 
   function moverArrastoDePilha(event: React.PointerEvent<HTMLDivElement>): void {
@@ -457,6 +500,7 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
   function soltarNaCarta(event: React.PointerEvent<HTMLDivElement>, fallbackTarget: Carta): void {
     const drag = dragAnchorRef.current;
     dragAnchorRef.current = undefined;
+    liberarCaptura(event);
 
     // If dropping from an execute-drag, check the drop zone
     if (drag && drag.stackIndex >= 0) {
@@ -478,7 +522,17 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
     }
 
     if (!drag) return;
-    if (Math.hypot(event.clientX - drag.x, event.clientY - drag.y) <= 8) return;
+    if (
+      !passouDoLimiarDeArrasto(drag.pointerType, event.clientX - drag.x, event.clientY - drag.y)
+    ) {
+      return;
+    }
+
+    // Houve arrasto de verdade: o clique sintético que o browser dispara em
+    // seguida NUNCA pode virar confirmação de jogada. Antes isto só era marcado
+    // quando a pilha era montada com sucesso, então arrastar e errar o alvo
+    // (soltar no vazio ou sobre carta de outra face) descartava a carta.
+    suppressNextClickRef.current = true;
 
     // Group drag (existing logic)
     const cardIdAtExpandedPointer = Array.from(
@@ -495,20 +549,22 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
     const target = mao.find((carta) => carta.id === cardIdAtExpandedPointer) ?? fallbackTarget;
     if (drag.carta.id === target.id) return;
 
+    // A leitura do estado precisa ser funcional: dois arrastos podem ocorrer
+    // antes do próximo render, e ler `stacks` do closure perderia o primeiro.
+    // O updater é puro (só calcula); o feedback sai fora dele, porque em
+    // StrictMode o updater roda duas vezes e efeitos colaterais duplicariam.
     const existingStackIdx = cardToStackIndex.get(drag.carta.id) ?? -1;
+    let tamanhoAgrupado = 0;
+
     setStacks((atuais) => {
       if (existingStackIdx >= 0) {
-        // Extend existing stack
-        if (!temMesmaFace(drag.carta, target)) return atuais;
-        const copia = [...atuais];
-        const updated = appendCardToMultipleDiscardStack(atuais[existingStackIdx]!, target, mao);
-        if (updated === atuais[existingStackIdx]) return atuais;
-        copia[existingStackIdx] = updated;
-        suppressNextClickRef.current = true;
-        setStackFeedback(`Pilha com ${updated.length} cartas. Arraste para jogar.`);
-        return copia;
+        const atual = atuais[existingStackIdx];
+        if (!atual || !temMesmaFace(drag.carta, target)) return atuais;
+        const updated = appendCardToMultipleDiscardStack(atual, target, mao);
+        if (updated === atual) return atuais;
+        tamanhoAgrupado = updated.length;
+        return atuais.map((s, i) => (i === existingStackIdx ? updated : s));
       }
-      // Create new stack
       const proximas = createMultipleDiscardStack(
         drag.carta,
         target,
@@ -516,10 +572,16 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
         drag.primeiraCartaJogavel,
       );
       if (proximas.length === 0) return atuais;
-      suppressNextClickRef.current = true;
-      setStackFeedback(`Pilha com ${proximas.length} cartas. Arraste para jogar.`);
+      tamanhoAgrupado = proximas.length;
       return [...atuais, proximas];
     });
+
+    setStackFeedback(
+      tamanhoAgrupado > 0
+        ? `Pilha com ${tamanhoAgrupado} cartas. Arraste para jogar.`
+        : // Arrasto válido que não agrupou: avisa o motivo em vez de jogar a carta.
+          'Essa carta não tem a mesma face da pilha.',
+    );
   }
 
   // ── Chat effects ──────────────────────────────────────────────────────────
@@ -785,6 +847,7 @@ export const MesaOnline: React.FC<MesaOnlineProps> = ({
                 onPointerDown={(event) => iniciarArrasto(event, carta, primeiraCartaJogavel)}
                 onPointerMove={moverArrastoDePilha}
                 onPointerUp={(event) => soltarNaCarta(event, carta)}
+                onPointerCancel={cancelarArrasto}
                 onClickCapture={(event) => {
                   const clicouNaPilha =
                     event.target instanceof Element &&

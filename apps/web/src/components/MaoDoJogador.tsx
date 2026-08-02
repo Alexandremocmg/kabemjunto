@@ -9,6 +9,7 @@ import {
   createMultipleDiscardStack,
   getSelectedMultipleDiscardCards,
   isEligibleForMultipleDiscard,
+  passouDoLimiarDeArrasto,
   reconcileStacks,
   rotateStack,
   temMesmaFace,
@@ -47,6 +48,8 @@ export const MaoDoJogador: React.FC<MaoDoJogadorProps> = ({
     primeiraCartaJogavel: boolean;
     x: number;
     y: number;
+    pointerId: number;
+    pointerType: string;
   }>();
   const suppressNextClickRef = React.useRef(false);
   const suppressStackExecutionClickRef = React.useRef(false);
@@ -89,8 +92,40 @@ export const MaoDoJogador: React.FC<MaoDoJogadorProps> = ({
       !jogadorDaMao?.isBot &&
       (stackIds.length > 0 || canSelectMultipleDiscardCard([], carta, mao, primeiraCartaJogavel))
     ) {
-      if (event.pointerType === 'touch') event.currentTarget.setPointerCapture?.(event.pointerId);
-      dragAnchorRef.current = { carta, primeiraCartaJogavel, x: event.clientX, y: event.clientY };
+      if (event.pointerType === 'touch') {
+        try {
+          event.currentTarget.setPointerCapture?.(event.pointerId);
+        } catch {
+          // Eventos sintéticos E2E não representam um ponteiro físico capturável.
+        }
+      }
+      dragAnchorRef.current = {
+        carta,
+        primeiraCartaJogavel,
+        x: event.clientX,
+        y: event.clientY,
+        pointerId: event.pointerId,
+        pointerType: event.pointerType,
+      };
+    }
+  }
+
+  /**
+   * `pointercancel` é comum em touch (o browser assume scroll, gesto do sistema,
+   * segundo dedo na tela). Sem tratar, o `pointerup` nunca chega: o estado de
+   * arrasto fica preenchido e a captura do ponteiro fica pendurada, deixando as
+   * cartas sem responder ao próximo toque.
+   */
+  function cancelarArrasto(event: React.PointerEvent<HTMLDivElement>): void {
+    dragAnchorRef.current = undefined;
+    stackExecutionDragRef.current = undefined;
+    setDropZoneActive(false);
+    liberarCaptura(event);
+  }
+
+  function liberarCaptura(event: React.PointerEvent<HTMLDivElement>): void {
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      event.currentTarget.releasePointerCapture?.(event.pointerId);
     }
   }
 
@@ -141,8 +176,20 @@ export const MaoDoJogador: React.FC<MaoDoJogadorProps> = ({
   function soltarNaCarta(event: React.PointerEvent<HTMLDivElement>, fallbackTarget: Carta): void {
     const drag = dragAnchorRef.current;
     dragAnchorRef.current = undefined;
+    liberarCaptura(event);
     if (!drag) return;
-    if (Math.hypot(event.clientX - drag.x, event.clientY - drag.y) <= 8) return;
+    if (
+      !passouDoLimiarDeArrasto(drag.pointerType, event.clientX - drag.x, event.clientY - drag.y)
+    ) {
+      return;
+    }
+
+    // Houve arrasto de verdade: o clique sintético que o browser dispara em
+    // seguida NUNCA pode virar confirmação de jogada. Antes isto só era marcado
+    // quando a pilha era montada com sucesso, então arrastar e errar o alvo
+    // (soltar no vazio ou sobre carta de outra face) descartava a carta.
+    suppressNextClickRef.current = true;
+
     const cardIdAtExpandedPointer = Array.from(
       document.querySelectorAll<HTMLElement>('[data-card-id]'),
     ).find((element) => {
@@ -157,6 +204,11 @@ export const MaoDoJogador: React.FC<MaoDoJogadorProps> = ({
     const target = mao.find((carta) => carta.id === cardIdAtExpandedPointer) ?? fallbackTarget;
     if (drag.carta.id === target.id) return;
 
+    // A leitura do estado precisa ser funcional: dois arrastos podem ocorrer
+    // antes do próximo render, e ler `stackIds` do closure perderia o primeiro.
+    // O updater é puro (só calcula); o feedback sai fora dele, porque em
+    // StrictMode o updater roda duas vezes e efeitos colaterais duplicariam.
+    let agrupou = false;
     setStackIds((atuais) => {
       const proximas =
         atuais.length === 0
@@ -164,12 +216,15 @@ export const MaoDoJogador: React.FC<MaoDoJogadorProps> = ({
           : temMesmaFace(drag.carta, target)
             ? appendCardToMultipleDiscardStack(atuais, drag.carta, mao)
             : atuais;
-      if (proximas !== atuais && proximas.length > atuais.length) {
-        suppressNextClickRef.current = true;
-        setStackFeedback(`Pilha com ${proximas.length} cartas. Toque a pilha para descartar.`);
-      }
+      agrupou = proximas.length > atuais.length;
       return proximas;
     });
+    setStackFeedback(
+      agrupou
+        ? 'Pilha atualizada. Toque a pilha para descartar.'
+        : // Arrasto válido que não agrupou: avisa o motivo em vez de jogar a carta.
+          'Essa carta não tem a mesma face da pilha.',
+    );
   }
 
   function jogarPilha(): void {
@@ -298,6 +353,7 @@ export const MaoDoJogador: React.FC<MaoDoJogadorProps> = ({
               onPointerUp={(event) =>
                 isStackAnchor ? finalizarArrastoDaPilha(event) : soltarNaCarta(event, carta)
               }
+              onPointerCancel={cancelarArrasto}
               onClickCapture={(event) => {
                 const clicouNaPilha =
                   event.target instanceof Element &&
