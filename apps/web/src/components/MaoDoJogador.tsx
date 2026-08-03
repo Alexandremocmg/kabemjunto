@@ -164,13 +164,25 @@ export const MaoDoJogador: React.FC<MaoDoJogadorProps> = ({
       onSelecionarCarta(index);
       return;
     }
-    const proximas = appendCardToMultipleDiscardStack(stackIds, carta, mao);
-    setStackFeedback(
-      proximas === stackIds
-        ? 'Essa carta não tem a mesma face da pilha.'
-        : `Pilha com ${proximas.length} cartas. Toque a pilha para descartar.`,
-    );
-    setStackIds(proximas);
+    if (!stackIds.includes(carta.id)) {
+      const proximas = appendCardToMultipleDiscardStack(stackIds, carta, mao);
+      if (proximas !== stackIds) {
+        setStackFeedback(`Pilha com ${proximas.length} cartas. Toque a pilha para descartar.`);
+        setStackIds(proximas);
+        return;
+      }
+      // Carta de face diferente da pilha em preparo: isso não pode travar o
+      // jogador numa carta só (regressão real — sem isso, formar uma pilha e
+      // depois querer jogar QUALQUER outra carta ficava impossível). Segue
+      // pelo fluxo normal de seleção avulsa — o App confirma no segundo
+      // toque, igual a qualquer carta — sem desmontar a pilha já preparada.
+      setStackFeedback('Essa carta não tem a mesma face da pilha.');
+      onSelecionarCarta(index);
+      return;
+    }
+    // carta.id já pertence à pilha em preparo mas não é a âncora de um
+    // singleton (ex.: clique redundante numa posição interna) — não faz
+    // nada, pra não desmontar uma pilha em preparo por engano.
   }
 
   function soltarNaCarta(event: React.PointerEvent<HTMLDivElement>, fallbackTarget: Carta): void {

@@ -554,4 +554,60 @@ describe('MaoDoJogador — pilha por gesto', () => {
       root.unmount();
     });
   });
+
+  it('com uma pilha pronta, ainda dá pra selecionar e jogar uma carta avulsa sem desmontá-la', () => {
+    // Regressão: depois de montar uma pilha de 2+ cartas, tocar em qualquer
+    // outra carta (de face diferente) não fazia NADA além de mostrar "não
+    // tem a mesma face" — o jogador ficava travado, só podia estender a
+    // pilha ou executá-la. "oito-azul" é jogável sozinha (mesma cor ativa).
+    Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+    const container = document.createElement('div');
+    const selecionarCarta = vi.fn();
+    const root = createRoot(container);
+
+    act(() => {
+      root.render(
+        <MaoDoJogador
+          estado={estado}
+          onSelecionarCarta={selecionarCarta}
+          onPlayMultiple={() => true}
+        />,
+      );
+    });
+
+    const [seteAzul, seteVerde, , oitoAzul] = Array.from(
+      container.querySelectorAll<HTMLElement>('.hand-card-slot'),
+    );
+    if (!seteAzul || !seteVerde || !oitoAzul)
+      throw new Error('Cartas da mão não foram renderizadas.');
+
+    act(() => tap(seteAzul, 'touch'));
+    // Armar o primeiro elemento da pilha já chama onSelecionarCarta(0) —
+    // comportamento existente, não relacionado a esta regressão.
+    expect(selecionarCarta).toHaveBeenCalledTimes(1);
+    act(() => tap(seteVerde, 'touch'));
+    const pilha = container.querySelector('.multiple-discard-inline-stack');
+    expect(pilha).not.toBeNull();
+    expect(pilha?.getAttribute('aria-label')).toContain('Ordem: 7 AZUL, 7 VERDE');
+
+    act(() => tap(oitoAzul, 'touch'));
+    expect(selecionarCarta).toHaveBeenCalledTimes(2);
+    expect(selecionarCarta).toHaveBeenNthCalledWith(2, 3);
+    // A pilha continua pronta — o toque na carta avulsa não a desmontou.
+    expect(
+      container.querySelector('.multiple-discard-inline-stack')?.getAttribute('aria-label'),
+    ).toContain('Ordem: 7 AZUL, 7 VERDE');
+
+    act(() => tap(oitoAzul, 'touch'));
+    expect(selecionarCarta).toHaveBeenCalledTimes(3);
+    expect(selecionarCarta).toHaveBeenNthCalledWith(3, 3);
+    // A pilha segue intacta depois do segundo toque também — quem decide se
+    // "oito-azul" foi de fato jogada é o App (segundo toque de confirmação),
+    // não este componente.
+    expect(
+      container.querySelector('.multiple-discard-inline-stack')?.getAttribute('aria-label'),
+    ).toContain('Ordem: 7 AZUL, 7 VERDE');
+
+    act(() => root.unmount());
+  });
 });
