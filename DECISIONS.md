@@ -464,7 +464,7 @@ Este arquivo registra as Decisões de Arquitetura (ADRs) do projeto Kabemjunto.
 
 ### ADR-014: Mesa 3D com Three.js, Camada Acessível em DOM e Fallback 2D
 
-- **Status:** Proposta · Fases 1 (local) e 2 (online, menu, dicas) implementadas · 2026-11-17 · @User
+- **Status:** Proposta · Fases 1 (local), 2 (online, menu, dicas) e 3 (limpeza) implementadas · 2026-11-17 · @User
 - **Contexto:** O produto pediu uma mesa 3D mais fluida e simples, sem mudar
   regras, protocolo nem servidor. A mesa 2D atual exigia toque duplo para
   jogar e tinha dois componentes de mesa paralelos (`AppSingleplayer` e
@@ -489,8 +489,13 @@ Este arquivo registra as Decisões de Arquitetura (ADRs) do projeto Kabemjunto.
      com `aria-live` para os anúncios da partida. Enter joga, Espaço
      seleciona, setas trocam de carta. `prefers-reduced-motion` desliga voos,
      pulsos e giros.
-  5. **Fallback 2D**: sem WebGL, com perda de contexto ou com `?mesa=2d`, os
-     dois modos usam a mesa 2D atual (o local lendo a mesma partida salva).
+  5. **Mesa 2D simples na própria mesa nova** (Fase 3): sem WebGL, com perda
+     de contexto ou com `?mesa=2d`, a `Mesa3D` troca o canvas por uma mesa em
+     DOM (a camada acessível fica visível, com as cartas desenhadas pelo
+     `CartaView`) e avisa quando foi por falta de WebGL. Mesmas regras de
+     interação, sem baixar o Three.js. Com isso as mesas antigas
+     (`AppSingleplayer`, `MesaOnline` e componentes que só elas usavam) e o
+     CSS delas saíram.
   6. **Orçamento de performance**: geometria de carta única com 2 grupos de
      material (frente com borda, verso); adversários em um `InstancedMesh`
      com materiais próprios (compartilhar material entre malha instanciada e
@@ -519,8 +524,9 @@ Este arquivo registra as Decisões de Arquitetura (ADRs) do projeto Kabemjunto.
 - **Medição (Fase 1, build de produção, 375×812 @2x, CPU 4× mais lenta,
   6 jogadores, Intel HD 630):** mediana de 16,7 ms por quadro (60 fps),
   média entre 49 e 56 fps, p95 de 33 ms, picos de 150 a 200 ms nos eventos
-  de jogada; 33 a 42 chamadas de desenho. Bundle inicial do menu: +1,1 kB
-  gzip; pedaço da mesa: 153 kB gzip.
+  de jogada; 33 a 42 chamadas de desenho. Depois da Fase 3, o bundle inicial
+  ficou em 78 kB gzip (antes 101 kB) e o CSS inicial em 4,6 kB (antes 12 kB);
+  a mesa sem Three.js tem 16 kB e o Three.js, 144 kB, só na 3D. Na Fase 1, o acréscimo ao bundle inicial do menu tinha sido de +1,1 kB gzip.
 - **Consequências:**
   - ✅ Jogar vira um gesto só; o estado da mesa é sempre visível (vez, cor,
     sentido, ataque, Corta-Frente com anel de contagem).
