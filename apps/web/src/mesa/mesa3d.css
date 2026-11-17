@@ -1,0 +1,546 @@
+/* Mesa 3D — estilo party game. Tokens por mesa: --mesa-fundo, --mesa-destaque, --mesa-cor-ativa. */
+
+.mesa3d {
+  --mesa-texto: #f8fafc;
+  --mesa-painel: rgba(15, 23, 42, 0.86);
+  --mesa-perigo: #ff4d6d;
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  color: var(--mesa-texto);
+  font-family: var(--font-body, system-ui, sans-serif);
+  background:
+    radial-gradient(120% 80% at 50% 38%, rgba(255, 255, 255, 0.1), transparent 60%),
+    var(--mesa-fundo, #0b1f33);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mesa3d-palco,
+.mesa3d-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.mesa3d-canvas {
+  display: block;
+  touch-action: none;
+}
+
+/* ── HUD ─────────────────────────────────────────────────────────────── */
+
+.mesa3d-hud {
+  position: absolute;
+  top: max(10px, env(safe-area-inset-top));
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.mesa3d-hud > * {
+  pointer-events: auto;
+}
+
+.mesa3d-hud-botao,
+.mesa3d-chip,
+.mesa3d-vez {
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  background: var(--mesa-painel);
+  font-family: var(--font-title, inherit);
+  font-weight: 800;
+  font-size: 14px;
+  color: inherit;
+}
+
+.mesa3d-hud-botao {
+  width: 38px;
+  padding: 0;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.mesa3d-vez {
+  margin-right: auto;
+  letter-spacing: 0.04em;
+  max-width: 46vw;
+}
+
+.mesa3d-vez strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mesa3d-vez-minha {
+  color: #0f172a;
+  background: var(--mesa-destaque);
+  border-color: #fff;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.18);
+}
+
+.mesa3d-ponto-cor {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  font-size: 12px;
+  background: var(--mesa-cor-ativa);
+  border: 2px solid #fff;
+}
+
+.mesa3d-chip-perigo {
+  background: var(--mesa-perigo);
+  border-color: #fff;
+  font-size: 16px;
+}
+
+.mesa3d-silencio {
+  position: absolute;
+  top: calc(max(10px, env(safe-area-inset-top)) + 46px);
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: #111827;
+  border: 2px solid var(--mesa-destaque);
+  font-weight: 800;
+  font-size: 13px;
+  white-space: nowrap;
+  z-index: 3;
+}
+
+.mesa3d-dica {
+  position: absolute;
+  left: 50%;
+  bottom: calc(max(8px, env(safe-area-inset-bottom)) + 39%);
+  transform: translateX(-50%);
+  margin: 0;
+  max-width: min(92vw, 520px);
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.72);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ── Faixa de anúncios ───────────────────────────────────────────────── */
+
+.mesa3d-faixa {
+  position: absolute;
+  left: 50%;
+  top: 30%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  min-width: min(84vw, 320px);
+  padding: 12px 22px;
+  border-radius: 18px;
+  background: #0f172a;
+  border: 3px solid var(--mesa-destaque);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+  text-align: center;
+  pointer-events: none;
+  z-index: 4;
+  animation: mesa3d-faixa 1.9s ease both;
+}
+
+.mesa3d-faixa strong {
+  font-family: var(--font-title, inherit);
+  font-size: clamp(22px, 6vw, 32px);
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.mesa3d-faixa span {
+  font-size: 13px;
+  opacity: 0.86;
+}
+
+.mesa3d-faixa-ATAQUE,
+.mesa3d-faixa-MAIS_DOIS_TODOS,
+.mesa3d-faixa-SILENCIO_QUEBRADO {
+  border-color: var(--mesa-perigo);
+}
+
+.mesa3d-faixa-REFLEXO,
+.mesa3d-faixa-CORTA_FRENTE {
+  border-color: #22d3ee;
+}
+
+@keyframes mesa3d-faixa {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.7);
+  }
+  14% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.06);
+  }
+  22% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  82% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -60%) scale(0.96);
+  }
+}
+
+/* ── Camada acessível ────────────────────────────────────────────────── */
+
+.mesa3d-alvos,
+.mesa3d-mao {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  pointer-events: none;
+}
+
+.mesa3d-marcador-descarte {
+  position: absolute;
+  pointer-events: none;
+}
+
+.mesa3d-mao-item {
+  display: contents;
+}
+
+/* Invisíveis ao mouse e ao toque (quem responde é o canvas); visíveis no foco do teclado. */
+.mesa3d-alvo {
+  position: absolute;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.mesa3d-alvo:focus-visible {
+  opacity: 1;
+  outline: 4px solid #fff;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 8px rgba(15, 23, 42, 0.6);
+}
+
+/* ── Botões e painéis ────────────────────────────────────────────────── */
+
+.mesa3d-botao-primario,
+.mesa3d-botao-secundario {
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: 999px;
+  border: 3px solid #fff;
+  font-family: var(--font-title, inherit);
+  font-weight: 900;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.mesa3d-botao-primario {
+  background: var(--mesa-destaque);
+  color: #0f172a;
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.35);
+}
+
+.mesa3d-botao-secundario {
+  background: #1e293b;
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.mesa3d-botao-primario:focus-visible,
+.mesa3d-botao-secundario:focus-visible,
+.mesa3d-hud-botao:focus-visible,
+.mesa3d-anel-cor:focus-visible,
+.mesa3d-alvo-jogador:focus-visible {
+  outline: 4px solid #fff;
+  outline-offset: 3px;
+}
+
+.mesa3d-botao-grupo {
+  position: absolute;
+  left: 50%;
+  bottom: calc(max(8px, env(safe-area-inset-bottom)) + 39% + 44px);
+  transform: translateX(-50%);
+  z-index: 3;
+  min-height: 44px;
+  padding: 0 22px;
+  border-radius: 999px;
+  border: 3px solid #fff;
+  background: var(--mesa-destaque);
+  color: #0f172a;
+  font-family: var(--font-title, inherit);
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.35);
+}
+
+.mesa3d-toast {
+  position: absolute;
+  left: 50%;
+  top: calc(max(10px, env(safe-area-inset-top)) + 52px);
+  transform: translateX(-50%);
+  margin: 0;
+  max-width: min(92vw, 460px);
+  padding: 10px 16px;
+  border-radius: 14px;
+  background: #0f172a;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  font-weight: 700;
+  font-size: 14px;
+  text-align: center;
+  z-index: 6;
+  animation: mesa3d-surgir 0.18s ease-out;
+}
+
+.mesa3d-toast-erro {
+  border-color: var(--mesa-perigo);
+}
+
+.mesa3d-toast-sucesso {
+  border-color: #22c55e;
+}
+
+@keyframes mesa3d-surgir {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -6px);
+  }
+}
+
+.mesa3d-corte {
+  position: absolute;
+  left: 50%;
+  top: calc(max(10px, env(safe-area-inset-top)) + 52px);
+  transform: translateX(-50%);
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  width: min(92vw, 420px);
+  padding: 12px 16px;
+  border-radius: 18px;
+  background: #0f172a;
+  border: 3px solid var(--mesa-perigo);
+  text-align: center;
+  z-index: 5;
+}
+
+.mesa3d-corte strong {
+  font-family: var(--font-title, inherit);
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.mesa3d-corte span {
+  font-size: 13px;
+}
+
+.mesa3d-corte-botoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.mesa3d-modal,
+.mesa3d-falha {
+  display: grid;
+  place-items: center;
+}
+
+.mesa3d-modal {
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.6);
+  z-index: 8;
+}
+
+.mesa3d-painel {
+  width: min(92vw, 400px);
+  padding: 24px;
+  border-radius: 20px;
+  background: #0f172a;
+  border: 3px solid var(--mesa-destaque, #fff27a);
+  text-align: center;
+}
+
+.mesa3d-painel h1,
+.mesa3d-painel h2 {
+  margin: 0 0 8px;
+  font-family: var(--font-title, inherit);
+  font-size: 22px;
+}
+
+.mesa3d-painel p {
+  margin: 0 0 18px;
+  opacity: 0.86;
+}
+
+.mesa3d-painel-acoes {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* ── Anel de cores ───────────────────────────────────────────────────── */
+
+.mesa3d-escolha {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  background: rgba(2, 6, 23, 0.42);
+}
+
+/* Caixa real do grupo (2×raio + um botão); os botões saem do centro dela. */
+.mesa3d-anel {
+  --raio: min(104px, 27vw);
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  width: calc(var(--raio) * 2 + 84px);
+  height: calc(var(--raio) * 2 + 84px);
+  transform: translate(-50%, -50%);
+}
+
+.mesa3d-anel-cor,
+.mesa3d-anel-cancelar {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 4px solid #fff;
+  cursor: pointer;
+  color: #fff;
+  font-family: var(--font-title, inherit);
+  font-weight: 900;
+  animation: mesa3d-abrir-anel 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
+}
+
+.mesa3d-anel-cor {
+  width: 84px;
+  height: 84px;
+  margin: -42px 0 0 -42px;
+  background: var(--cor);
+  box-shadow: 0 8px 0 rgba(0, 0, 0, 0.35);
+  text-shadow: 0 2px 2px rgba(0, 0, 0, 0.5);
+}
+
+.mesa3d-anel-cor span {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.mesa3d-anel-cor small {
+  font-size: 12px;
+}
+
+.mesa3d-anel-cor-0 {
+  transform: translate(0, calc(var(--raio) * -1));
+}
+.mesa3d-anel-cor-1 {
+  transform: translate(var(--raio), 0);
+}
+.mesa3d-anel-cor-2 {
+  transform: translate(0, var(--raio));
+}
+.mesa3d-anel-cor-3 {
+  transform: translate(calc(var(--raio) * -1), 0);
+}
+
+.mesa3d-anel-cancelar {
+  width: 52px;
+  height: 52px;
+  margin: -26px 0 0 -26px;
+  background: #0f172a;
+  font-size: 18px;
+}
+
+@keyframes mesa3d-abrir-anel {
+  from {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.4);
+  }
+}
+
+/* ── Escolha de alvo (Troca Mão) ─────────────────────────────────────── */
+
+.mesa3d-escolha-alvo {
+  position: absolute;
+  inset: 0;
+}
+
+.mesa3d-escolha-titulo {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  padding: 10px 18px;
+  border-radius: 16px;
+  background: #0f172a;
+  border: 3px solid var(--mesa-destaque);
+  font-family: var(--font-title, inherit);
+  font-weight: 900;
+  font-size: 18px;
+}
+
+.mesa3d-alvo-jogador {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  min-height: 46px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 3px solid #fff;
+  background: var(--mesa-destaque);
+  color: #0f172a;
+  font-weight: 900;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.35);
+}
+
+.mesa3d-escolha-cancelar {
+  position: absolute;
+  left: 50%;
+  top: calc(44% + 52px);
+  transform: translateX(-50%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mesa3d-faixa,
+  .mesa3d-toast,
+  .mesa3d-anel-cor,
+  .mesa3d-anel-cancelar {
+    animation: none;
+  }
+}

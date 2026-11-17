@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import {
+  lerPreferenciaMesa,
+  salvarPreferenciaMesa,
+  suportaWebGL,
+  type PreferenciaMesa,
+} from './mesa/preferencias';
 import { useGameSocket } from './services/socketClient';
 import { AvatarComStatus } from './components/AvatarComStatus';
 import { WifiStatus } from './components/WifiStatus';
@@ -10,6 +16,8 @@ import { SelecionarAlvoTrocaMao } from './components/SelecionarAlvoTrocaMao';
 import { ModalEscolhaCor } from './components/ModalEscolhaCor';
 import { MesaOnline } from './components/MesaOnline';
 import AppSingleplayer from './AppSingleplayer';
+
+const MesaLocal3D = lazy(() => import('./mesa/MesaLocal3D'));
 
 type Modo = 'local' | 'online';
 
@@ -23,18 +31,51 @@ export default function App() {
   }, [modo]);
 
   if (modo === 'local') {
-    return (
-      <div>
-        <ToggleModo modo={modo} onChange={setModo} />
-        <AppSingleplayer />
-      </div>
-    );
+    return <ModoLocal alternador={<ToggleModo modo={modo} onChange={setModo} />} />;
   }
 
   return (
     <main className="app-shell">
       <OnlineApp onMudarModo={() => setModo('local')} />
     </main>
+  );
+}
+
+/**
+ * Modo local: mesa 3D por padrão; mesa 2D se o aparelho não tem WebGL ou se a
+ * pessoa escolheu (`?mesa=2d`). As duas leem a mesma partida salva, então a
+ * troca no meio do jogo não perde nada.
+ */
+function ModoLocal({ alternador }: { alternador: ReactNode }) {
+  const [mesa, setMesa] = useState<PreferenciaMesa>(() =>
+    lerPreferenciaMesa() === '3d' && suportaWebGL() ? '3d' : '2d',
+  );
+
+  if (mesa === '2d') {
+    return (
+      <div>
+        {alternador}
+        <AppSingleplayer />
+      </div>
+    );
+  }
+
+  return (
+    <Suspense
+      fallback={
+        <p className="mesa3d-carregando" role="status">
+          Preparando a mesa…
+        </p>
+      }
+    >
+      <MesaLocal3D
+        alternadorDeModo={alternador}
+        onUsar2D={() => {
+          salvarPreferenciaMesa('2d');
+          setMesa('2d');
+        }}
+      />
+    </Suspense>
   );
 }
 
