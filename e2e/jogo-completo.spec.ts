@@ -274,6 +274,8 @@ test('partida online termina deterministicamente com mesmo vencedor e sem vazame
 
 test('mesa local distribui dez jogadores em ordem circular sem overflow', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
+  // Mesa 2D (fallback sem WebGL): a mesa 3D tem a própria suíte em e2e/mesa-3d.spec.ts.
+  await page.addInitScript(() => window.localStorage.setItem('kabemjunto.mesa', '2d'));
   await page.goto('/');
   await page.getByRole('button', { name: '🏠 Local' }).click();
   await page.getByRole('slider', { name: 'Quantidade de jogadores' }).fill('10');
@@ -302,6 +304,8 @@ test('mobile 390x844 confirma jogada única e monta pilha tocável com geometria
     isMobile: true,
   });
   const page = await context.newPage();
+  // Mesa 2D (fallback sem WebGL): a mesa 3D tem a própria suíte em e2e/mesa-3d.spec.ts.
+  await page.addInitScript(() => window.localStorage.setItem('kabemjunto.mesa', '2d'));
   const estado = criarEstadoLocalMobile();
   await page.addInitScript((fixture) => {
     window.sessionStorage.setItem('kabemjunto.modo', 'local');
@@ -791,6 +795,8 @@ test('mobile 390x844 local — Corta-Frente: humano intercepta descarte elegíve
     isMobile: true,
   });
   const page = await context.newPage();
+  // Mesa 2D (fallback sem WebGL): a mesa 3D tem a própria suíte em e2e/mesa-3d.spec.ts.
+  await page.addInitScript(() => window.localStorage.setItem('kabemjunto.mesa', '2d'));
   const carta = (id: string, cor: Carta['cor'], valor: number): Carta => ({
     id,
     tipo: 'NUMERADA',
