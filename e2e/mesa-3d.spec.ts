@@ -118,6 +118,19 @@ async function abrirMesa(
   await esperarCartasParadas(page);
 }
 
+async function abrirMesaSemEsperarCena(page: Page, estado: EstadoPartida): Promise<void> {
+  await page.addInitScript(
+    ([salvo, dicas]) => {
+      window.sessionStorage.setItem('kabemjunto.modo', 'local');
+      window.sessionStorage.setItem('kabemjunto.estado', salvo);
+      window.localStorage.setItem('kabemjunto.dicas-vistas', dicas);
+      window.localStorage.removeItem('kabemjunto.mesa');
+    },
+    [JSON.stringify(estado), TODAS_AS_DICAS],
+  );
+  await page.goto('/');
+}
+
 async function esperarCartasParadas(page: Page): Promise<void> {
   await expect
     .poll(() =>
@@ -335,20 +348,130 @@ test.describe('Mesa 3D — desktop 1280×800', () => {
     await expect(page.getByRole('heading', { name: 'Você Venceu!' })).toBeVisible();
   });
 
-  test('?mesa=2d mantém a mesa 2D (fallback) com a mesma partida salva', async ({ page }) => {
+  test('descarte múltiplo: tocar em cartas de mesma face junta o grupo e ele sai inteiro', async ({
+    page,
+  }) => {
+    await abrirMesa(
+      page,
+      partida([
+        numerada('seis-azul', 'AZUL', 6),
+        numerada('seis-verde', 'VERDE', 6),
+        numerada('nove-laranja', 'LARANJA', 9),
+      ]),
+    );
+    // Seleção pelo teclado (Espaço), o caminho acessível do mesmo gesto de
+    // tocar nas cartas. Mirar a faixa estreita de uma carta inclinada do leque
+    // com o mouse é frágil no teste; o toque em si é coberto no cenário mobile.
+    for (const id of ['seis-azul', 'seis-verde']) {
+      const carta = page.locator(`[data-card-id="${id}"]`);
+      await carta.focus();
+      await page.keyboard.press('Space');
+      await expect(carta).toHaveAttribute('aria-pressed', 'true');
+    }
+
+    await page.getByRole('button', { name: 'Jogar 2 cartas' }).click();
+
+    await expect(mesa(page)).toHaveAttribute('data-mao', '1');
+    // A última carta do grupo define a cor ativa.
+    await expect(mesa(page)).toHaveAttribute('data-topo-id', 'seis-verde');
+    await expect(mesa(page)).toHaveAttribute('data-cor', 'VERDE');
+  });
+
+  test('Troca Mão: escolho o adversário, depois a cor, e as mãos trocam de dono', async ({
+    page,
+  }) => {
+    const trocaMao: Carta = {
+      id: 'troca-eu',
+      tipo: 'NEUTRA',
+      cor: 'NEUTRO',
+      acao: 'TROCA_MAO',
+      raridade: 'RARA',
+      colecao: 'base-v1',
+      efeito_texto_curto: 'Troca Mão',
+      efeito_texto_longo: 'Troque toda a sua mão com a de outro jogador.',
+    };
+    await abrirMesa(page, partida([trocaMao, numerada('cinco-azul', 'AZUL', 5)]));
+    await arrastarAoCentro(page, 'troca-eu');
+
+    const alvo = page.getByRole('group', { name: 'Escolha com quem trocar de mão' });
+    await expect(alvo).toBeVisible();
+    await alvo.getByRole('button', { name: /^Bot 1 · 2 cartas$/ }).click();
+    await page
+      .getByRole('group', { name: /Escolha a cor/ })
+      .getByRole('button', { name: 'Verde' })
+      .click();
+
+    await expect(mesa(page)).toHaveAttribute('data-topo-id', 'troca-eu');
+    await expect(mesa(page)).toHaveAttribute('data-cor', 'VERDE');
+    // Fico com as duas cartas do bot; ele fica com o meu 5 Azul.
+    await expect(page.locator('[data-card-id="oito-verde-bot"]')).toBeAttached();
+    await expect(page.locator('[data-card-id="seis-verde-bot"]')).toBeAttached();
+    await expect(page.locator('[data-card-id="cinco-azul"]')).toHaveCount(0);
+  });
+
+  test('?mesa=2d: a mesa simples joga com toque duplo e a mesma partida salva', async ({
+    page,
+  }) => {
     await page.addInitScript(
-      (salvo) => {
+      ([salvo, dicas]) => {
         window.sessionStorage.setItem('kabemjunto.modo', 'local');
         window.sessionStorage.setItem('kabemjunto.estado', salvo);
+        window.localStorage.setItem('kabemjunto.dicas-vistas', dicas);
       },
-      JSON.stringify(
-        partida([numerada('cinco-azul', 'AZUL', 5), numerada('dois-laranja', 'LARANJA', 2)]),
-      ),
+      [
+        JSON.stringify(
+          partida([numerada('cinco-azul', 'AZUL', 5), numerada('dois-laranja', 'LARANJA', 2)]),
+        ),
+        TODAS_AS_DICAS,
+      ],
     );
     await page.goto('/?mesa=2d');
 
-    await expect(page.locator('.game-layout')).toBeVisible();
-    await expect(page.locator('.mesa3d')).toHaveCount(0);
+    await expect(page.locator('.mesa2d')).toBeVisible();
+    await expect(page.locator('.mesa3d canvas')).toHaveCount(0);
+    // Sem 3D, o Three.js nem é baixado.
+    const cena = await page.evaluate(() =>
+      performance.getEntriesByType('resource').some((r) => r.name.includes('CenaMesa')),
+    );
+    expect(cena).toBe(false);
+
+    const cinco = page.locator('[data-card-id="cinco-azul"]');
+    await cinco.click();
+    await expect(cinco).toHaveAttribute('aria-pressed', 'true');
+    await cinco.click();
+
+    await expect(mesa(page)).toHaveAttribute('data-topo-id', 'cinco-azul');
+    await expect(mesa(page)).toHaveAttribute('data-mao', '1');
+    await page.screenshot({ path: 'tmp/mesa2d-desktop.png' });
+  });
+
+  test('sem WebGL, a mesa avisa e segue na 2D', async ({ page }) => {
+    await page.addInitScript(() => {
+      const original = HTMLCanvasElement.prototype.getContext;
+      // Simula um aparelho sem WebGL: os outros contextos continuam funcionando.
+      HTMLCanvasElement.prototype.getContext = function (
+        this: HTMLCanvasElement,
+        tipo: string,
+        ...resto: unknown[]
+      ) {
+        if (tipo.startsWith('webgl')) return null;
+        return (original as (...args: unknown[]) => unknown).call(this, tipo, ...resto);
+      } as typeof HTMLCanvasElement.prototype.getContext;
+    });
+    await abrirMesaSemEsperarCena(
+      page,
+      partida([numerada('cinco-azul', 'AZUL', 5), numerada('dois-laranja', 'LARANJA', 2)]),
+    );
+
+    await expect(
+      page.getByRole('status').filter({ hasText: 'A mesa 3D não está disponível' }),
+    ).toBeVisible();
+    await expect(page.locator('.mesa2d')).toBeVisible();
+    await page.keyboard.press('Tab');
+    const cinco = page.locator('[data-card-id="cinco-azul"]');
+    await cinco.focus();
+    await page.keyboard.press('Enter');
+    await expect(mesa(page)).toHaveAttribute('data-topo-id', 'cinco-azul');
   });
 });
 
