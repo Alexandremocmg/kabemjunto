@@ -17,6 +17,7 @@ Este arquivo registra as Decisões de Arquitetura (ADRs) do projeto Kabemjunto.
 - [ADR-011: Persistência Atômica em Instância Única e Container Same-Origin](#adr-011-persistência-atômica-em-instância-única-e-container-same-origin)
 - [ADR-012: Remover a API de State Machine sem Consumidor](#adr-012-remover-a-api-de-state-machine-sem-consumidor)
 - [ADR-013: Carta "+2 Para Todos" (MAIS_DOIS_TODOS) e Expansão do Baralho para 109](#adr-013-carta-2-para-todos-mais_dois_todos-e-expansão-do-baralho-para-109)
+- [ADR-014: Mesa 3D com Three.js, Camada Acessível em DOM e Fallback 2D](#adr-014-mesa-3d-com-threejs-camada-acessível-em-dom-e-fallback-2d)
 
 ---
 
@@ -458,3 +459,56 @@ Este arquivo registra as Decisões de Arquitetura (ADRs) do projeto Kabemjunto.
     como efeito colateral.
   - ❌ UI/arte ficam pendentes; a carta é jogável (motor completo, testado),
     mas sem apresentação visual própria até um follow-up.
+
+---
+
+### ADR-014: Mesa 3D com Three.js, Camada Acessível em DOM e Fallback 2D
+
+- **Status:** Proposta · Fase 1 implementada (modo local) · 2026-11-17 · @User
+- **Contexto:** O produto pediu uma mesa 3D mais fluida e simples, sem mudar
+  regras, protocolo nem servidor. A mesa 2D atual exigia toque duplo para
+  jogar e tinha dois componentes de mesa paralelos (`AppSingleplayer` e
+  `MesaOnline`).
+- **Decisões:**
+  1. **Three.js puro** (`three@0.186.1`), sem react-three-fiber. As cartas são
+     objetos que voam entre mão, descarte e assentos; isso é mais simples e
+     barato de animar de forma imperativa (`apps/web/src/mesa/cena/CenaMesa.ts`)
+     do que por reconciliação declarativa. O React só entrega um instantâneo
+     (estado público + mão) e recebe intenções.
+  2. **Um contrato para os dois modos** (`ControladorMesa`): a mesa só vê o
+     estado público e a própria mão, e só envia intenções. No local, o motor
+     puro roda no navegador com bots no lugar do socket (`useMesaLocal`); no
+     online, um adaptador fino sobre `useGameSocket` (`useMesaOnline`, ligado
+     na Fase 2).
+  3. **Arrastar até o centro joga.** Tocar seleciona (grupo de descarte
+     múltiplo); tocar de novo na carta selecionada também joga, para quem não
+     consegue arrastar. Cor em anel sobre o descarte; alvo da Troca Mão
+     tocando no assento.
+  4. **Camada acessível em DOM**: cada carta tem um botão real alinhado à sua
+     projeção na tela (invisível ao ponteiro, visível no foco do teclado),
+     com `aria-live` para os anúncios da partida. Enter joga, Espaço
+     seleciona, setas trocam de carta. `prefers-reduced-motion` desliga voos,
+     pulsos e giros.
+  5. **Fallback 2D**: sem WebGL, com perda de contexto ou com `?mesa=2d`, o
+     modo local usa a mesa 2D atual, lendo a mesma partida salva.
+  6. **Orçamento de performance**: geometria de carta única com 2 grupos de
+     material (frente com borda, verso); adversários em um `InstancedMesh`
+     com materiais próprios (compartilhar material entre malha instanciada e
+     comum força troca de shader a cada desenho); faces em cache por chave e
+     pré-geradas em tempo ocioso; descarte limitado a 4 cartas visíveis;
+     redesenho só quando algo muda; pixel ratio até 2, reduzido sozinho se os
+     quadros ficam lentos; Three.js só no pedaço carregado sob demanda.
+- **Medição (Fase 1, build de produção, 375×812 @2x, CPU 4× mais lenta,
+  6 jogadores, Intel HD 630):** mediana de 16,7 ms por quadro (60 fps),
+  média entre 49 e 56 fps, p95 de 33 ms, picos de 150 a 200 ms nos eventos
+  de jogada; 33 a 42 chamadas de desenho. Bundle inicial do menu: +1,1 kB
+  gzip; pedaço da mesa: 153 kB gzip.
+- **Consequências:**
+  - ✅ Jogar vira um gesto só; o estado da mesa é sempre visível (vez, cor,
+    sentido, ataque, Corta-Frente com anel de contagem).
+  - ✅ Motor e servidor intocados.
+  - ❌ A meta de 60 fps de média no perfil acima ainda não foi atingida: os
+    picos nos eventos vêm da renderização do React e da criação de material
+    por carta. Próximo passo: atlas de faces (um material para todas).
+  - ❌ Hot-seat (vários humanos no mesmo aparelho) não existe na mesa 3D; o
+    botão do menu local inicia uma partida contra bots.
