@@ -32,8 +32,7 @@ button:disabled {
   flex-direction: column;
 }
 .app-header,
-.room-toolbar,
-.game-topline {
+.room-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -198,8 +197,7 @@ input:focus-visible {
   background: #1e293b;
   border-color: #475569;
 }
-.error-message,
-.success-message {
+.error-message {
   margin: 18px 0 0;
   padding: 10px 12px;
   border-radius: 8px;
@@ -209,11 +207,6 @@ input:focus-visible {
   color: #fecaca;
   background: rgba(127, 29, 29, 0.35);
   border: 1px solid #991b1b;
-}
-.success-message {
-  color: #bbf7d0;
-  background: rgba(20, 83, 45, 0.35);
-  border: 1px solid #166534;
 }
 .room-layout {
   display: grid;
@@ -247,55 +240,6 @@ input:focus-visible {
 .waiting-icon {
   color: #f59e0b;
   font-size: 42px;
-}
-.game-state {
-  display: grid;
-  gap: 16px;
-  margin-top: 34px;
-  padding: 22px;
-  border: 1px solid #475569;
-  border-radius: 10px;
-  background: #111827;
-}
-.game-topline {
-  flex-wrap: wrap;
-  justify-content: flex-start;
-  color: #cbd5e1;
-  font-size: 13px;
-}
-.game-topline strong {
-  color: #fbbf24;
-}
-.hand-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.card-button {
-  display: grid;
-  gap: 4px;
-  min-width: 112px;
-  padding: 10px;
-  border: 1px solid #64748b;
-  border-radius: 8px;
-  color: #f8fafc;
-  background: #1e293b;
-  text-align: left;
-}
-.card-button:hover {
-  border-color: #f59e0b;
-  background: #334155;
-}
-.card-button small {
-  max-width: 130px;
-  overflow: hidden;
-  color: #94a3b8;
-  font-size: 10px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.play-input {
-  max-width: 420px;
 }
 .player-list {
   display: grid;
@@ -339,124 +283,6 @@ input:focus-visible {
 .chat-form .button {
   flex: 0 0 auto;
 }
-.target-modal-overlay {
-  position: fixed;
-  z-index: 9000;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  background: rgba(2, 6, 23, 0.74);
-  backdrop-filter: blur(8px);
-}
-.target-modal {
-  width: min(100%, 480px);
-  max-height: min(720px, calc(100vh - 48px));
-  overflow: auto;
-  padding: 24px;
-  color: #f8fafc;
-  background: #111827;
-  border: 1px solid #475569;
-  border-radius: 16px;
-  box-shadow:
-    0 28px 90px rgba(0, 0, 0, 0.5),
-    0 0 32px rgba(245, 158, 11, 0.1);
-}
-.target-modal-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-.target-modal-header h2 {
-  margin-bottom: 0;
-}
-.target-modal-close {
-  display: grid;
-  width: 36px;
-  height: 36px;
-  place-items: center;
-  border: 1px solid #475569;
-  border-radius: 50%;
-  color: #cbd5e1;
-  background: #1e293b;
-  font-size: 24px;
-  line-height: 1;
-}
-.target-modal-close:hover {
-  color: #f8fafc;
-  border-color: #f59e0b;
-}
-.target-modal-description {
-  margin: 18px 0 20px;
-}
-.target-options {
-  display: grid;
-  gap: 10px;
-  max-height: 360px;
-  overflow-y: auto;
-  padding: 2px;
-}
-.target-option {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  padding: 12px;
-  border: 1px solid #334155;
-  border-radius: 12px;
-  color: #f8fafc;
-  background: #1e293b;
-  text-align: left;
-  transition:
-    border-color 0.15s,
-    background 0.15s,
-    transform 0.15s;
-}
-.target-option:hover {
-  border-color: #f59e0b;
-  background: #26364d;
-  transform: translateY(-1px);
-}
-.target-option-selected {
-  border-color: #f59e0b;
-  background: rgba(245, 158, 11, 0.12);
-  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.12);
-}
-.target-option-copy {
-  display: grid;
-  flex: 1;
-  gap: 4px;
-  min-width: 0;
-}
-.target-option-copy strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.target-option-copy small {
-  color: #94a3b8;
-}
-.target-option-check {
-  color: #64748b;
-  font-size: 24px;
-}
-.target-option-selected .target-option-check {
-  color: #fbbf24;
-}
-.target-modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 22px;
-}
-.target-modal-actions .button-primary {
-  max-width: 260px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 @media (max-width: 760px) {
   .app-shell {
     /* shell é flex-column; safe-area é gerida pelos filhos */
@@ -476,37 +302,5 @@ input:focus-visible {
   }
   .room-toolbar {
     align-items: flex-start;
-  }
-  .target-modal-overlay {
-    align-items: flex-end;
-    padding: 0;
-  }
-  .target-modal {
-    width: 100%;
-    max-height: min(720px, 88vh);
-    padding: 22px 18px max(22px, env(safe-area-inset-bottom));
-    border-bottom: 0;
-    border-radius: 20px 20px 0 0;
-  }
-  .target-modal::before {
-    display: block;
-    width: 42px;
-    height: 4px;
-    margin: -8px auto 18px;
-    border-radius: 99px;
-    background: #64748b;
-    content: '';
-  }
-  .target-modal-actions {
-    position: sticky;
-    bottom: 0;
-    padding-top: 12px;
-    background: #111827;
-  }
-  .target-modal-actions .button {
-    flex: 1;
-  }
-  .target-modal-actions .button-primary {
-    max-width: none;
   }
 }
