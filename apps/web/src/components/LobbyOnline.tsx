@@ -12,6 +12,8 @@ export interface LobbyOnlineCredentials {
 
 export interface LobbyOnlineProps {
   onEntrar: (credentials: LobbyOnlineCredentials & { criar: boolean }) => void;
+  /** Segundo caminho do menu: partida local, sem esperar ninguém. */
+  onJogarContraBots?: (nome: string, totalJogadores: number) => void;
   erro?: string | undefined;
   desabilitado?: boolean;
   salasPublicas?: ReadonlyArray<ServerSalaDisponivel>;
@@ -24,6 +26,7 @@ function gerarCodigo(): string {
 
 export const LobbyOnline: React.FC<LobbyOnlineProps> = ({
   onEntrar,
+  onJogarContraBots,
   erro,
   desabilitado,
   salasPublicas = [],
@@ -41,6 +44,7 @@ export const LobbyOnline: React.FC<LobbyOnlineProps> = ({
   const [criacaoAberta, setCriacaoAberta] = useState(false);
   const [nomeSalaInput, setNomeSalaInput] = useState('');
   const [visibilidade, setVisibilidade] = useState<'privada' | 'publica'>('privada');
+  const [jogadoresContraBots, setJogadoresContraBots] = useState(4);
   const nomeInputRef = useRef<HTMLInputElement>(null);
   const errorId = useId();
   const errorMessage = validationError ?? erro;
@@ -123,7 +127,7 @@ export const LobbyOnline: React.FC<LobbyOnlineProps> = ({
 
   return (
     <section className="lobby-panel" aria-labelledby="lobby-title">
-      <p className="eyebrow">SALA ONLINE</p>
+      <p className="eyebrow">JOGAR ONLINE</p>
       <h2 id="lobby-title">Entre na mesa</h2>
       <p className="muted">Crie uma sala ou use o código que seu grupo compartilhou.</p>
       <form className="lobby-form" onSubmit={entrarExistente} noValidate>
@@ -173,6 +177,40 @@ export const LobbyOnline: React.FC<LobbyOnlineProps> = ({
           </button>
         </div>
       </form>
+      {onJogarContraBots && (
+        <section className="bots-card" aria-labelledby="bots-title">
+          <div>
+            <h3 id="bots-title">Jogar contra bots</h3>
+            <p className="muted">Partida rápida, sem esperar ninguém.</p>
+          </div>
+          <div className="bots-card-acoes">
+            <label>
+              Jogadores na mesa
+              <select
+                value={jogadoresContraBots}
+                onChange={(event) => setJogadoresContraBots(Number(event.target.value))}
+              >
+                {[2, 3, 4, 5, 6, 7, 8, 9, 10].map((total) => (
+                  <option key={total} value={total}>
+                    {total}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              className="button button-primary"
+              onClick={() => {
+                const nome = nomeInput.trim();
+                if (nome) salvarNome(nome);
+                onJogarContraBots(nome || 'Você', jogadoresContraBots);
+              }}
+            >
+              Começar contra bots
+            </button>
+          </div>
+        </section>
+      )}
       {temNome && (
         <section className="public-rooms" aria-labelledby="public-rooms-title">
           <div className="public-rooms-heading">

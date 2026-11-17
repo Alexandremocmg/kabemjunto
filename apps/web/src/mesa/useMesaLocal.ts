@@ -21,9 +21,9 @@ import {
   turnoBot,
 } from '../services/gameEngine';
 import { paraEstadoPublico } from './estadoPublico';
+import { CHAVE_PARTIDA_LOCAL } from './partidaLocal';
 import type { AvisoMesa, ControladorMesa, OpcoesDeJogada } from './tipos';
 
-const CHAVE_ESTADO = 'kabemjunto.estado';
 /** Tempo que o jogador tem para cortar a frente de um bot. */
 export const JANELA_INTERCEPTACAO_MS = 4000;
 /** Pausa antes de cada jogada de bot: dá tempo de ver a carta anterior pousar. */
@@ -31,10 +31,10 @@ export const PAUSA_DO_BOT_MS = 900;
 
 function lerEstadoSalvo(): EstadoPartida | null {
   try {
-    const salvo = window.sessionStorage.getItem(CHAVE_ESTADO);
+    const salvo = window.sessionStorage.getItem(CHAVE_PARTIDA_LOCAL);
     return salvo ? (JSON.parse(salvo) as EstadoPartida) : null;
   } catch {
-    window.sessionStorage.removeItem(CHAVE_ESTADO);
+    window.sessionStorage.removeItem(CHAVE_PARTIDA_LOCAL);
     return null;
   }
 }
@@ -103,8 +103,8 @@ export function useMesaLocal(): MesaLocal {
   const jogadorId = estado ? idDoJogadorLocal(estado) : undefined;
 
   useEffect(() => {
-    if (estado) window.sessionStorage.setItem(CHAVE_ESTADO, JSON.stringify(estado));
-    else window.sessionStorage.removeItem(CHAVE_ESTADO);
+    if (estado) window.sessionStorage.setItem(CHAVE_PARTIDA_LOCAL, JSON.stringify(estado));
+    else window.sessionStorage.removeItem(CHAVE_PARTIDA_LOCAL);
   }, [estado]);
 
   // Vez de um bot: joga depois de uma pausa curta.
