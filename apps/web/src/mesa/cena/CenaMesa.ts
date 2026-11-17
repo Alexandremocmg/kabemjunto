@@ -139,6 +139,8 @@ export interface EstatisticasCena {
   pixelRatio: number;
   /** Alguma carta ainda está em movimento (voo, leque, tremor). */
   cartasAnimando: boolean;
+  /** Diagnóstico: quais cartas se movem e quanto falta (posição, ângulo, escala). */
+  movimentos: string[];
 }
 
 // ─── Constantes de cena ─────────────────────────────────────────────────────
@@ -517,6 +519,21 @@ export class CenaMesa {
       triangulos: this.renderizador.info.render.triangles,
       pixelRatio: this.pixelRatio,
       cartasAnimando: this.cartasAnimando,
+      movimentos: [...this.objetos.values()]
+        .map((objeto) => {
+          const distancia = objeto.base.distanceTo(objeto.alvoPos);
+          const angulo = objeto.malha.quaternion.angleTo(objeto.alvoQuat);
+          const escala = Math.abs(objeto.malha.scale.x - objeto.alvoEscala);
+          return { objeto, distancia, angulo, escala };
+        })
+        .filter(
+          ({ objeto, distancia, angulo, escala }) =>
+            objeto.atraso > 0 || distancia > 0.002 || angulo > 0.004 || escala > 0.002,
+        )
+        .map(
+          ({ objeto, distancia, angulo, escala }) =>
+            `${objeto.id} ${objeto.local} d=${distancia.toFixed(3)} a=${angulo.toFixed(3)} e=${escala.toFixed(3)} atraso=${objeto.atraso.toFixed(2)}`,
+        ),
     };
   }
 

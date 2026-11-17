@@ -10,13 +10,29 @@
  * A mesa só envia intenções pelo `ControladorMesa`; quem aceita ou recusa é
  * o motor (local) ou o servidor (online).
  */
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import type { Carta, EstadoPartidaPublico } from '@kabemjunto/shared';
 import { saoCartasIdenticas } from '@kabemjunto/shared';
 import { BARALHO_COMPLETO_108 } from '@kabemjunto/shared/constants';
 import { PALETA_CORES } from '@kabemjunto/shared/constants/cards';
 import { VitoriaAnimada } from '../components/VitoriaAnimada';
 import { derivarAnuncios, inferirQuemJogou, type Anuncio } from './anuncios';
+import {
+  escolherDica,
+  lerDicasVistas,
+  salvarDicasVistas,
+  TEXTO_DICA,
+  TODAS_AS_DICAS,
+  type TipoDica,
+} from './dicas';
 import {
   CenaMesa,
   type EventosCena,
@@ -47,6 +63,12 @@ export interface Mesa3DProps {
   onJogarNovamente: () => void;
   /** WebGL indisponível ou perdido: troca para a mesa 2D. */
   onUsar2D: () => void;
+  /** Botões extras no fim do HUD (ex.: menu da partida online). */
+  acoesHud?: ReactNode;
+  /** Última fala de cada jogador, mostrada como balão no assento. */
+  baloes?: ReadonlyMap<string, string>;
+  /** Falas rápidas (online): uma toque e a mensagem vai para o chat. */
+  falasRapidas?: { opcoes: ReadonlyArray<string>; onEnviar: (texto: string) => void };
 }
 
 interface Pendente {
@@ -121,7 +143,15 @@ function lerTema(): string | null {
   }
 }
 
-export function Mesa3D({ controlador, onSair, onJogarNovamente, onUsar2D }: Mesa3DProps) {
+export function Mesa3D({
+  controlador,
+  onSair,
+  onJogarNovamente,
+  onUsar2D,
+  acoesHud,
+  baloes,
+  falasRapidas,
+}: Mesa3DProps) {
   const { estado, mao, jogadorId, aviso } = controlador;
   const tema = useMemo(() => temaDaMesa(lerTema()), []);
   const movimentoReduzido = useMemo(prefereMovimentoReduzido, []);
@@ -147,6 +177,8 @@ export function Mesa3D({ controlador, onSair, onJogarNovamente, onUsar2D }: Mesa
   const [filaFaixa, setFilaFaixa] = useState<ReadonlyArray<Anuncio>>([]);
   const [anuncioFalado, setAnuncioFalado] = useState('');
   const [confirmarSaida, setConfirmarSaida] = useState(false);
+  const [falasAbertas, setFalasAbertas] = useState(false);
+  const [dicasVistas, setDicasVistas] = useState<ReadonlySet<TipoDica>>(lerDicasVistas);
   const [agora, setAgora] = useState(() => Date.now());
 
   // Estado anterior, guardado como estado derivado (padrão oficial do React):
@@ -486,6 +518,28 @@ export function Mesa3D({ controlador, onSair, onJogarNovamente, onUsar2D }: Mesa
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
+  const dicaContextual = escolherDica(
+    {
+      minhaVez,
+      silencioAtivo: estado.silencio.ativo,
+      ataqueAcumulado: estado.ataqueAcumulado,
+      podeComprar: compra.permitido,
+      ocupada:
+        Boolean(pendente) ||
+        enviando.length > 0 ||
+        Boolean(estado.interceptacao) ||
+        estado.finalizada ||
+        confirmarSaida,
+      mao,
+      ehJogavel,
+    },
+    dicasVistas,
+  );
+  const marcarDicas = (vistas: ReadonlySet<TipoDica>) => {
+    setDicasVistas(vistas);
+    salvarDicasVistas(vistas);
+  };
+
   if (falhaWebGL) {
     return (
       <main className="mesa3d mesa3d-falha" style={{ background: tema.fundo }}>
@@ -583,13 +637,118 @@ export function Mesa3D({ controlador, onSair, onJogarNovamente, onUsar2D }: Mesa
         {estado.ataqueAcumulado > 0 && (
           <div className="mesa3d-chip mesa3d-chip-perigo">+{estado.ataqueAcumulado}</div>
         )}
+        {falasRapidas && (
+          <button
+            type="button"
+            className="mesa3d-hud-botao"
+            aria-label="Falas rápidas"
+            aria-expanded={falasAbertas}
+            aria-controls="mesa3d-falas"
+            onClick={() => setFalasAbertas((abertas) => !abertas)}
+          >
+            💬
+          </button>
+        )}
+        {acoesHud}
       </header>
 
-      {estado.silencio.ativo && (
-        <p className="mesa3d-silencio" role="status">
-          🤫 SILÊNCIO · quem falar compra +2
-        </p>
+      {falasRapidas && falasAbertas && (
+        <div id="mesa3d-falas" className="mesa3d-falas" role="group" aria-label="Falas rápidas">
+          {estado.silencio.ativo && (
+            <p className="mesa3d-falas-aviso">Silêncio ativo: falar agora custa +2.</p>
+          )}
+          {falasRapidas.opcoes.map((fala) => (
+            <button
+              key={fala}
+              type="button"
+              onClick={() => {
+                falasRapidas.onEnviar(fala);
+                setFalasAbertas(false);
+              }}
+            >
+              {fala}
+            </button>
+          ))}
+        </div>
       )}
+
+      {baloes &&
+        [...baloes].map(([id, texto]) => {
+          const nome = estado.jogadores.find((jogador) => jogador.id === id)?.nome ?? 'Alguém';
+          const posicao = id === jogadorId ? undefined : layout?.assentos[id];
+          if (id !== jogadorId && !posicao) return null;
+          return (
+            <div
+              key={id}
+              className={`mesa3d-balao ${id === jogadorId ? 'mesa3d-balao-meu' : ''}`}
+              style={posicao ? { left: posicao.x, top: posicao.y } : undefined}
+              role="status"
+              aria-live="polite"
+              data-jogador={id}
+            >
+              <span className="sr-only">{id === jogadorId ? 'Você disse' : `${nome} disse`}: </span>
+              {texto}
+            </div>
+          );
+        })}
+
+      {/* Avisos do topo empilhados (nunca um por cima do outro). */}
+      <div className="mesa3d-topo">
+        {estado.silencio.ativo && (
+          <p className="mesa3d-silencio" role="status">
+            🤫 SILÊNCIO · quem falar compra +2
+          </p>
+        )}
+        {cartasParaCortar.length > 0 && estado.interceptacao && (
+          <section className="mesa3d-corte" aria-label="Corta-Frente" role="alert">
+            <strong>Corta-Frente! {segundosCorte}s</strong>
+            <span>Arraste sua carta idêntica para o centro ou toque abaixo.</span>
+            <div className="mesa3d-corte-botoes">
+              {cartasParaCortar.map((carta) => (
+                <button
+                  key={carta.id}
+                  type="button"
+                  className="mesa3d-botao-primario"
+                  onClick={() => tentarJogar(carta.id)}
+                >
+                  Cortar com {rotuloDaCarta(carta)}
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+        {dicaContextual && (
+          <section className="mesa3d-coach" aria-label="Dica" data-dica={dicaContextual}>
+            <strong>{TEXTO_DICA[dicaContextual].titulo}</strong>
+            <span>{TEXTO_DICA[dicaContextual].texto}</span>
+            <div className="mesa3d-coach-acoes">
+              <button
+                type="button"
+                className="mesa3d-botao-primario"
+                onClick={() => marcarDicas(new Set([...dicasVistas, dicaContextual]))}
+              >
+                Entendi
+              </button>
+              <button
+                type="button"
+                className="mesa3d-botao-link"
+                onClick={() => marcarDicas(TODAS_AS_DICAS)}
+              >
+                Não mostrar dicas
+              </button>
+            </div>
+          </section>
+        )}
+        {toast && (
+          <p
+            key={toast.id}
+            className={`mesa3d-toast mesa3d-toast-${toast.tipo}`}
+            role={toast.tipo === 'erro' ? 'alert' : 'status'}
+          >
+            {toast.texto}
+          </p>
+        )}
+      </div>
 
       {!pendente && (
         <p className="mesa3d-dica" aria-hidden="true">
@@ -714,25 +873,6 @@ export function Mesa3D({ controlador, onSair, onJogarNovamente, onUsar2D }: Mesa
         </button>
       )}
 
-      {cartasParaCortar.length > 0 && estado.interceptacao && (
-        <section className="mesa3d-corte" aria-label="Corta-Frente" role="alert">
-          <strong>Corta-Frente! {segundosCorte}s</strong>
-          <span>Arraste sua carta idêntica para o centro ou toque abaixo.</span>
-          <div className="mesa3d-corte-botoes">
-            {cartasParaCortar.map((carta) => (
-              <button
-                key={carta.id}
-                type="button"
-                className="mesa3d-botao-primario"
-                onClick={() => tentarJogar(carta.id)}
-              >
-                Cortar com {rotuloDaCarta(carta)}
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
-
       {pendente?.etapa === 'cor' && pendenteCarta && (
         <AnelDeCores
           centro={centroDescarte}
@@ -749,16 +889,6 @@ export function Mesa3D({ controlador, onSair, onJogarNovamente, onUsar2D }: Mesa
           onEscolher={escolherAlvo}
           onCancelar={() => setPendente(undefined)}
         />
-      )}
-
-      {toast && (
-        <p
-          key={toast.id}
-          className={`mesa3d-toast mesa3d-toast-${toast.tipo}`}
-          role={toast.tipo === 'erro' ? 'alert' : 'status'}
-        >
-          {toast.texto}
-        </p>
       )}
 
       {confirmarSaida && (
@@ -795,6 +925,39 @@ export function Mesa3D({ controlador, onSair, onJogarNovamente, onUsar2D }: Mesa
                 Sair
               </button>
             </div>
+          </section>
+        </div>
+      )}
+
+      {estado.finalizada && !vencedor && (
+        <div className="mesa3d-modal" role="presentation">
+          <section
+            className="mesa3d-painel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mesa3d-encerrada-titulo"
+          >
+            <h2 id="mesa3d-encerrada-titulo">Partida encerrada</h2>
+            <p>
+              {(() => {
+                const saiu = estado.jogadores.find(
+                  (jogador) => jogador.id !== jogadorId && !jogador.conectado,
+                );
+                if (saiu) return `${saiu.nome} saiu da partida.`;
+                // No online, só um abandono encerra a partida sem vencedor.
+                return controlador.modo === 'online'
+                  ? 'Um jogador saiu e a partida foi encerrada.'
+                  : 'A partida terminou sem vencedor.';
+              })()}
+            </p>
+            <button
+              type="button"
+              className="mesa3d-botao-primario"
+              autoFocus
+              onClick={onJogarNovamente}
+            >
+              {controlador.modo === 'online' ? 'Voltar ao menu' : 'Jogar de novo'}
+            </button>
           </section>
         </div>
       )}

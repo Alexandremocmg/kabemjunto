@@ -111,10 +111,6 @@
 }
 
 .mesa3d-silencio {
-  position: absolute;
-  top: calc(max(10px, env(safe-area-inset-top)) + 46px);
-  left: 50%;
-  transform: translateX(-50%);
   margin: 0;
   padding: 6px 14px;
   border-radius: 999px;
@@ -123,7 +119,6 @@
   font-weight: 800;
   font-size: 13px;
   white-space: nowrap;
-  z-index: 3;
 }
 
 .mesa3d-dica {
@@ -303,10 +298,6 @@
 }
 
 .mesa3d-toast {
-  position: absolute;
-  left: 50%;
-  top: calc(max(10px, env(safe-area-inset-top)) + 52px);
-  transform: translateX(-50%);
   margin: 0;
   max-width: min(92vw, 460px);
   padding: 10px 16px;
@@ -316,7 +307,6 @@
   font-weight: 700;
   font-size: 14px;
   text-align: center;
-  z-index: 6;
   animation: mesa3d-surgir 0.18s ease-out;
 }
 
@@ -331,15 +321,11 @@
 @keyframes mesa3d-surgir {
   from {
     opacity: 0;
-    transform: translate(-50%, -6px);
+    transform: translateY(-6px);
   }
 }
 
 .mesa3d-corte {
-  position: absolute;
-  left: 50%;
-  top: calc(max(10px, env(safe-area-inset-top)) + 52px);
-  transform: translateX(-50%);
   display: grid;
   gap: 6px;
   justify-items: center;
@@ -349,7 +335,6 @@
   background: #0f172a;
   border: 3px solid var(--mesa-perigo);
   text-align: center;
-  z-index: 5;
 }
 
 .mesa3d-corte strong {
@@ -541,6 +526,152 @@
   .mesa3d-toast,
   .mesa3d-anel-cor,
   .mesa3d-anel-cancelar {
+    animation: none;
+  }
+}
+
+/* ── Pilha de avisos do topo ─────────────────────────────────────────── */
+
+.mesa3d-topo {
+  position: absolute;
+  left: 50%;
+  top: calc(max(10px, env(safe-area-inset-top)) + 50px);
+  transform: translateX(-50%);
+  width: min(92vw, 440px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.mesa3d-topo > * {
+  pointer-events: auto;
+}
+
+/* ── Dicas contextuais ───────────────────────────────────────────────── */
+
+.mesa3d-coach {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 16px;
+  background: #fffbea;
+  color: #0f172a;
+  border: 3px solid var(--mesa-destaque);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+  animation: mesa3d-surgir 0.2s ease-out;
+}
+
+.mesa3d-coach strong {
+  font-family: var(--font-title, inherit);
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.mesa3d-coach span {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.mesa3d-coach-acoes {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mesa3d-coach .mesa3d-botao-primario {
+  min-height: 36px;
+  border-color: #0f172a;
+  box-shadow: none;
+}
+
+.mesa3d-botao-link {
+  padding: 4px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ── Falas rápidas e balões ──────────────────────────────────────────── */
+
+.mesa3d-falas {
+  position: absolute;
+  top: calc(max(10px, env(safe-area-inset-top)) + 50px);
+  right: 12px;
+  display: grid;
+  gap: 6px;
+  width: min(60vw, 220px);
+  padding: 10px;
+  border-radius: 16px;
+  background: #0f172a;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  z-index: 6;
+}
+
+.mesa3d-falas button {
+  min-height: 40px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  background: #1e293b;
+  color: #fff;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.mesa3d-falas button:focus-visible {
+  outline: 3px solid #fff;
+}
+
+.mesa3d-falas-aviso {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fecdd3;
+}
+
+.mesa3d-balao {
+  position: absolute;
+  transform: translate(-50%, calc(-100% - 22px));
+  max-width: min(56vw, 220px);
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: #fff;
+  color: #0f172a;
+  font-weight: 800;
+  font-size: 13px;
+  text-align: center;
+  pointer-events: none;
+  z-index: 4;
+  animation: mesa3d-surgir 0.18s ease-out;
+}
+
+.mesa3d-balao::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -8px;
+  border: 8px solid transparent;
+  border-top-color: #fff;
+  border-bottom: 0;
+  transform: translateX(-50%);
+}
+
+.mesa3d-balao-meu {
+  left: 50%;
+  bottom: calc(max(8px, env(safe-area-inset-bottom)) + 39% + 48px);
+  transform: translateX(-50%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mesa3d-coach,
+  .mesa3d-balao {
     animation: none;
   }
 }
