@@ -1,25 +1,16 @@
 import { lazy, Suspense, useEffect, useRef, useState, type FormEvent } from 'react';
-import {
-  lerPreferenciaMesa,
-  salvarPreferenciaMesa,
-  suportaWebGL,
-  type PreferenciaMesa,
-} from './mesa/preferencias';
 import { createPortal } from 'react-dom';
 import { useGameSocket } from './services/socketClient';
 import { AvatarComStatus } from './components/AvatarComStatus';
 import { WifiStatus } from './components/WifiStatus';
 import { Reconectando } from './components/Reconectando';
 import { LobbyOnline } from './components/LobbyOnline';
-import { VitoriaAnimada } from './components/VitoriaAnimada';
 import { NotFound } from './components/NotFound';
-import { SelecionarAlvoTrocaMao } from './components/SelecionarAlvoTrocaMao';
-import { ModalEscolhaCor } from './components/ModalEscolhaCor';
-import { MesaOnline } from './components/MesaOnline';
-import AppSingleplayer from './AppSingleplayer';
 import { PainelColecao, type TemaColecao } from './components/PainelColecao';
 import { iniciarPartidaLocal, temPartidaLocal } from './mesa/partidaLocal';
+import { lerPreferenciaMesa } from './mesa/preferencias';
 
+// A mesa (e o Three.js, carregado só na 3D) fica fora do bundle inicial do menu.
 const MesaLocal3D = lazy(() => import('./mesa/MesaLocal3D'));
 const MesaOnline3D = lazy(() => import('./mesa/MesaOnline3D'));
 
@@ -40,7 +31,11 @@ export default function App() {
   }, [modo]);
 
   if (modo === 'local') {
-    return <ModoLocal onVoltarAoMenu={() => setModo('online')} />;
+    return (
+      <Suspense fallback={carregandoMesa}>
+        <MesaLocal3D renderizacao={lerPreferenciaMesa()} onVoltarAoMenu={() => setModo('online')} />
+      </Suspense>
+    );
   }
 
   return (
@@ -55,47 +50,11 @@ export default function App() {
   );
 }
 
-function mesa3DDisponivel(): boolean {
-  return lerPreferenciaMesa() === '3d' && suportaWebGL();
-}
-
 const carregandoMesa = (
   <p className="mesa3d-carregando" role="status">
     Preparando a mesa…
   </p>
 );
-
-/**
- * Modo local: mesa 3D por padrão; mesa 2D se o aparelho não tem WebGL ou se a
- * pessoa escolheu (`?mesa=2d`). As duas leem a mesma partida salva, então a
- * troca no meio do jogo não perde nada.
- */
-function ModoLocal({ onVoltarAoMenu }: { onVoltarAoMenu: () => void }) {
-  const [mesa, setMesa] = useState<PreferenciaMesa>(() => (mesa3DDisponivel() ? '3d' : '2d'));
-
-  if (mesa === '2d') {
-    return (
-      <div>
-        <button type="button" className="menu-perfil menu-voltar" onClick={onVoltarAoMenu}>
-          ← Menu
-        </button>
-        <AppSingleplayer />
-      </div>
-    );
-  }
-
-  return (
-    <Suspense fallback={carregandoMesa}>
-      <MesaLocal3D
-        onVoltarAoMenu={onVoltarAoMenu}
-        onUsar2D={() => {
-          salvarPreferenciaMesa('2d');
-          setMesa('2d');
-        }}
-      />
-    </Suspense>
-  );
-}
 
 /** Avatar e tema da mesa (o tema vale também para a mesa 3D). */
 function BotaoPerfil() {
@@ -149,15 +108,10 @@ function OnlineApp({
   onJogarContraBots: (nome: string, totalJogadores: number) => void;
 }) {
   const online = useGameSocket();
-  const [mesa3D, setMesa3D] = useState(mesa3DDisponivel);
   const [chatInput, setChatInput] = useState('');
-  const [cartaTrocaPendente, setCartaTrocaPendente] = useState<string>();
-  const [cartaCorPendente, setCartaCorPendente] = useState<string>();
-  const [cartaSelecionada, setCartaSelecionada] = useState<string>();
   const [copiedCode, setCopiedCode] = useState(false);
   const [copyError, setCopyError] = useState(false);
   const [utilityOpen, setUtilityOpen] = useState(false);
-  const [confirmarAbandono, setConfirmarAbandono] = useState(false);
   const utilityTriggerRef = useRef<HTMLButtonElement>(null);
   const utilityCloseRef = useRef<HTMLButtonElement>(null);
   const utilityDrawerRef = useRef<HTMLElement>(null);
@@ -216,10 +170,6 @@ function OnlineApp({
     setChatInput('');
   }
 
-  function enviarFalaRapida(texto: string): void {
-    online.enviarChat(texto);
-  }
-
   async function copiarCodigoSala(): Promise<void> {
     if (!online.salaId) return;
     try {
@@ -247,39 +197,10 @@ function OnlineApp({
     }
   }
 
-  function selecionarCarta(carta: import('@kabemjunto/shared').Carta): void {
-    if (cartaSelecionada !== carta.id) {
-      setCartaSelecionada(carta.id);
-      return;
-    }
-    setCartaSelecionada(undefined);
-    if (carta.acao === 'TROCA_MAO') {
-      setCartaTrocaPendente(carta.id);
-      return;
-    }
-    if (
-      carta.tipo === 'NEUTRA' ||
-      carta.acao === 'MAIS_QUATRO' ||
-      carta.acao === 'CORINGA_SIMPLES'
-    ) {
-      setCartaCorPendente(carta.id);
-      return;
-    }
-    online.jogarCarta(carta.id);
-  }
+  const textoCopiar = copiedCode ? '✓ Copiado!' : copyError ? '⚠ Falha ao copiar' : '📋 Copiar';
 
-  function jogarDescarteMultiplo(cartas: ReadonlyArray<import('@kabemjunto/shared').Carta>): void {
-    online.jogarMultiplasCartas(cartas.map((carta) => carta.id));
-  }
-
-  const utilidades = (
+  const jogadoresEChat = (
     <>
-      <section className="drawer-sala">
-        <h2>Sala {online.salaId}</h2>
-        <button type="button" className="button button-secondary" onClick={copiarCodigoSala}>
-          {copiedCode ? '✓ Copiado!' : copyError ? '⚠ Falha ao copiar' : 'Copiar código'}
-        </button>
-      </section>
       <section>
         <h2>Jogadores</h2>
         <ul className="player-list">
@@ -329,8 +250,7 @@ function OnlineApp({
     </>
   );
 
-  const emMesa3D = partidaIniciada && mesa3D;
-  const gavetaUtilidades = (
+  const gavetaDaPartida = (
     <div className="online-utility-backdrop" onMouseDown={closeUtilityDrawer}>
       <aside
         ref={utilityDrawerRef}
@@ -353,7 +273,13 @@ function OnlineApp({
             ×
           </button>
         </header>
-        {utilidades}
+        <section className="drawer-sala">
+          <h2>Sala {online.salaId}</h2>
+          <button type="button" className="button button-secondary" onClick={copiarCodigoSala}>
+            {textoCopiar}
+          </button>
+        </section>
+        {jogadoresEChat}
       </aside>
     </div>
   );
@@ -414,7 +340,7 @@ function OnlineApp({
                     onClick={copiarCodigoSala}
                     aria-label="Copiar código da sala"
                   >
-                    {copiedCode ? '✓ Copiado!' : copyError ? '⚠ Falha ao copiar' : '📋 Copiar'}
+                    {textoCopiar}
                   </button>
                 </div>
               </div>
@@ -438,12 +364,13 @@ function OnlineApp({
               {!online.isHost && <p className="muted">O host inicia a partida.</p>}
             </div>
           </div>
-          <aside className="room-sidebar">{utilidades}</aside>
+          <aside className="room-sidebar">{jogadoresEChat}</aside>
         </section>
-      ) : emMesa3D ? (
+      ) : (
         <Suspense fallback={carregandoMesa}>
           <MesaOnline3D
             online={online}
+            renderizacao={lerPreferenciaMesa()}
             acoesHud={
               <button
                 ref={utilityTriggerRef}
@@ -458,151 +385,21 @@ function OnlineApp({
                 ☰
               </button>
             }
-            onUsar2D={() => {
-              salvarPreferenciaMesa('2d');
-              setMesa3D(false);
-            }}
           />
         </Suspense>
-      ) : (
-        <section className="online-match-layout" aria-label="Partida online">
-          <header className="online-match-hud">
-            <img
-              src="/assets/cards/kabemjunto/brand-kabemjunto.webp"
-              alt="Kabemjunto"
-              className="online-match-logo"
-              width={112}
-              height={44}
-            />
-            <div className="online-match-room">
-              <span className="online-match-room-label">Sala</span>
-              <strong>{online.salaId}</strong>
-              <button type="button" onClick={copiarCodigoSala} aria-label="Copiar código da sala">
-                {copiedCode ? '✓' : copyError ? '⚠' : '⧉'}
-              </button>
-            </div>
-            <div className={`connection connection-${online.state.status}`}>
-              <WifiStatus status={wifiOn ? 'online' : 'offline'} size={16} />
-              <span>{wifiOn ? 'Online' : 'Offline'}</span>
-            </div>
-            <button
-              ref={utilityTriggerRef}
-              type="button"
-              className="online-utility-trigger"
-              aria-haspopup="dialog"
-              aria-expanded={utilityOpen}
-              aria-controls="online-utility-drawer"
-              onClick={() => setUtilityOpen(true)}
-            >
-              ☰ <span>Menu</span>
-            </button>
-            <button
-              type="button"
-              className="online-exit-trigger"
-              onClick={() => setConfirmarAbandono(true)}
-            >
-              Sair
-            </button>
-          </header>
-
-          <MesaOnline
-            estado={online.state.estado!}
-            mao={online.state.mao}
-            mensagens={online.state.mensagens}
-            jogadorId={online.jogadorId}
-            selectedCardId={cartaSelecionada}
-            onSelecionarCarta={selecionarCarta}
-            onPlayMultiple={jogarDescarteMultiplo}
-            onComprarCarta={online.comprarCarta}
-            onEnviarFalaRapida={enviarFalaRapida}
-            descarteMultiploErro={online.state.descarteMultiploErro}
-            onInterceptar={online.interceptar}
-          />
-        </section>
       )}
 
-      {partidaIniciada && utilityOpen && gavetaUtilidades}
+      {partidaIniciada && utilityOpen && gavetaDaPartida}
 
-      {confirmarAbandono && (
-        <div className="modal-overlay" role="presentation">
-          <section
-            className="creation-dialog glass-panel"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="abandon-match-title"
-          >
-            <h2 id="abandon-match-title">Abandonar partida?</h2>
-            <p className="muted">
-              Você sairá desta partida. Esta ação será confirmada pelo servidor.
-            </p>
-            <div className="form-actions">
-              <button
-                type="button"
-                className="button button-secondary"
-                onClick={() => setConfirmarAbandono(false)}
-              >
-                Continuar
-              </button>
-              <button
-                type="button"
-                className="button button-primary"
-                onClick={() => {
-                  setConfirmarAbandono(false);
-                  online.abandonarPartida();
-                }}
-              >
-                Abandonar
-              </button>
-            </div>
-          </section>
-        </div>
-      )}
-      {!emMesa3D && online.state.cartaAceita && (
-        <p className="toast-feedback sucesso" role="status">
-          Jogada aceita: {online.state.cartaAceita}
-        </p>
-      )}
-      {!emMesa3D && online.state.cartaRejeitada && (
-        <p className="toast-feedback erro" role="alert">
-          {online.state.cartaRejeitada}
-        </p>
-      )}
-      {!emMesa3D && online.state.erro && online.state.erroCodigo !== 'SALA_INEXISTENTE' && (
+      {!partidaIniciada && online.state.erro && online.state.erroCodigo !== 'SALA_INEXISTENTE' && (
         <p className="error-message">{online.state.erro}</p>
       )}
-      {cartaTrocaPendente && (
-        <SelecionarAlvoTrocaMao
-          jogadores={online.state.jogadores}
-          jogadorAtualId={online.jogadorId}
-          onCancel={() => setCartaTrocaPendente(undefined)}
-          onConfirm={(alvoId) => {
-            online.jogarCarta(cartaTrocaPendente, undefined, alvoId);
-            setCartaTrocaPendente(undefined);
-          }}
-        />
-      )}
-      {cartaCorPendente && (
-        <ModalEscolhaCor
-          onEscolherCor={(cor) => {
-            online.jogarCarta(cartaCorPendente, cor);
-            setCartaCorPendente(undefined);
-          }}
-        />
-      )}
-      {online.state.status === 'reconnecting' && (
+      {/* Só bloqueia a tela dentro de uma sala: no menu, jogar contra bots não
+          depende do servidor (o cabeçalho já mostra o estado da conexão). */}
+      {entrouNaSala && online.state.status === 'reconnecting' && (
         <Reconectando
           tentativa={online.tentativaReconexao}
           mensagem="Conexão perdida, tentando reconectar..."
-        />
-      )}
-      {!emMesa3D && online.state.estado?.vencedor && (
-        <VitoriaAnimada
-          vencedorNome={
-            online.state.jogadores.find((j) => j.id === online.state.estado?.vencedor)?.nome ||
-            online.state.estado.vencedor
-          }
-          isVoce={online.jogadorId === online.state.estado?.vencedor}
-          onJogarNovamente={online.sair}
         />
       )}
     </>

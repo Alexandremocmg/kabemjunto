@@ -675,3 +675,188 @@
     animation: none;
   }
 }
+
+/* ── Mesa 2D (sem WebGL ou ?mesa=2d) ─────────────────────────────────────
+   Mesma mesa, mesmas regras de interação: a camada acessível fica visível,
+   com as cartas desenhadas em DOM. */
+
+.mesa2d {
+  background:
+    radial-gradient(90% 60% at 50% 45%, rgba(31, 165, 91, 0.55), transparent 70%),
+    var(--mesa-fundo, #0b1f33);
+}
+
+.mesa2d .mesa3d-alvos {
+  top: calc(max(10px, env(safe-area-inset-top)) + 56px);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px calc(max(8px, env(safe-area-inset-bottom)) + 8px);
+  pointer-events: auto;
+}
+
+.mesa2d .mesa3d-alvo {
+  position: static;
+  width: auto;
+  height: auto;
+  opacity: 1;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.mesa2d .mesa3d-alvo:focus-visible {
+  box-shadow: none;
+}
+
+.mesa2d-adversarios {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mesa2d-adversario {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 4px;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  background: var(--mesa-painel);
+  font-size: 13px;
+}
+
+.mesa2d-na-vez {
+  border-color: var(--mesa-destaque);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.15);
+}
+
+.mesa2d-avatar {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #f8fafc;
+}
+
+.mesa2d-contagem {
+  min-width: 26px;
+  padding: 2px 6px;
+  border-radius: 8px;
+  background: var(--mesa-destaque);
+  color: #0f172a;
+  font-weight: 900;
+  text-align: center;
+}
+
+.mesa2d-balao {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  padding: 6px 10px;
+  border-radius: 12px;
+  background: #fff;
+  color: #0f172a;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.mesa2d-centro {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: clamp(16px, 6vw, 48px);
+}
+
+.mesa2d .mesa3d-marcador-descarte {
+  position: static;
+}
+
+.mesa2d .mesa3d-mao {
+  position: static;
+  inset: auto;
+  display: flex;
+  gap: 6px;
+  justify-content: safe center;
+  overflow-x: auto;
+  padding: 18px 4px 4px;
+  pointer-events: auto;
+}
+
+.mesa2d .mesa3d-mao-item {
+  display: block;
+  flex: 0 0 auto;
+}
+
+.mesa2d .mesa3d-mao .mesa3d-alvo {
+  transition: transform 0.15s ease;
+}
+
+.mesa2d .mesa3d-mao .mesa3d-alvo[aria-pressed='true'] {
+  transform: translateY(-14px);
+}
+
+.mesa2d .mesa3d-mao .mesa3d-alvo:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+
+.mesa2d .mesa3d-dica {
+  bottom: calc(max(8px, env(safe-area-inset-bottom)) + 150px);
+}
+
+.mesa2d .mesa3d-botao-grupo {
+  bottom: calc(max(8px, env(safe-area-inset-bottom)) + 194px);
+}
+
+.mesa2d .mesa3d-balao-meu {
+  bottom: calc(max(8px, env(safe-area-inset-bottom)) + 196px);
+}
+
+/* Escolha de alvo sem posições projetadas: lista central. */
+.mesa3d-escolha-alvo-lista {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.mesa3d-escolha-alvo-lista .mesa3d-escolha-titulo,
+.mesa3d-escolha-alvo-lista .mesa3d-alvo-jogador,
+.mesa3d-escolha-alvo-lista .mesa3d-escolha-cancelar {
+  position: static;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mesa2d .mesa3d-mao .mesa3d-alvo {
+    transition: none;
+  }
+}
+
+/* Tamanhos da 2D vencem a regra global de celular (que usa !important). */
+.mesa2d .mesa3d-mao .card-wrapper {
+  width: 80px !important;
+  height: 115px !important;
+}
+
+.mesa2d .mesa2d-centro .card-wrapper {
+  width: 105px !important;
+  height: 150px !important;
+}
+
+/* O topo do descarte não é "carta bloqueada": aparece inteiro. */
+.mesa2d .mesa3d-marcador-descarte .card-wrapper.disabled {
+  opacity: 1;
+  filter: none;
+  cursor: default;
+}

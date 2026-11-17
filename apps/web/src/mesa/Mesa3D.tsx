@@ -33,14 +33,15 @@ import {
   TODAS_AS_DICAS,
   type TipoDica,
 } from './dicas';
-import {
+import type {
   CenaMesa,
-  type EventosCena,
-  type InstantaneoCena,
-  type LayoutProjetado,
-  type Retangulo,
+  EventosCena,
+  InstantaneoCena,
+  LayoutProjetado,
+  Retangulo,
 } from './cena/CenaMesa';
-import { temaDaMesa } from './cena/texturas';
+import { temaDaMesa } from './temas';
+import { CartaView } from '../components/CartaView';
 import {
   alternarSelecao,
   cartasDaJogada,
@@ -53,7 +54,7 @@ import {
   rotuloDaCarta,
   type SituacaoCarta,
 } from './interacao';
-import { prefereMovimentoReduzido } from './preferencias';
+import { prefereMovimentoReduzido, suportaWebGL } from './preferencias';
 import { CORES_JOGAVEIS, type ControladorMesa, type CorJogavel } from './tipos';
 import './mesa3d.css';
 
@@ -61,8 +62,12 @@ export interface Mesa3DProps {
   controlador: ControladorMesa;
   onSair: () => void;
   onJogarNovamente: () => void;
-  /** WebGL indisponível ou perdido: troca para a mesa 2D. */
-  onUsar2D: () => void;
+  /**
+   * '3d' (padrão) desenha a mesa com Three.js; '2d' é a mesa simples em DOM,
+   * com as mesmas regras de interação. Sem WebGL (ou se o contexto cair), a
+   * mesa passa sozinha para '2d' e avisa.
+   */
+  renderizacao?: '3d' | '2d';
   /** Botões extras no fim do HUD (ex.: menu da partida online). */
   acoesHud?: ReactNode;
   /** Última fala de cada jogador, mostrada como balão no assento. */
@@ -147,7 +152,7 @@ export function Mesa3D({
   controlador,
   onSair,
   onJogarNovamente,
-  onUsar2D,
+  renderizacao = '3d',
   acoesHud,
   baloes,
   falasRapidas,
@@ -159,6 +164,7 @@ export function Mesa3D({
   const palcoRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const cenaRef = useRef<CenaMesa>();
+  const instantaneoRef = useRef<InstantaneoCena>();
   const eventosRef = useRef<Omit<EventosCena, 'aoProjetar' | 'aoPerderContexto'>>();
   const ultimaTentativaRef = useRef<string>();
   const sequenciaToastRef = useRef(0);
@@ -166,7 +172,8 @@ export function Mesa3D({
   /** Posição da carta com foco de teclado, para o foco não cair no `body` quando ela sai da mão. */
   const indiceFocoTecladoRef = useRef<number>();
 
-  const [falhaWebGL, setFalhaWebGL] = useState(false);
+  const [falhaWebGL, setFalhaWebGL] = useState(() => renderizacao === '3d' && !suportaWebGL());
+  const modo2D = renderizacao === '2d' || falhaWebGL;
   const [layout, setLayout] = useState<LayoutProjetado>();
   const [selecao, setSelecao] = useState<ReadonlyArray<string>>(VAZIO);
   const [pendente, setPendente] = useState<Pendente>();
@@ -324,48 +331,65 @@ export function Mesa3D({
 
   // ─── Cena 3D ──────────────────────────────────────────────────────────────
 
+  // Three.js só é baixado quando a mesa 3D vai mesmo ser desenhada.
   useEffect(() => {
-    const canvas = canvasRef.current;
-    const palco = palcoRef.current;
-    if (!canvas || !palco) return undefined;
-    let cena: CenaMesa;
-    try {
-      cena = new CenaMesa(
-        canvas,
-        {
-          aoSoltarNoCentro: (id) => eventosRef.current?.aoSoltarNoCentro(id),
-          aoTocarCarta: (id) => eventosRef.current?.aoTocarCarta(id),
-          aoTocarMonte: () => eventosRef.current?.aoTocarMonte(),
-          aoTocarCentro: () => eventosRef.current?.aoTocarCentro(),
-          aoProjetar: (novo) => setLayout((atual) => (layoutsIguais(atual, novo) ? atual : novo)),
-          aoPerderContexto: () => setFalhaWebGL(true),
-        },
-        { tema, movimentoReduzido },
-      );
-    } catch {
-      setFalhaWebGL(true);
-      return undefined;
-    }
-    cenaRef.current = cena;
-    cena.aquecerFaces(BARALHO_COMPLETO_108);
-    const medir = () => {
-      const caixa = palco.getBoundingClientRect();
-      cena.redimensionar(caixa.width, caixa.height, window.devicePixelRatio || 1);
-    };
-    medir();
-    const observador = new ResizeObserver(medir);
-    observador.observe(palco);
-    // Diagnóstico só de leitura (FPS, chamadas de desenho), usado nos testes de performance.
-    (window as unknown as Record<string, unknown>)['__kabemjuntoMesa'] = {
-      estatisticas: () => cena.estatisticas(),
-    };
+    if (modo2D) return undefined;
+    let cancelado = false;
+    let desmontar: (() => void) | undefined;
+    void import('./cena/CenaMesa')
+      .then(({ CenaMesa: Cena }) => {
+        const canvas = canvasRef.current;
+        const palco = palcoRef.current;
+        if (cancelado || !canvas || !palco) return;
+        let cena: CenaMesa;
+        try {
+          cena = new Cena(
+            canvas,
+            {
+              aoSoltarNoCentro: (id) => eventosRef.current?.aoSoltarNoCentro(id),
+              aoTocarCarta: (id) => eventosRef.current?.aoTocarCarta(id),
+              aoTocarMonte: () => eventosRef.current?.aoTocarMonte(),
+              aoTocarCentro: () => eventosRef.current?.aoTocarCentro(),
+              aoProjetar: (novo) =>
+                setLayout((atual) => (layoutsIguais(atual, novo) ? atual : novo)),
+              aoPerderContexto: () => setFalhaWebGL(true),
+            },
+            { tema, movimentoReduzido },
+          );
+        } catch {
+          setFalhaWebGL(true);
+          return;
+        }
+        cenaRef.current = cena;
+        cena.aquecerFaces(BARALHO_COMPLETO_108);
+        const medir = () => {
+          const caixa = palco.getBoundingClientRect();
+          cena.redimensionar(caixa.width, caixa.height, window.devicePixelRatio || 1);
+        };
+        medir();
+        // A cena chegou depois do primeiro estado: desenha o que já existe.
+        if (instantaneoRef.current) cena.atualizar(instantaneoRef.current);
+        const observador = new ResizeObserver(medir);
+        observador.observe(palco);
+        // Diagnóstico só de leitura (FPS, chamadas de desenho), usado nos testes de performance.
+        (window as unknown as Record<string, unknown>)['__kabemjuntoMesa'] = {
+          estatisticas: () => cena.estatisticas(),
+        };
+        desmontar = () => {
+          observador.disconnect();
+          cena.destruir();
+          cenaRef.current = undefined;
+          delete (window as unknown as Record<string, unknown>)['__kabemjuntoMesa'];
+        };
+      })
+      .catch(() => {
+        if (!cancelado) setFalhaWebGL(true);
+      });
     return () => {
-      observador.disconnect();
-      cena.destruir();
-      cenaRef.current = undefined;
-      delete (window as unknown as Record<string, unknown>)['__kabemjuntoMesa'];
+      cancelado = true;
+      desmontar?.();
     };
-  }, [movimentoReduzido, tema]);
+  }, [modo2D, movimentoReduzido, tema]);
 
   const instantaneo = useMemo<InstantaneoCena>(
     () => ({
@@ -409,6 +433,7 @@ export function Mesa3D({
   );
 
   useEffect(() => {
+    instantaneoRef.current = instantaneo;
     cenaRef.current?.atualizar(instantaneo);
   }, [instantaneo]);
 
@@ -540,23 +565,6 @@ export function Mesa3D({
     salvarDicasVistas(vistas);
   };
 
-  if (falhaWebGL) {
-    return (
-      <main className="mesa3d mesa3d-falha" style={{ background: tema.fundo }}>
-        <section className="mesa3d-painel" role="alert">
-          <h1>A mesa 3D não está disponível</h1>
-          <p>
-            Este aparelho ou navegador não conseguiu desenhar a mesa 3D. A partida continua na mesa
-            2D, do ponto em que parou.
-          </p>
-          <button type="button" className="mesa3d-botao-primario" onClick={onUsar2D}>
-            Usar mesa 2D
-          </button>
-        </section>
-      </main>
-    );
-  }
-
   const corAtiva = PALETA_CORES[estado.corAtiva];
   const segundosCorte = estado.interceptacao
     ? Math.max(0, Math.ceil((estado.interceptacao.fechaEm - agora) / 1000))
@@ -580,17 +588,23 @@ export function Mesa3D({
   else if (estado.interceptacao) dica = 'Corta-Frente em andamento…';
   else if (enviando.length > 0) dica = 'Enviando jogada…';
   else if (!minhaVez) dica = `Aguardando ${jogadorDaVez?.nome ?? 'o próximo jogador'}…`;
-  else if (grupoPronto) dica = `Arraste o grupo de ${selecao.length} cartas até o centro.`;
+  else if (grupoPronto)
+    dica = modo2D
+      ? `Toque em "Jogar ${selecao.length} cartas".`
+      : `Arraste o grupo de ${selecao.length} cartas até o centro.`;
   else if (estado.ataqueAcumulado > 0)
     dica = compra.permitido
       ? `Ataque +${estado.ataqueAcumulado}: cubra com +2, +4 ou 0+, ou toque no monte.`
       : `Ataque +${estado.ataqueAcumulado}: cubra com +2, +4 ou 0+.`;
   else if (compra.permitido) dica = 'Nenhuma carta serve: toque no monte para comprar.';
-  else dica = 'Arraste uma carta até o centro da mesa.';
+  else
+    dica = modo2D
+      ? 'Toque numa carta que brilha e toque de novo para jogar.'
+      : 'Arraste uma carta até o centro da mesa.';
 
   return (
     <main
-      className="mesa3d"
+      className={`mesa3d ${modo2D ? 'mesa2d' : ''}`}
       style={
         {
           '--mesa-fundo': tema.fundo,
@@ -604,9 +618,11 @@ export function Mesa3D({
       data-mao={mao.length}
       aria-label="Mesa de jogo"
     >
-      <div ref={palcoRef} className="mesa3d-palco">
-        <canvas ref={canvasRef} className="mesa3d-canvas" aria-hidden="true" />
-      </div>
+      {!modo2D && (
+        <div ref={palcoRef} className="mesa3d-palco">
+          <canvas ref={canvasRef} className="mesa3d-canvas" aria-hidden="true" />
+        </div>
+      )}
 
       <header className="mesa3d-hud">
         <button
@@ -676,7 +692,8 @@ export function Mesa3D({
         [...baloes].map(([id, texto]) => {
           const nome = estado.jogadores.find((jogador) => jogador.id === id)?.nome ?? 'Alguém';
           const posicao = id === jogadorId ? undefined : layout?.assentos[id];
-          if (id !== jogadorId && !posicao) return null;
+          // Na mesa 2D, o balão do adversário fica na ficha dele.
+          if (id !== jogadorId && (modo2D || !posicao)) return null;
           return (
             <div
               key={id}
@@ -694,6 +711,11 @@ export function Mesa3D({
 
       {/* Avisos do topo empilhados (nunca um por cima do outro). */}
       <div className="mesa3d-topo">
+        {falhaWebGL && (
+          <p className="mesa3d-toast" role="status">
+            A mesa 3D não está disponível neste aparelho. Você está jogando na mesa 2D.
+          </p>
+        )}
         {estado.silencio.ativo && (
           <p className="mesa3d-silencio" role="status">
             🤫 SILÊNCIO · quem falar compra +2
@@ -793,23 +815,58 @@ export function Mesa3D({
 
       {/* Alvos acessíveis alinhados à cena (o ponteiro passa direto para o canvas). */}
       <div className="mesa3d-alvos">
-        <div
-          className="mesa3d-marcador-descarte"
-          style={estiloDoRetangulo(layout?.descarte)}
-          aria-hidden="true"
-        />
-        <button
-          type="button"
-          className="mesa3d-alvo"
-          style={estiloDoRetangulo(layout?.monte)}
-          aria-disabled={!compra.permitido}
-          aria-label={
-            compra.permitido
-              ? `Comprar ${compra.quantidade} ${compra.quantidade === 1 ? 'carta' : 'cartas'} do monte`
-              : `Monte: ${compra.motivo ?? 'indisponível'}`
-          }
-          onClick={comprar}
-        />
+        {modo2D && (
+          <ul className="mesa2d-adversarios" aria-hidden="true">
+            {adversarios.map((jogador) => (
+              <li
+                key={jogador.id}
+                className={`mesa2d-adversario ${jogador.id === estado.vezDe && !estado.finalizada ? 'mesa2d-na-vez' : ''}`}
+              >
+                <span className="mesa2d-avatar">
+                  {/^\d+$/.test(jogador.avatar) || !jogador.avatar ? '👤' : jogador.avatar}
+                </span>
+                <strong>{jogador.nome}</strong>
+                <span className="mesa2d-contagem">{jogador.quantidadeCartas}</span>
+                {baloes?.get(jogador.id) && (
+                  <span className="mesa2d-balao" data-jogador={jogador.id}>
+                    {baloes.get(jogador.id)}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className={modo2D ? 'mesa2d-centro' : undefined}>
+          <button
+            type="button"
+            className="mesa3d-alvo mesa3d-alvo-monte"
+            style={modo2D ? undefined : estiloDoRetangulo(layout?.monte)}
+            aria-disabled={!compra.permitido}
+            aria-label={
+              compra.permitido
+                ? `Comprar ${compra.quantidade} ${compra.quantidade === 1 ? 'carta' : 'cartas'} do monte`
+                : `Monte: ${compra.motivo ?? 'indisponível'}`
+            }
+            onClick={comprar}
+          >
+            {modo2D && (
+              <span aria-hidden="true">
+                <CartaView
+                  verso
+                  jogavel={compra.permitido}
+                  contador={`${estado.quantidadeMonteCompra}`}
+                />
+              </span>
+            )}
+          </button>
+          <div
+            className="mesa3d-marcador-descarte"
+            style={modo2D ? undefined : estiloDoRetangulo(layout?.descarte)}
+            aria-hidden="true"
+          >
+            {modo2D && <CartaView carta={estado.topo} jogavel={false} />}
+          </div>
+        </div>
         <ul ref={maoRef} className="mesa3d-mao" aria-label={`Sua mão: ${mao.length} cartas`}>
           {mao.map((carta, indice) => {
             const diagnostico = diagnosticos.get(carta.id);
@@ -822,7 +879,7 @@ export function Mesa3D({
                   className="mesa3d-alvo"
                   data-card-id={carta.id}
                   data-situacao={situacao}
-                  style={estiloDoRetangulo(layout?.cartas[carta.id])}
+                  style={modo2D ? undefined : estiloDoRetangulo(layout?.cartas[carta.id])}
                   aria-pressed={selecionada}
                   aria-label={`${rotuloDaCarta(carta)}, ${descreverSituacao(situacao, diagnostico?.motivo)}`}
                   aria-describedby="mesa3d-ajuda-teclado"
@@ -835,9 +892,14 @@ export function Mesa3D({
                     if (evento.relatedTarget) indiceFocoTecladoRef.current = undefined;
                     setFoco((atual) => (atual === carta.id ? undefined : atual));
                   }}
-                  onClick={() => tentarJogar(carta.id)}
+                  // Na 2D o toque seleciona (e o segundo toque joga); na 3D quem
+                  // clica aqui é o teclado ou o leitor de tela: joga direto.
+                  onClick={() => (modo2D ? alternar(carta.id) : tentarJogar(carta.id))}
                   onKeyDown={(evento) => {
-                    if (evento.key === ' ') {
+                    if (evento.key === 'Enter') {
+                      evento.preventDefault();
+                      tentarJogar(carta.id);
+                    } else if (evento.key === ' ') {
                       evento.preventDefault();
                       alternar(carta.id);
                     } else if (evento.key === 'ArrowRight' || evento.key === 'ArrowLeft') {
@@ -850,7 +912,18 @@ export function Mesa3D({
                   onKeyUp={(evento) => {
                     if (evento.key === ' ') evento.preventDefault();
                   }}
-                />
+                >
+                  {modo2D && (
+                    <span aria-hidden="true">
+                      <CartaView
+                        carta={carta}
+                        pequena
+                        jogavel={situacao === 'jogavel' || situacao === 'interceptavel'}
+                        selecionada={selecionada}
+                      />
+                    </span>
+                  )}
+                </button>
               </li>
             );
           })}
@@ -1043,7 +1116,7 @@ function EscolhaDeAlvo({
   return (
     <div className="mesa3d-escolha" role="presentation">
       <section
-        className="mesa3d-escolha-alvo"
+        className={`mesa3d-escolha-alvo ${posicoes ? '' : 'mesa3d-escolha-alvo-lista'}`}
         role="group"
         aria-label="Escolha com quem trocar de mão"
       >

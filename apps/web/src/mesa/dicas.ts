@@ -19,11 +19,11 @@ export const TEXTO_DICA: Record<TipoDica, { titulo: string; texto: string }> = {
   },
   arrastar: {
     titulo: 'Sua vez',
-    texto: 'As cartas que brilham servem. Arraste uma até o centro da mesa para jogar.',
+    texto: 'As cartas que brilham servem. Arraste uma até o centro (ou toque duas vezes nela).',
   },
   grupo: {
     titulo: 'Cartas iguais?',
-    texto: 'Toque nas cartas de mesma face para juntá-las e arraste o grupo de uma vez.',
+    texto: 'Toque nas cartas de mesma face para juntá-las e jogue o grupo de uma vez.',
   },
   'zero-mais': {
     titulo: 'Você tem o 0+',

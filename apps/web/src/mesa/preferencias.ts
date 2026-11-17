@@ -1,4 +1,4 @@
-/** Mesa 3D ou 2D: `?mesa=2d|3d` na URL vence; senão vale a escolha salva. */
+/** Mesa 3D ou 2D: `?mesa=2d|3d` na URL vence; senão vale `kabemjunto.mesa` no aparelho. */
 export type PreferenciaMesa = '3d' | '2d';
 
 const CHAVE_PREFERENCIA = 'kabemjunto.mesa';
@@ -10,14 +10,6 @@ export function lerPreferenciaMesa(): PreferenciaMesa {
     return window.localStorage.getItem(CHAVE_PREFERENCIA) === '2d' ? '2d' : '3d';
   } catch {
     return '3d';
-  }
-}
-
-export function salvarPreferenciaMesa(preferencia: PreferenciaMesa): void {
-  try {
-    window.localStorage.setItem(CHAVE_PREFERENCIA, preferencia);
-  } catch {
-    // Armazenamento bloqueado: a escolha vale só nesta sessão.
   }
 }
 

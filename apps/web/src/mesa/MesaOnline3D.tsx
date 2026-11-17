@@ -23,10 +23,10 @@ interface MesaOnline3DProps {
   online: ReturnType<typeof useGameSocket>;
   /** Botões extras no HUD (o App passa o do menu da partida). */
   acoesHud: ReactNode;
-  onUsar2D: () => void;
+  renderizacao: '3d' | '2d';
 }
 
-export default function MesaOnline3D({ online, acoesHud, onUsar2D }: MesaOnline3DProps) {
+export default function MesaOnline3D({ online, acoesHud, renderizacao }: MesaOnline3DProps) {
   const controlador = useMesaOnline(online);
   const baloes = useBaloesDeFala(online.state.mensagens);
   if (!controlador) return null;
@@ -37,7 +37,7 @@ export default function MesaOnline3D({ online, acoesHud, onUsar2D }: MesaOnline3
       controlador={controlador}
       onSair={online.abandonarPartida}
       onJogarNovamente={online.sair}
-      onUsar2D={onUsar2D}
+      renderizacao={renderizacao}
       acoesHud={acoesHud}
       baloes={baloes}
       falasRapidas={{ opcoes: FALAS_RAPIDAS, onEnviar: online.enviarChat }}

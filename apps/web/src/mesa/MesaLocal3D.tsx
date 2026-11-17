@@ -10,10 +10,10 @@ import { useMesaLocal } from './useMesaLocal';
 
 interface MesaLocal3DProps {
   onVoltarAoMenu: () => void;
-  onUsar2D: () => void;
+  renderizacao: '3d' | '2d';
 }
 
-export default function MesaLocal3D({ onVoltarAoMenu, onUsar2D }: MesaLocal3DProps) {
+export default function MesaLocal3D({ onVoltarAoMenu, renderizacao }: MesaLocal3DProps) {
   const { controlador, iniciar, encerrar } = useMesaLocal();
   // Cada partida monta uma cena nova: os ids das cartas se repetem entre partidas.
   const [numeroDaPartida, setNumeroDaPartida] = useState(0);
@@ -36,7 +36,7 @@ export default function MesaLocal3D({ onVoltarAoMenu, onUsar2D }: MesaLocal3DPro
       controlador={controlador}
       onSair={encerrar}
       onJogarNovamente={jogarNovamente}
-      onUsar2D={onUsar2D}
+      renderizacao={renderizacao}
     />
   );
 }
