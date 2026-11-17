@@ -1,5 +1,26 @@
-import { expect, test, type APIRequestContext, type Browser, type Page } from '@playwright/test';
+import {
+  expect,
+  test,
+  type APIRequestContext,
+  type Browser,
+  type BrowserContextOptions,
+  type Page,
+} from '@playwright/test';
 import type { Carta, EstadoPartida } from '@kabemjunto/shared';
+
+/**
+ * Esta suíte exercita a mesa 2D (fallback sem WebGL). A mesa 3D tem as próprias
+ * suítes: e2e/mesa-3d.spec.ts e e2e/mesa-3d-online.spec.ts.
+ */
+async function novoContexto(browser: Browser, opcoes: BrowserContextOptions = {}) {
+  const contexto = await browser.newContext(opcoes);
+  await contexto.addInitScript(() => window.localStorage.setItem('kabemjunto.mesa', '2d'));
+  return contexto;
+}
+
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.setItem('kabemjunto.mesa', '2d'));
+});
 
 function criarEstadoLocalMobile(): EstadoPartida {
   const carta = (id: string, cor: Carta['cor'], valor: number): Carta => ({
@@ -130,8 +151,8 @@ async function aplicarFixtureCortaFrenteDeterministica(
 async function abrirPartida(
   browser: Browser,
 ): Promise<{ host: Page; convidado: Page; salaId: string }> {
-  const hostContext = await browser.newContext();
-  const guestContext = await browser.newContext();
+  const hostContext = await novoContexto(browser);
+  const guestContext = await novoContexto(browser);
   const host = await hostContext.newPage();
   const convidado = await guestContext.newPage();
   const salaId = await criarSala(host, 'Host E2E');
@@ -274,12 +295,9 @@ test('partida online termina deterministicamente com mesmo vencedor e sem vazame
 
 test('mesa local distribui dez jogadores em ordem circular sem overflow', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  // Mesa 2D (fallback sem WebGL): a mesa 3D tem a própria suíte em e2e/mesa-3d.spec.ts.
-  await page.addInitScript(() => window.localStorage.setItem('kabemjunto.mesa', '2d'));
   await page.goto('/');
-  await page.getByRole('button', { name: '🏠 Local' }).click();
-  await page.getByRole('slider', { name: 'Quantidade de jogadores' }).fill('10');
-  await page.getByRole('button', { name: 'INICIAR PARTIDA CONFIGURADA' }).click();
+  await page.getByLabel('Jogadores na mesa').selectOption('10');
+  await page.getByRole('button', { name: 'Começar contra bots' }).click();
 
   const assentos = page.locator('.player-table-ring .player-seat');
   await expect(assentos).toHaveCount(10);
@@ -298,14 +316,12 @@ test('mesa local distribui dez jogadores em ordem circular sem overflow', async 
 test('mobile 390x844 confirma jogada única e monta pilha tocável com geometria visível', async ({
   browser,
 }) => {
-  const context = await browser.newContext({
+  const context = await novoContexto(browser, {
     viewport: { width: 390, height: 844 },
     hasTouch: true,
     isMobile: true,
   });
   const page = await context.newPage();
-  // Mesa 2D (fallback sem WebGL): a mesa 3D tem a própria suíte em e2e/mesa-3d.spec.ts.
-  await page.addInitScript(() => window.localStorage.setItem('kabemjunto.mesa', '2d'));
   const estado = criarEstadoLocalMobile();
   await page.addInitScript((fixture) => {
     window.sessionStorage.setItem('kabemjunto.modo', 'local');
@@ -423,12 +439,12 @@ test('mobile 390x844 online — carta única via toque duplo e geometria sem ove
   browser,
   request,
 }) => {
-  const hostContext = await browser.newContext({
+  const hostContext = await novoContexto(browser, {
     viewport: { width: 390, height: 844 },
     hasTouch: true,
     isMobile: true,
   });
-  const guestContext = await browser.newContext({
+  const guestContext = await novoContexto(browser, {
     viewport: { width: 390, height: 844 },
     hasTouch: true,
     isMobile: true,
@@ -490,8 +506,8 @@ test('entrada em sala inexistente mostra estado de sala não encontrada', async 
 test('lobby lista a projeção pública compartilhada e permite entrar pela sala descoberta', async ({
   browser,
 }) => {
-  const hostContext = await browser.newContext();
-  const guestContext = await browser.newContext();
+  const hostContext = await novoContexto(browser);
+  const guestContext = await novoContexto(browser);
   const host = await hostContext.newPage();
   const guest = await guestContext.newPage();
 
@@ -789,14 +805,12 @@ test('layout online fullscreen nao tem overflow nem colisoes entre assentos, bar
 test('mobile 390x844 local — Corta-Frente: humano intercepta descarte elegível do bot', async ({
   browser,
 }) => {
-  const context = await browser.newContext({
+  const context = await novoContexto(browser, {
     viewport: { width: 390, height: 844 },
     hasTouch: true,
     isMobile: true,
   });
   const page = await context.newPage();
-  // Mesa 2D (fallback sem WebGL): a mesa 3D tem a própria suíte em e2e/mesa-3d.spec.ts.
-  await page.addInitScript(() => window.localStorage.setItem('kabemjunto.mesa', '2d'));
   const carta = (id: string, cor: Carta['cor'], valor: number): Carta => ({
     id,
     tipo: 'NUMERADA',

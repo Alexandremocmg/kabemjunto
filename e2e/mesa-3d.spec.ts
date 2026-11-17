@@ -80,7 +80,31 @@ function partida(maoEu: Carta[], extra: Partial<EstadoPartida> = {}): EstadoPart
   };
 }
 
-async function abrirMesa(page: Page, estado: EstadoPartida): Promise<void> {
+const TODAS_AS_DICAS = JSON.stringify([
+  'silencio',
+  'ataque',
+  'arrastar',
+  'grupo',
+  'zero-mais',
+  'monte',
+]);
+
+async function abrirMesa(
+  page: Page,
+  estado: EstadoPartida,
+  { comDicas = false }: { comDicas?: boolean } = {},
+): Promise<void> {
+  await page.addInitScript(
+    ([dicas]) => {
+      // As dicas contextuais têm cenário próprio; nos demais, já foram vistas.
+      // Só na primeira carga: recarregar deve manter o que a pessoa já viu.
+      if (window.sessionStorage.getItem('e2e.dicas')) return;
+      window.sessionStorage.setItem('e2e.dicas', '1');
+      if (dicas) window.localStorage.setItem('kabemjunto.dicas-vistas', dicas);
+      else window.localStorage.removeItem('kabemjunto.dicas-vistas');
+    },
+    [comDicas ? '' : TODAS_AS_DICAS],
+  );
   await page.addInitScript((salvo) => {
     // Só na primeira carga: recarregar deve retomar a partida, não reiniciá-la.
     if (window.sessionStorage.getItem('e2e.semeado')) return;
@@ -325,6 +349,59 @@ test.describe('Mesa 3D — desktop 1280×800', () => {
 
     await expect(page.locator('.game-layout')).toBeVisible();
     await expect(page.locator('.mesa3d')).toHaveCount(0);
+  });
+});
+
+test.describe('Menu e dicas', () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  test('o menu começa uma partida contra bots com o número de jogadores escolhido', async ({
+    page,
+  }) => {
+    await page.addInitScript((dicas) => {
+      window.localStorage.setItem('kabemjunto.dicas-vistas', dicas);
+      window.localStorage.removeItem('kabemjunto.mesa');
+    }, TODAS_AS_DICAS);
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: 'Entre na mesa' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Jogar contra bots' })).toBeVisible();
+
+    await page.getByLabel('Seu nome').fill('Duda');
+    await page.getByLabel('Jogadores na mesa').selectOption('3');
+    await page.getByRole('button', { name: 'Começar contra bots' }).click();
+
+    await expect(page.locator('.mesa3d canvas')).toBeVisible();
+    const jogadores = page.getByRole('list', { name: 'Jogadores' }).getByRole('listitem');
+    await expect(jogadores).toHaveCount(3);
+    await expect(jogadores.first()).toContainText('Você (Duda)');
+
+    // Sair da partida volta ao menu.
+    await page.getByRole('button', { name: 'Sair da partida' }).click();
+    await page
+      .getByRole('dialog', { name: 'Sair da partida?' })
+      .getByRole('button', { name: 'Sair' })
+      .click();
+    await expect(page.getByRole('heading', { name: 'Entre na mesa' })).toBeVisible();
+  });
+
+  test('na primeira partida, a dica certa aparece uma vez e não volta depois de "Entendi"', async ({
+    page,
+  }) => {
+    await abrirMesa(
+      page,
+      partida([numerada('cinco-azul', 'AZUL', 5), numerada('nove-verde', 'VERDE', 9)]),
+      { comDicas: true },
+    );
+    const dica = page.getByRole('region', { name: 'Dica' });
+    await expect(dica).toContainText('Arraste uma até o centro');
+    await page.screenshot({ path: 'tmp/mesa3d-dica-contextual.png' });
+
+    await dica.getByRole('button', { name: 'Entendi' }).click();
+    await expect(dica).toHaveCount(0);
+
+    await page.reload();
+    await expect(page.locator('.mesa3d canvas')).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Dica' })).toHaveCount(0);
   });
 });
 
