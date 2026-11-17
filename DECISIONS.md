@@ -464,7 +464,7 @@ Este arquivo registra as Decisões de Arquitetura (ADRs) do projeto Kabemjunto.
 
 ### ADR-014: Mesa 3D com Three.js, Camada Acessível em DOM e Fallback 2D
 
-- **Status:** Proposta · Fase 1 implementada (modo local) · 2026-11-17 · @User
+- **Status:** Proposta · Fases 1 (local) e 2 (online, menu, dicas) implementadas · 2026-11-17 · @User
 - **Contexto:** O produto pediu uma mesa 3D mais fluida e simples, sem mudar
   regras, protocolo nem servidor. A mesa 2D atual exigia toque duplo para
   jogar e tinha dois componentes de mesa paralelos (`AppSingleplayer` e
@@ -489,8 +489,8 @@ Este arquivo registra as Decisões de Arquitetura (ADRs) do projeto Kabemjunto.
      com `aria-live` para os anúncios da partida. Enter joga, Espaço
      seleciona, setas trocam de carta. `prefers-reduced-motion` desliga voos,
      pulsos e giros.
-  5. **Fallback 2D**: sem WebGL, com perda de contexto ou com `?mesa=2d`, o
-     modo local usa a mesa 2D atual, lendo a mesma partida salva.
+  5. **Fallback 2D**: sem WebGL, com perda de contexto ou com `?mesa=2d`, os
+     dois modos usam a mesa 2D atual (o local lendo a mesma partida salva).
   6. **Orçamento de performance**: geometria de carta única com 2 grupos de
      material (frente com borda, verso); adversários em um `InstancedMesh`
      com materiais próprios (compartilhar material entre malha instanciada e
@@ -498,6 +498,24 @@ Este arquivo registra as Decisões de Arquitetura (ADRs) do projeto Kabemjunto.
      pré-geradas em tempo ocioso; descarte limitado a 4 cartas visíveis;
      redesenho só quando algo muda; pixel ratio até 2, reduzido sozinho se os
      quadros ficam lentos; Three.js só no pedaço carregado sob demanda.
+  7. **Menu com dois caminhos** (Fase 2): a tela inicial é o lobby online
+     ("Entre na mesa": criar sala ou entrar por código) com um card "Jogar
+     contra bots" logo abaixo; o alternador Local/Online saiu. "Personalizar
+     perfil" fica no cabeçalho (o tema escolhido vale para a mesa 3D).
+  8. **Online na mesma mesa** (Fase 2): `MesaOnline3D` liga `useMesaOnline` à
+     `Mesa3D`. Falas rápidas no HUD (com aviso de +2 durante o silêncio),
+     balões sobre os assentos, menu ☰ com sala, jogadores e chat, e painel de
+     "Partida encerrada" quando o adversário abandona.
+  9. **Dicas contextuais no lugar do tutorial** (Fase 2): cada regra
+     (arrastar, comprar, ataque, silêncio, grupo de cartas, 0+) é explicada
+     uma vez, no momento em que importa; "Entendi" não mostra de novo e "Não
+     mostrar dicas" desliga todas (`kabemjunto.dicas-vistas`).
+  10. **Saída confirmada pelo servidor** (Fase 2, correção): o cliente enviava
+      `client:abandonar:partida` e desconectava no mesmo instante; o Socket.IO
+      do servidor despacha eventos no tick seguinte e descarta os que chegam
+      junto com a desconexão, então o abandono às vezes se perdia e o
+      adversário ficava numa partida sem fim (valia também para a mesa 2D).
+      Agora o cliente só desconecta depois da resposta do servidor (máx. 1,5 s).
 - **Medição (Fase 1, build de produção, 375×812 @2x, CPU 4× mais lenta,
   6 jogadores, Intel HD 630):** mediana de 16,7 ms por quadro (60 fps),
   média entre 49 e 56 fps, p95 de 33 ms, picos de 150 a 200 ms nos eventos
@@ -510,5 +528,5 @@ Este arquivo registra as Decisões de Arquitetura (ADRs) do projeto Kabemjunto.
   - ❌ A meta de 60 fps de média no perfil acima ainda não foi atingida: os
     picos nos eventos vêm da renderização do React e da criação de material
     por carta. Próximo passo: atlas de faces (um material para todas).
-  - ❌ Hot-seat (vários humanos no mesmo aparelho) não existe na mesa 3D; o
-    botão do menu local inicia uma partida contra bots.
+  - ❌ Hot-seat (vários humanos no mesmo aparelho) saiu do menu; só a mesa
+    2D (fallback) ainda o oferece, pela tela de fim de partida.
