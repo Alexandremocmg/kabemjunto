@@ -1417,6 +1417,24 @@ export class CenaMesa {
       const angulo = objeto.malha.quaternion.angleTo(objeto.alvoQuat);
       const diferencaEscala = Math.abs(objeto.malha.scale.x - objeto.alvoEscala);
 
+      // Perto do destino, encaixa de uma vez: a aproximação exponencial tem uma
+      // cauda longa, que em aparelho lento (quadros espaçados) vira arrasto.
+      if (
+        objeto.tremor <= 0 &&
+        (distancia > 0.002 || angulo > 0.004 || diferencaEscala > 0.002) &&
+        distancia < 0.03 &&
+        angulo < 0.02 &&
+        diferencaEscala < 0.01
+      ) {
+        objeto.base.copy(objeto.alvoPos);
+        objeto.malha.quaternion.copy(objeto.alvoQuat);
+        objeto.malha.scale.setScalar(objeto.alvoEscala);
+        objeto.malha.position.copy(objeto.base);
+        objeto.vooAltura = 0;
+        emMovimento = true;
+        continue;
+      }
+
       if (distancia > 0.002 || angulo > 0.004 || diferencaEscala > 0.002 || objeto.tremor > 0) {
         emMovimento = true;
         deslocando = true;

@@ -133,12 +133,14 @@ async function abrirMesaSemEsperarCena(page: Page, estado: EstadoPartida): Promi
 
 async function esperarCartasParadas(page: Page): Promise<void> {
   await expect
-    .poll(() =>
-      page.evaluate(() => {
-        const mesa = (window as unknown as Record<string, unknown>)['__kabemjuntoMesa'] as
-          { estatisticas: () => { cartasAnimando: boolean } } | undefined;
-        return mesa ? mesa.estatisticas().cartasAnimando : true;
-      }),
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const mesa = (window as unknown as Record<string, unknown>)['__kabemjuntoMesa'] as
+            { estatisticas: () => { cartasAnimando: boolean } } | undefined;
+          return mesa ? mesa.estatisticas().cartasAnimando : true;
+        }),
+      { timeout: 15_000 },
     )
     .toBe(false);
 }

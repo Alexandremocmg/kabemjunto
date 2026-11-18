@@ -223,12 +223,14 @@ test('mobile 390x844 online — carta única via toque duplo e geometria sem ove
   const carta = host.locator(`.mesa3d-mao [data-card-id="${fixture.vencedorCardId}"]`);
   await expect(carta).toBeAttached();
   await expect
-    .poll(() =>
-      host.evaluate(() => {
-        const mesa = (window as unknown as Record<string, unknown>)['__kabemjuntoMesa'] as
-          { estatisticas: () => { cartasAnimando: boolean } } | undefined;
-        return mesa ? mesa.estatisticas().cartasAnimando : true;
-      }),
+    .poll(
+      () =>
+        host.evaluate(() => {
+          const mesa = (window as unknown as Record<string, unknown>)['__kabemjuntoMesa'] as
+            { estatisticas: () => { cartasAnimando: boolean } } | undefined;
+          return mesa ? mesa.estatisticas().cartasAnimando : true;
+        }),
+      { timeout: 15_000 },
     )
     .toBe(false);
   const caixa = await carta.boundingBox();

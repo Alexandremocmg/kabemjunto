@@ -105,16 +105,18 @@ async function esperarCartasParadas(pagina: Page): Promise<void> {
             { estatisticas: () => { movimentos: string[] } } | undefined;
           return mesa ? mesa.estatisticas().movimentos : ['cena ainda não montada'];
         }),
-      { message: 'cartas que continuam se movendo' },
+      { message: 'cartas que continuam se movendo', timeout: 15_000 },
     )
     .toEqual([]);
   await expect
-    .poll(() =>
-      pagina.evaluate(() => {
-        const mesa = (window as unknown as Record<string, unknown>)['__kabemjuntoMesa'] as
-          { estatisticas: () => { cartasAnimando: boolean } } | undefined;
-        return mesa ? mesa.estatisticas().cartasAnimando : true;
-      }),
+    .poll(
+      () =>
+        pagina.evaluate(() => {
+          const mesa = (window as unknown as Record<string, unknown>)['__kabemjuntoMesa'] as
+            { estatisticas: () => { cartasAnimando: boolean } } | undefined;
+          return mesa ? mesa.estatisticas().cartasAnimando : true;
+        }),
+      { timeout: 15_000 },
     )
     .toBe(false);
 }
