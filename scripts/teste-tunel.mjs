@@ -81,7 +81,16 @@ function subirTunel(binario) {
   return new Promise((resolver, rejeitar) => {
     const filho = spawn(
       binario,
-      ['tunnel', '--no-autoupdate', '--url', `http://127.0.0.1:${PORTA}`],
+      [
+        'tunnel',
+        '--no-autoupdate',
+        // HTTP/2 (TCP) em vez do QUIC (UDP) padrão: redes domésticas e Wi-Fi
+        // perdem pacotes UDP com facilidade e o túnel ficava caindo.
+        '--protocol',
+        'http2',
+        '--url',
+        `http://127.0.0.1:${PORTA}`,
+      ],
       {
         cwd: RAIZ,
         stdio: ['ignore', 'pipe', 'pipe'],
