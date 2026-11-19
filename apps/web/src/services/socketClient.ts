@@ -213,6 +213,9 @@ export function useGameSocket(): {
   if (!socketRef.current) socketRef.current = createSocket();
   const socket = socketRef.current;
   const batchPendenteRef = useRef(false);
+  /** Saindo da sala: as últimas mensagens do servidor já não valem para a tela. */
+  const saindoRef = useRef(false);
+  const cancelarDesconexaoPendenteRef = useRef<() => void>();
   const [state, setState] = useState<SocketGameState>({
     jogadores: [],
     mensagens: [],
@@ -269,6 +272,11 @@ export function useGameSocket(): {
       }
     };
     const onDisconnect = () => {
+      // Saída pedida pela pessoa: não é queda de rede, não há o que reconectar.
+      if (saindoRef.current) {
+        setState((current) => ({ ...current, status: 'idle' }));
+        return;
+      }
       setState((current) => ({ ...current, status: 'reconnecting', erro: undefined }));
       if (disconnectAtRef.current === undefined) {
         disconnectAtRef.current = Date.now();
@@ -286,18 +294,23 @@ export function useGameSocket(): {
     const onReconnectFailed = () => {
       setState((current) => ({ ...current, status: 'offline' }));
     };
-    const onState = ({ estado }: ServerEstadoAtualizadoEvent) =>
+    const onState = ({ estado }: ServerEstadoAtualizadoEvent) => {
+      if (saindoRef.current) return;
       setState((current) => ({ ...current, estado, erro: undefined, erroCodigo: undefined }));
+    };
     const onRoom = ({ hostId: nextHostId, jogadores }: ServerSalaAtualizadaEvent) => {
+      if (saindoRef.current) return;
       setHostId(nextHostId);
       setState((current) => ({ ...current, jogadores }));
     };
     const onChat = (message: ServerChatEvent) =>
+      !saindoRef.current &&
       setState((current) => ({
         ...current,
         mensagens: [...current.mensagens, message].slice(-40),
       }));
     const onError = ({ codigo, mensagem }: ServerErroEvent) => {
+      if (saindoRef.current) return;
       if (batchPendenteRef.current) {
         batchPendenteRef.current = false;
         setState((current) => ({
@@ -333,6 +346,7 @@ export function useGameSocket(): {
       }, 2500);
     };
     const onHand = ({ mao }: ServerMaoAtualizadaEvent) => {
+      if (saindoRef.current) return;
       // NÃO limpar batchPendenteRef aqui: uma atualização de mão pode ser
       // causada por outro evento (Troca/Gira do oponente, etc.) e não prova
       // nem aceite nem rejeição do lote pendente. A correlação do lote só
@@ -396,6 +410,8 @@ export function useGameSocket(): {
         criar?: boolean;
       },
     ) => {
+      saindoRef.current = false;
+      cancelarDesconexaoPendenteRef.current?.();
       const normalized: SessionCredentials = {
         jogadorId: nextCredentials.jogadorId ?? gerarJogadorId(),
         salaId: nextCredentials.salaId.trim().toUpperCase(),
@@ -451,11 +467,48 @@ export function useGameSocket(): {
     (texto: string) => socket.emit('client:chat:msg', { texto: texto.trim() }),
     [socket],
   );
+  /**
+   * Envia o último pedido (sair/abandonar) e só desconecta depois que o
+   * servidor responder. O Socket.IO do servidor despacha eventos no tick
+   * seguinte e descarta os que chegam junto com a desconexão: desconectar na
+   * hora fazia o abandono se perder e o adversário ficar numa partida sem fim.
+   */
+  const enviarEDesconectar = useCallback(
+    (evento: 'client:sair:sala' | 'client:abandonar:partida') => {
+      cancelarDesconexaoPendenteRef.current?.();
+      if (!socket.connected) {
+        socket.disconnect();
+        return;
+      }
+      const respostas = [
+        'server:estado:atualizado',
+        'server:sala:atualizada',
+        'server:erro',
+      ] as const;
+      let timer = 0;
+      const limpar = () => {
+        window.clearTimeout(timer);
+        for (const resposta of respostas) socket.off(resposta, fechar);
+        cancelarDesconexaoPendenteRef.current = undefined;
+      };
+      const fechar = () => {
+        limpar();
+        socket.disconnect();
+      };
+      timer = window.setTimeout(fechar, 1500);
+      for (const resposta of respostas) socket.once(resposta, fechar);
+      // Entrar em outra sala antes da resposta cancela a desconexão.
+      cancelarDesconexaoPendenteRef.current = limpar;
+      socket.emit(evento, {});
+    },
+    [socket],
+  );
+
   const limparSessaoLocal = useCallback(() => {
     sessionStorage.removeItem(SESSION_KEY);
+    saindoRef.current = true;
     setCredentials(undefined);
     setHostId(undefined);
-    socket.disconnect();
     setState({
       jogadores: [],
       mensagens: [],
@@ -470,13 +523,13 @@ export function useGameSocket(): {
     });
   }, [socket]);
   const sair = useCallback(() => {
-    if (socket.connected) socket.emit('client:sair:sala', {});
     limparSessaoLocal();
-  }, [limparSessaoLocal, socket]);
+    enviarEDesconectar('client:sair:sala');
+  }, [enviarEDesconectar, limparSessaoLocal]);
   const abandonarPartida = useCallback(() => {
-    if (socket.connected) socket.emit('client:abandonar:partida', {});
     limparSessaoLocal();
-  }, [limparSessaoLocal, socket]);
+    enviarEDesconectar('client:abandonar:partida');
+  }, [enviarEDesconectar, limparSessaoLocal]);
   const listarSalas = useCallback(() => {
     if (socket.connected) {
       socket.emit('client:listar:salas', {});

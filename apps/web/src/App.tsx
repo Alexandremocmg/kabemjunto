@@ -1,24 +1,31 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type FormEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { useGameSocket } from './services/socketClient';
 import { AvatarComStatus } from './components/AvatarComStatus';
 import { WifiStatus } from './components/WifiStatus';
 import { Reconectando } from './components/Reconectando';
 import { LobbyOnline } from './components/LobbyOnline';
-import { VitoriaAnimada } from './components/VitoriaAnimada';
 import { NotFound } from './components/NotFound';
-import { SelecionarAlvoTrocaMao } from './components/SelecionarAlvoTrocaMao';
-import { ModalEscolhaCor } from './components/ModalEscolhaCor';
-import { MesaOnline } from './components/MesaOnline';
-import AppSingleplayer from './AppSingleplayer';
+import { PainelColecao, type TemaColecao } from './components/PainelColecao';
+import { iniciarPartidaLocal, temPartidaLocal } from './mesa/partidaLocal';
+import { lerPreferenciaMesa } from './mesa/preferencias';
+import { useSemInternet } from './services/useSemInternet';
+
+// A mesa (e o Three.js, carregado só na 3D) fica fora do bundle inicial do menu.
+const MesaLocal3D = lazy(() => import('./mesa/MesaLocal3D'));
+const MesaOnline3D = lazy(() => import('./mesa/MesaOnline3D'));
 
 type Modo = 'local' | 'online';
 
+function lerModo(): Modo {
+  // Sem partida local salva, o menu (que mora na tela online) é o ponto de partida.
+  return window.sessionStorage.getItem('kabemjunto.modo') === 'local' && temPartidaLocal()
+    ? 'local'
+    : 'online';
+}
+
 export default function App() {
-  const [modo, setModo] = useState<Modo>(() =>
-    !navigator.onLine || window.sessionStorage.getItem('kabemjunto.modo') === 'local'
-      ? 'local'
-      : 'online',
-  );
+  const [modo, setModo] = useState<Modo>(lerModo);
 
   useEffect(() => {
     window.sessionStorage.setItem('kabemjunto.modo', modo);
@@ -26,84 +33,87 @@ export default function App() {
 
   if (modo === 'local') {
     return (
-      <div>
-        <ToggleModo modo={modo} onChange={setModo} />
-        <AppSingleplayer />
-      </div>
+      <Suspense fallback={carregandoMesa}>
+        <MesaLocal3D renderizacao={lerPreferenciaMesa()} onVoltarAoMenu={() => setModo('online')} />
+      </Suspense>
     );
   }
 
   return (
     <main className="app-shell">
-      <OnlineApp onMudarModo={() => setModo('local')} />
+      <OnlineApp
+        onJogarContraBots={(nome, totalJogadores) => {
+          iniciarPartidaLocal(totalJogadores, nome);
+          setModo('local');
+        }}
+      />
     </main>
   );
 }
 
-function ToggleModo({ modo, onChange }: { modo: Modo; onChange: (m: Modo) => void }) {
+const carregandoMesa = (
+  <p className="mesa3d-carregando" role="status">
+    Preparando a mesa…
+  </p>
+);
+
+/** Avatar e tema da mesa (o tema vale também para a mesa 3D). */
+function BotaoPerfil() {
+  const [aberto, setAberto] = useState(false);
+  const [avatarId, setAvatarId] = useState(() => lerPreferencia('kabemjunto.avatar') ?? '01');
+  const [tema, setTema] = useState<TemaColecao>(
+    () => (lerPreferencia('kabemjunto.tema') as TemaColecao | null) ?? 'FLORESTA',
+  );
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('kabemjunto.avatar', avatarId);
+      window.localStorage.setItem('kabemjunto.tema', tema);
+    } catch {
+      // Armazenamento bloqueado: a escolha vale só nesta tela.
+    }
+  }, [avatarId, tema]);
+
   return (
-    <div
-      style={{
-        position: 'fixed',
-        top: 12,
-        right: 12,
-        zIndex: 10000,
-        display: 'flex',
-        gap: 4,
-        background: 'rgba(15, 23, 42, 0.9)',
-        padding: 4,
-        borderRadius: 999,
-        border: '1px solid #334155',
-      }}
-    >
-      <button
-        type="button"
-        onClick={() => onChange('local')}
-        aria-pressed={modo === 'local'}
-        style={{
-          padding: '6px 14px',
-          borderRadius: 999,
-          border: 'none',
-          background: modo === 'local' ? '#F39C12' : 'transparent',
-          color: modo === 'local' ? '#0F172A' : '#94A3B8',
-          fontWeight: 700,
-          fontSize: 12,
-          cursor: 'pointer',
-        }}
-      >
-        🏠 Local
+    <>
+      <button type="button" className="menu-perfil" onClick={() => setAberto(true)}>
+        Personalizar perfil
       </button>
-      <button
-        type="button"
-        onClick={() => onChange('online')}
-        aria-pressed={modo === 'online'}
-        style={{
-          padding: '6px 14px',
-          borderRadius: 999,
-          border: 'none',
-          background: modo === 'online' ? '#F39C12' : 'transparent',
-          color: modo === 'online' ? '#0F172A' : '#94A3B8',
-          fontWeight: 700,
-          fontSize: 12,
-          cursor: 'pointer',
-        }}
-      >
-        🌐 Online
-      </button>
-    </div>
+      {/* Portal: o backdrop-filter do cabeçalho prenderia o painel (position: fixed) a ele. */}
+      {aberto &&
+        createPortal(
+          <PainelColecao
+            avatarId={avatarId}
+            tema={tema}
+            onAvatarChange={setAvatarId}
+            onTemaChange={setTema}
+            onClose={() => setAberto(false)}
+          />,
+          document.body,
+        )}
+    </>
   );
 }
 
-function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
+function lerPreferencia(chave: string): string | null {
+  try {
+    return window.localStorage.getItem(chave);
+  } catch {
+    return null;
+  }
+}
+
+function OnlineApp({
+  onJogarContraBots,
+}: {
+  onJogarContraBots: (nome: string, totalJogadores: number) => void;
+}) {
   const online = useGameSocket();
+  const semInternet = useSemInternet();
   const [chatInput, setChatInput] = useState('');
-  const [cartaTrocaPendente, setCartaTrocaPendente] = useState<string>();
-  const [cartaCorPendente, setCartaCorPendente] = useState<string>();
-  const [cartaSelecionada, setCartaSelecionada] = useState<string>();
   const [copiedCode, setCopiedCode] = useState(false);
   const [copyError, setCopyError] = useState(false);
   const [utilityOpen, setUtilityOpen] = useState(false);
-  const [confirmarAbandono, setConfirmarAbandono] = useState(false);
   const utilityTriggerRef = useRef<HTMLButtonElement>(null);
   const utilityCloseRef = useRef<HTMLButtonElement>(null);
   const utilityDrawerRef = useRef<HTMLElement>(null);
@@ -162,10 +172,6 @@ function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
     setChatInput('');
   }
 
-  function enviarFalaRapida(texto: string): void {
-    online.enviarChat(texto);
-  }
-
   async function copiarCodigoSala(): Promise<void> {
     if (!online.salaId) return;
     try {
@@ -193,37 +199,15 @@ function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
     }
   }
 
-  function selecionarCarta(carta: import('@kabemjunto/shared').Carta): void {
-    if (cartaSelecionada !== carta.id) {
-      setCartaSelecionada(carta.id);
-      return;
-    }
-    setCartaSelecionada(undefined);
-    if (carta.acao === 'TROCA_MAO') {
-      setCartaTrocaPendente(carta.id);
-      return;
-    }
-    if (
-      carta.tipo === 'NEUTRA' ||
-      carta.acao === 'MAIS_QUATRO' ||
-      carta.acao === 'CORINGA_SIMPLES'
-    ) {
-      setCartaCorPendente(carta.id);
-      return;
-    }
-    online.jogarCarta(carta.id);
-  }
+  const textoCopiar = copiedCode ? '✓ Copiado!' : copyError ? '⚠ Falha ao copiar' : '📋 Copiar';
 
-  function jogarDescarteMultiplo(cartas: ReadonlyArray<import('@kabemjunto/shared').Carta>): void {
-    online.jogarMultiplasCartas(cartas.map((carta) => carta.id));
-  }
-
-  const utilidades = (
+  const jogadoresEChat = (
     <>
       <section>
         <h2>Jogadores</h2>
         <ul className="player-list">
-          {online.state.jogadores.map((jogador) => (
+          {/* Na partida, as contagens vêm do estado do jogo (a lista da sala não muda). */}
+          {(online.state.estado?.jogadores ?? online.state.jogadores).map((jogador) => (
             <li key={jogador.id} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <AvatarComStatus
                 avatarId={jogador.avatar}
@@ -268,32 +252,71 @@ function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
     </>
   );
 
+  const gavetaDaPartida = (
+    <div className="online-utility-backdrop" onMouseDown={closeUtilityDrawer}>
+      <aside
+        ref={utilityDrawerRef}
+        id="online-utility-drawer"
+        className="online-utility-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="online-utility-title"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <header>
+          <h2 id="online-utility-title">Partida</h2>
+          <button
+            ref={utilityCloseRef}
+            type="button"
+            className="online-utility-close"
+            onClick={closeUtilityDrawer}
+            aria-label="Fechar utilidades"
+          >
+            ×
+          </button>
+        </header>
+        <section className="drawer-sala">
+          <h2>Sala {online.salaId}</h2>
+          <button type="button" className="button button-secondary" onClick={copiarCodigoSala}>
+            {textoCopiar}
+          </button>
+        </section>
+        {jogadoresEChat}
+      </aside>
+    </div>
+  );
+
   return (
     <>
       {!partidaIniciada && (
-        <ToggleModo modo="online" onChange={(m) => m === 'local' && onMudarModo()} />
-      )}
-      {!partidaIniciada && (
-        <header className="app-header">
-          <img
-            src="/assets/cards/kabemjunto/brand-kabemjunto.webp"
-            alt="Kabemjunto"
-            className="header-logo"
-            width={160}
-            height={46}
-          />
-          <div className={`connection connection-${online.state.status}`}>
-            <WifiStatus status={wifiOn ? 'online' : 'offline'} size={20} />
-            <span>
-              {online.state.status === 'reconnecting'
-                ? 'Reconectando...'
-                : online.state.status === 'connecting'
-                  ? 'Conectando...'
-                  : online.state.status === 'connected'
-                    ? 'Online'
-                    : 'Offline'}
-            </span>
-          </div>
+        <header className={`app-header${entrouNaSala ? '' : ' app-header-menu'}`}>
+          {/* No menu inicial a logo grande fica no próprio menu. */}
+          {entrouNaSala && (
+            <img
+              src="/assets/cards/kabemjunto/brand-kabemjunto.webp"
+              alt="Kabemjunto"
+              className="header-logo"
+              width={160}
+              height={46}
+            />
+          )}
+          {/* No menu, antes de criar ou entrar numa sala, ninguém está conectado de propósito:
+              mostrar "Offline" ali sugeriria um erro. */}
+          {(entrouNaSala || online.state.status !== 'idle') && (
+            <div className={`connection connection-${online.state.status}`}>
+              <WifiStatus status={wifiOn ? 'online' : 'offline'} size={20} />
+              <span>
+                {online.state.status === 'reconnecting'
+                  ? 'Reconectando...'
+                  : online.state.status === 'connecting'
+                    ? 'Conectando...'
+                    : online.state.status === 'connected'
+                      ? 'Online'
+                      : 'Offline'}
+              </span>
+            </div>
+          )}
+          <BotaoPerfil />
         </header>
       )}
 
@@ -307,8 +330,10 @@ function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
           onEntrar={(credentials) => online.entrarSala(credentials)}
           erro={online.state.erro}
           desabilitado={online.state.status === 'connecting'}
+          semInternet={semInternet}
           salasPublicas={online.state.salasPublicas}
           onListarSalas={online.listarSalas}
+          onJogarContraBots={onJogarContraBots}
         />
       ) : !partidaIniciada ? (
         <section className="room-layout">
@@ -325,7 +350,7 @@ function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
                     onClick={copiarCodigoSala}
                     aria-label="Copiar código da sala"
                   >
-                    {copiedCode ? '✓ Copiado!' : copyError ? '⚠ Falha ao copiar' : '📋 Copiar'}
+                    {textoCopiar}
                   </button>
                 </div>
               </div>
@@ -349,173 +374,42 @@ function OnlineApp({ onMudarModo }: { onMudarModo: () => void }) {
               {!online.isHost && <p className="muted">O host inicia a partida.</p>}
             </div>
           </div>
-          <aside className="room-sidebar">{utilidades}</aside>
+          <aside className="room-sidebar">{jogadoresEChat}</aside>
         </section>
       ) : (
-        <section className="online-match-layout" aria-label="Partida online">
-          <header className="online-match-hud">
-            <img
-              src="/assets/cards/kabemjunto/brand-kabemjunto.webp"
-              alt="Kabemjunto"
-              className="online-match-logo"
-              width={112}
-              height={44}
-            />
-            <div className="online-match-room">
-              <span className="online-match-room-label">Sala</span>
-              <strong>{online.salaId}</strong>
-              <button type="button" onClick={copiarCodigoSala} aria-label="Copiar código da sala">
-                {copiedCode ? '✓' : copyError ? '⚠' : '⧉'}
+        <Suspense fallback={carregandoMesa}>
+          <MesaOnline3D
+            online={online}
+            renderizacao={lerPreferenciaMesa()}
+            acoesHud={
+              <button
+                ref={utilityTriggerRef}
+                type="button"
+                className="mesa3d-hud-botao"
+                aria-haspopup="dialog"
+                aria-expanded={utilityOpen}
+                aria-controls="online-utility-drawer"
+                aria-label="Menu da partida: sala, jogadores e chat"
+                onClick={() => setUtilityOpen(true)}
+              >
+                ☰
               </button>
-            </div>
-            <div className={`connection connection-${online.state.status}`}>
-              <WifiStatus status={wifiOn ? 'online' : 'offline'} size={16} />
-              <span>{wifiOn ? 'Online' : 'Offline'}</span>
-            </div>
-            <button
-              ref={utilityTriggerRef}
-              type="button"
-              className="online-utility-trigger"
-              aria-haspopup="dialog"
-              aria-expanded={utilityOpen}
-              aria-controls="online-utility-drawer"
-              onClick={() => setUtilityOpen(true)}
-            >
-              ☰ <span>Menu</span>
-            </button>
-            <button
-              type="button"
-              className="online-exit-trigger"
-              onClick={() => setConfirmarAbandono(true)}
-            >
-              Sair
-            </button>
-          </header>
-
-          <MesaOnline
-            estado={online.state.estado!}
-            mao={online.state.mao}
-            mensagens={online.state.mensagens}
-            jogadorId={online.jogadorId}
-            selectedCardId={cartaSelecionada}
-            onSelecionarCarta={selecionarCarta}
-            onPlayMultiple={jogarDescarteMultiplo}
-            onComprarCarta={online.comprarCarta}
-            onEnviarFalaRapida={enviarFalaRapida}
-            descarteMultiploErro={online.state.descarteMultiploErro}
-            onInterceptar={online.interceptar}
+            }
           />
-
-          {utilityOpen && (
-            <div className="online-utility-backdrop" onMouseDown={closeUtilityDrawer}>
-              <aside
-                ref={utilityDrawerRef}
-                id="online-utility-drawer"
-                className="online-utility-drawer"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="online-utility-title"
-                onMouseDown={(event) => event.stopPropagation()}
-              >
-                <header>
-                  <h2 id="online-utility-title">Partida</h2>
-                  <button
-                    ref={utilityCloseRef}
-                    type="button"
-                    className="online-utility-close"
-                    onClick={closeUtilityDrawer}
-                    aria-label="Fechar utilidades"
-                  >
-                    ×
-                  </button>
-                </header>
-                {utilidades}
-              </aside>
-            </div>
-          )}
-        </section>
+        </Suspense>
       )}
 
-      {confirmarAbandono && (
-        <div className="modal-overlay" role="presentation">
-          <section
-            className="creation-dialog glass-panel"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="abandon-match-title"
-          >
-            <h2 id="abandon-match-title">Abandonar partida?</h2>
-            <p className="muted">
-              Você sairá desta partida. Esta ação será confirmada pelo servidor.
-            </p>
-            <div className="form-actions">
-              <button
-                type="button"
-                className="button button-secondary"
-                onClick={() => setConfirmarAbandono(false)}
-              >
-                Continuar
-              </button>
-              <button
-                type="button"
-                className="button button-primary"
-                onClick={() => {
-                  setConfirmarAbandono(false);
-                  online.abandonarPartida();
-                }}
-              >
-                Abandonar
-              </button>
-            </div>
-          </section>
-        </div>
-      )}
-      {online.state.cartaAceita && (
-        <p className="toast-feedback sucesso" role="status">
-          Jogada aceita: {online.state.cartaAceita}
-        </p>
-      )}
-      {online.state.cartaRejeitada && (
-        <p className="toast-feedback erro" role="alert">
-          {online.state.cartaRejeitada}
-        </p>
-      )}
-      {online.state.erro && online.state.erroCodigo !== 'SALA_INEXISTENTE' && (
+      {partidaIniciada && utilityOpen && gavetaDaPartida}
+
+      {!partidaIniciada && online.state.erro && online.state.erroCodigo !== 'SALA_INEXISTENTE' && (
         <p className="error-message">{online.state.erro}</p>
       )}
-      {cartaTrocaPendente && (
-        <SelecionarAlvoTrocaMao
-          jogadores={online.state.jogadores}
-          jogadorAtualId={online.jogadorId}
-          onCancel={() => setCartaTrocaPendente(undefined)}
-          onConfirm={(alvoId) => {
-            online.jogarCarta(cartaTrocaPendente, undefined, alvoId);
-            setCartaTrocaPendente(undefined);
-          }}
-        />
-      )}
-      {cartaCorPendente && (
-        <ModalEscolhaCor
-          onEscolherCor={(cor) => {
-            online.jogarCarta(cartaCorPendente, cor);
-            setCartaCorPendente(undefined);
-          }}
-        />
-      )}
-      {online.state.status === 'reconnecting' && (
+      {/* Só bloqueia a tela dentro de uma sala: no menu, jogar contra bots não
+          depende do servidor (o cabeçalho já mostra o estado da conexão). */}
+      {entrouNaSala && online.state.status === 'reconnecting' && (
         <Reconectando
           tentativa={online.tentativaReconexao}
           mensagem="Conexão perdida, tentando reconectar..."
-        />
-      )}
-      {online.state.estado?.vencedor && (
-        <VitoriaAnimada
-          vencedorNome={
-            online.state.jogadores.find((j) => j.id === online.state.estado?.vencedor)?.nome ||
-            online.state.estado.vencedor
-          }
-          isVoce={online.jogadorId === online.state.estado?.vencedor}
-          onJogarNovamente={online.sair}
         />
       )}
     </>

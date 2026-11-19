@@ -4,7 +4,7 @@
 
 **Time:** Mavis (lead) · Codex (eng. pleno) · Antigravity (eng. júnior)
 **Fonte atual:** [README](./README.md) (operação), [GDD mestre](./GDD-Kabemjunto.md) v1.1 (regras) e código; plano e entradas anteriores são históricos
-**Base da revisão:** `main` em `54c4601`; alterações locais em `docs/revisao-documentacao`
+**Base da revisão:** `main` em `54c4601`, com a mesa 3D (`feat/mesa-3d`, PR #29) como base do PWA em `docs/revisao-documentacao` (PR #30)
 **Último briefing:** [Sprint 7](./briefings/sprint-7.md) — beta fechado e onboarding; conclusão das issues não revalidada nesta revisão
 
 ### 2026-11-18 — Reconciliação documental com `54c4601`
@@ -13,10 +13,23 @@
 - README atualizado para o monorepo real, 109 cartas, Local/Online, descarte múltiplo, Corta-Frente e +2 Para Todos.
 - GDD mestre com links corrigidos, versão reconciliada, compra com exceção de Troca Mão, Gira Mão no sentido vigente e durações atuais das janelas de interceptação.
 - Tag mais recente encontrada: `v0.5.1` (`06fbd0a`), anterior às funcionalidades acima; não equiparar HEAD, versão de pacote e deployment.
+- PWA integrado à mesa 3D (PR #30 sobre o PR #29): o menu novo avisa "Sem internet" e só libera "Jogar agora"; a suíte `e2e/pwa.spec.ts` foi reescrita para o menu e a mesa 3D offline. Pré-cache: 42 arquivos, cerca de 1,6 MB sem compressão (o maior é o chunk do Three.js, 552 kB).
 - PWA implementado com manifest e ícones no build, abertura e recarga Local offline, e atualização do cache após fechamento das janelas da versão anterior. Validação estrutural da retomada Local e tutorial seguem no [relatório de revisão](./docs/REVISAO-2026-11-18.md).
 - Com o PWA, a suíte completa passou com 442 testes Vitest e 31 cenários Playwright, incluindo partida recuperada offline.
 - Validação local após autorização: tipos, ESLint e build aprovados; Vitest com 442 testes aprovados, cobertura de statements de 87,55% no motor e 93,37% na persistência; Playwright com 30 cenários aprovados. Prettier dos documentos aprovado; checagem global com LF aponta CRLF do checkout Windows, enquanto o diagnóstico com `--end-of-line auto` passa. O lançador `npm.cmd` foi bloqueado por política do Windows; ferramentas executadas diretamente pelos CLIs Node. Detalhes no relatório. Não houve deploy nem smoke de produção.
 - Entradas seguintes preservam evidências e pendências de suas datas; não representam automaticamente o estado atual.
+
+### 2026-11-17 · Mesa 3D (branch `feat/mesa-3d`, ADR-014) — Fases 1 a 3
+
+- ✅ **Mesa 3D** em Three.js para Local e Online, num componente só (`apps/web/src/mesa/`): arrastar a carta até o centro joga; anel de cores; alvo da Troca Mão no assento; anel de contagem do Corta-Frente; camada acessível em DOM (teclado e leitor de tela). Three.js só é baixado quando a 3D é usada.
+- ✅ **Mesa 2D simples** como alternativa: sem WebGL (ou com `?mesa=2d`), a mesma mesa aparece em DOM, com as mesmas regras de interação. As mesas antigas (`AppSingleplayer`, `MesaOnline` e componentes ligados) e ~50 kB de CSS morto saíram.
+- ✅ **Menu com dois caminhos** (logo, leque de cartas, "Jogar contra bots" em destaque e "Jogar com amigos"), **dicas contextuais** no lugar do tutorial, falas rápidas com balão no assento e painel de partida encerrada por abandono.
+- 🐛 **Abandono perdido** (valia também para a mesa antiga): o cliente desconectava antes de o servidor processar `client:abandonar:partida`, e o adversário ficava numa partida sem fim. Agora a desconexão espera a resposta do servidor.
+- 🐛 **Troca Mão na mesa antiga** era enviada sem cor (o motor exige cor para neutras); a mesa nova pede alvo e cor, com E2E.
+- 🐛 No menu, sem servidor, o aviso "Conexão perdida" cobria a tela e bloqueava até o jogo contra bots; agora só aparece dentro de uma sala.
+- ✅ `npm run validate` (437 testes) e 44 E2E verdes. Motor e servidor sem diff.
+- ⚠️ Performance ainda abaixo da meta: 49–56 fps de média (mediana 60) em celular simulado com CPU 4x mais lenta e 6 jogadores; próximo passo é atlas de faces (ADR-014).
+- ⚠️ Hot-seat (vários humanos no mesmo aparelho) não existe mais no menu.
 
 ### 2026-08-01 · Corta-Frente V1 (interceptação fora da vez) — completo Local + Online
 

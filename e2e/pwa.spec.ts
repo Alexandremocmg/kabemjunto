@@ -23,9 +23,7 @@ test.afterAll(async () => {
   await app?.close();
 });
 
-test('build instalável abre e restaura o modo Local offline sem cachear rotas do servidor', async ({
-  page,
-  context,
+test('manifest e ícones são válidos e o service worker não guarda rotas do servidor', async ({
   request,
 }) => {
   const manifest = await request.get(url + '/manifest.json');
@@ -46,6 +44,23 @@ test('build instalável abre e restaura o modo Local offline sem cachear rotas d
     expect([body.readUInt32BE(16), body.readUInt32BE(20)]).toEqual([width, height]);
   }
 
+  // O worker é servido sempre novo (senão a atualização do PWA nunca chegaria)
+  // e só pré-carrega arquivos públicos do build, nunca rotas do servidor.
+  const worker = await request.get(url + '/sw.js');
+  expect(worker.ok()).toBe(true);
+  expect(worker.headers()['content-type']).toContain('javascript');
+  const codigo = await worker.text();
+  const lista = JSON.parse(/const PRECACHE = (\[.*\]);/.exec(codigo)![1]!) as string[];
+  expect(lista).toContain('./index.html');
+  expect(lista.some((arquivo) => arquivo.includes('socket.io') || arquivo === './health')).toBe(
+    false,
+  );
+});
+
+test('instalado, o menu abre offline e a partida contra bots na mesa 3D sobrevive a um recarregamento', async ({
+  page,
+  context,
+}) => {
   await page.goto(url);
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready;
@@ -55,19 +70,27 @@ test('build instalável abre e restaura o modo Local offline sem cachear rotas d
     .poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)))
     .toBe(true);
   expect(await page.evaluate(async () => (await fetch('/health')).ok)).toBe(true);
+  // Perder a rede com o menu aberto: aviso na hora e só o caminho contra bots segue livre.
   await context.setOffline(true);
+  await expect(page.getByText('Sem internet: só dá para jogar contra bots')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Criar sala' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Entrar em sala' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Jogar agora' })).toBeEnabled();
 
+  // Reabrir sem rede: o menu, a logo e as cartas vêm do cache do service worker.
   await page.reload();
-  await page
-    .getByRole('button', { name: /local$/i, exact: false })
-    .first()
-    .click();
-  await expect(page.getByRole('button', { name: /jogar agora/i })).toBeVisible();
-  expect(
-    await page
-      .locator('.local-brand-logo')
-      .evaluate((image: HTMLImageElement) => image.naturalWidth),
-  ).toBeGreaterThan(0);
+  await expect(page.getByRole('heading', { name: 'Como você quer jogar?' })).toBeAttached();
+  const logo = page.getByRole('img', { name: 'Kabemjunto' });
+  await expect(logo).toBeVisible();
+  expect(await logo.evaluate((imagem: HTMLImageElement) => imagem.naturalWidth)).toBeGreaterThan(0);
+  const cartasCarregadas = await page
+    .locator('.menu-leque-carta')
+    .evaluateAll((imagens) =>
+      imagens.every((imagem) => (imagem as HTMLImageElement).naturalWidth > 0),
+    );
+  expect(cartasCarregadas).toBe(true);
+
+  // As rotas do servidor continuam de fora do cache.
   expect(
     await page.evaluate(() =>
       fetch('/health').then(
@@ -85,13 +108,23 @@ test('build instalável abre e restaura o modo Local offline sem cachear rotas d
     ),
   ).toBe(false);
 
-  await page.getByRole('button', { name: /criar mesa local/i }).click();
-  await expect(page.locator('.game-layout')).toBeVisible();
+  // A mesa 3D (inclui o pedaço do Three.js) abre do cache, e a partida é retomada.
+  await page.getByRole('button', { name: 'Jogar agora' }).click();
+  await expect(page.locator('.mesa3d canvas')).toBeVisible();
   await expect
     .poll(() => page.evaluate(() => sessionStorage.getItem('kabemjunto.estado')))
     .not.toBeNull();
-  const saved = await page.evaluate(() => sessionStorage.getItem('kabemjunto.estado'));
+  const salva = await page.evaluate(() => sessionStorage.getItem('kabemjunto.estado'));
   await page.reload();
-  await expect(page.locator('.game-layout')).toBeVisible();
-  expect(await page.evaluate(() => sessionStorage.getItem('kabemjunto.estado'))).toBe(saved);
+  await expect(page.locator('.mesa3d canvas')).toBeVisible();
+  expect(await page.evaluate(() => sessionStorage.getItem('kabemjunto.estado'))).toBe(salva);
+
+  // Voltando a rede, o menu libera as salas de novo.
+  await context.setOffline(false);
+  await page.getByRole('button', { name: 'Sair da partida' }).click();
+  await page
+    .getByRole('dialog', { name: 'Sair da partida?' })
+    .getByRole('button', { name: 'Sair' })
+    .click();
+  await expect(page.getByRole('button', { name: 'Criar sala' })).toBeEnabled();
 });

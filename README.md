@@ -2,7 +2,7 @@
 
 > O jogo de cartas que te denuncia. De 2 a 10 jogadores; duração estimada de 8 a 15 minutos.
 
-Jogo de cartas com temática brasileira, **109 cartas**, regra do 7 (Silêncio), ataques acumuláveis assimétricos, reflexo com **0+**, **+2 Para Todos**, descarte múltiplo e **Corta-Frente**. Há modos Local (bots ou hot-seat) e Online, com servidor autoritativo.
+Jogo de cartas com temática brasileira, **109 cartas**, regra do 7 (Silêncio), ataques acumuláveis assimétricos, reflexo com **0+**, **+2 Para Todos**, descarte múltiplo e **Corta-Frente**. Há partida contra bots no próprio navegador e modo Online, ambos na mesma **mesa 3D**, com servidor autoritativo no Online.
 
 [![CI](https://github.com/Alexandremocmg/kabemjunto/actions/workflows/ci.yml/badge.svg)](https://github.com/Alexandremocmg/kabemjunto/actions/workflows/ci.yml)
 
@@ -10,15 +10,16 @@ Documentação reconciliada em **2026-11-18**, a partir de `54c4601`. A tag mais
 
 ## Jogar
 
-- **Local:** escolha bots ou mesa compartilhada (hot-seat), configure de 2 a 10 participantes e inicie. A partida fica no `sessionStorage` da aba; avatar e tema ficam no `localStorage`. Isso não equivale a uma conta ou backup entre dispositivos.
-- **Online:** informe seu nome, crie uma sala ou entre por código/listagem pública. Salas são privadas por padrão; somente o host inicia. As mãos são enviadas privadamente, e o servidor decide as jogadas. A retomada usa um token de sessão, sem cadastro por e-mail.
+- **Contra bots:** no menu, escolha de 2 a 10 jogadores (fichas de 2 a 6; "7+" abre 7 a 10) e toque em **Jogar agora**. A partida roda no navegador e fica no `sessionStorage` da aba; avatar e tema ficam no `localStorage`. Isso não equivale a uma conta ou backup entre dispositivos. Mesa compartilhada (hot-seat) não existe mais.
+- **Na mesa:** arraste a carta que brilha até o centro (ou toque duas vezes). Cartas de mesma face: toque nelas para montar o grupo do descarte múltiplo. Sem jogada, toque no monte. Coringas abrem um anel de cores e a Troca Mão pede o adversário. Teclado: `Tab` chega à mão, setas trocam de carta, `Enter` joga, `Espaço` seleciona. Sem WebGL (ou com `?mesa=2d`), a mesma mesa aparece em 2D.
+- **Online:** informe seu apelido, crie uma sala ou entre por código/listagem pública. Salas são privadas por padrão; somente o host inicia. As mãos são enviadas privadamente, e o servidor decide as jogadas. A retomada usa um token de sessão, sem cadastro por e-mail.
 - **Objetivo:** descartar todas as cartas. Cada participante começa com 7. Jogue por cor, número ou ação; neutras permitem escolher cor, respeitando as restrições de ataque.
 - **Compra:** sem jogada que bloqueie a compra, compre uma carta. Se ela for jogável, o turno é mantido; caso contrário, passa. `TROCA_MAO` é a exceção: tê-la na mão não obriga usá-la antes de comprar. Pagar ataque sempre passa a vez.
 - **Ataques:** `+2` sobre `+2`, `+4` sobre `+2` e `+4` sobre `+4` acumulam. `+2` sobre `+4` é proibido. `0+` reflete a pilha ao último atacante, sem defesa do reflexo; sem ataque, funciona como coringa.
 - **+2 Para Todos:** cada adversário compra 2 imediatamente, sem repasse ou defesa; quem jogou escolhe a cor. Não responde a ataque acumulado, não entra em lote e não participa do Corta-Frente.
 - **Silêncio:** um 7 abre uma janela até o próximo descarte. No Online, chat e falas rápidas continuam disponíveis; a primeira mensagem de cada jogador nessa janela gera +2 imediato, sem passar o turno. Outro 7 abre uma nova janela de penalização.
 - **Descarte múltiplo:** duas ou mais cartas da mesma face permitida (número sem ação, `+2`, Skip ou Reverse), inclusive de cores diferentes. A primeira precisa ser válida; a última define a cor. A pilha pode ser preparada fora da vez, mas só é jogada no turno correto.
-- **Corta-Frente:** durante a janela (4 segundos no Local, 5 no Online), outro jogador pode interceptar com carta idêntica em cor e número/ação. Somente números sem ação, `+2`, Skip e Reverse são elegíveis. O primeiro pedido válido no servidor vence e pode abrir nova janela.
+- **Corta-Frente:** durante a janela (4 segundos contra bots, 5 no Online), outro jogador pode interceptar com carta idêntica em cor e número/ação. Somente números sem ação, `+2`, Skip e Reverse são elegíveis. O primeiro pedido válido no servidor vence e pode abrir nova janela.
 
 Consulte [GDD, regras canônicas](./GDD-Kabemjunto.md#7-regras-oficiais-canônicas-resumo), incluindo vitória imediata, efeitos de mão e esgotamento do monte.
 
@@ -44,7 +45,7 @@ cloudflared tunnel --url http://127.0.0.1:5173 --http-host-header localhost:5173
 ## Instalar e jogar offline
 
 1. Abra o build de produção em HTTPS ou localhost, com conexão, e aguarde o carregamento inicial. Em Chromium, use a opção de instalação no navegador. No Safari do iPhone, use **Compartilhar → Adicionar à Tela de Início**.
-2. Após o service worker baixar os arquivos, reabra o jogo sem rede. Se abrir no lobby Online, selecione **Local**. Bots e mesa compartilhada funcionam offline.
+2. Após o service worker baixar os arquivos, reabra o jogo sem rede. No menu, use **Jogar contra bots**: a mesa 3D, as cartas e os bots funcionam offline. Criar ou entrar em sala exige conexão.
 3. Para retomar uma partida após recarregar, mantenha a mesma aba ou janela. A partida fica na sessão dela. O modo Online precisa de conexão com o servidor.
 
 O build web inclui `manifest.json`, ícones PNG e `sw.js`. O worker guarda somente os arquivos públicos do build. A próxima versão fica em espera até as abas e janelas controladas pela anterior serem fechadas. O Vite em modo dev não registra o worker. Para testar o build localmente, execute `npm run build` e `npm run preview`.
@@ -78,7 +79,7 @@ O CI também executa auditoria de dependências de produção e exige pelo menos
 
 | Parte                    | Implementação                                                                                       |
 | ------------------------ | --------------------------------------------------------------------------------------------------- |
-| Frontend                 | React 18, TypeScript, Vite, CSS e Framer Motion.                                                    |
+| Frontend                 | React 18, TypeScript, Vite e CSS; mesa em Three.js puro, carregada sob demanda (ADR-014).           |
 | Estado da interface      | Hooks React e armazenamento do navegador; dependência declarada não comprova uso no runtime.        |
 | Regras                   | Motor TypeScript compartilhado, sem DOM ou rede; RNG substituível nos fluxos que embaralham cartas. |
 | Backend                  | Fastify 5 e Socket.IO; valida ações e distribui estado público e mãos privadas.                     |
@@ -87,7 +88,7 @@ O CI também executa auditoria de dependências de produção e exige pelo menos
 | Testes                   | Vitest, fast-check e Playwright.                                                                    |
 
 ```text
-apps/web/src/             Interface Local e Online e serviços do navegador
+apps/web/src/             Menu, mesa 3D/2D (`mesa/`) e serviços do navegador
 apps/web/public/          Arte, manifest e ícones copiados pelo Vite
 apps/server/src/          Salas, Socket.IO, persistência, configuração e operação
 packages/shared/src/     Tipos, regras, constantes, fixtures e telemetria
@@ -97,7 +98,7 @@ docs/                    Relatórios e especificações complementares
 briefings/ e feedback/    Planejamento e revisões históricos
 ```
 
-`App.tsx` escolhe Online ou Local (`AppSingleplayer.tsx`). Não há mais aplicação de runtime em `src/` na raiz. Os nomes `gerarBaralho108` e `BARALHO_COMPLETO_108` foram mantidos, mas geram **109** cartas (ADR-013). A fixture `deck108.json` continua com 108 e não representa o catálogo usado nas partidas.
+`App.tsx` mostra o menu e leva à mesa contra bots (`mesa/MesaLocal3D.tsx`, motor no navegador) ou à sala Online (`mesa/MesaOnline3D.tsx`); as duas usam a mesma `Mesa3D`. Não há mais aplicação de runtime em `src/` na raiz. Os nomes `gerarBaralho108` e `BARALHO_COMPLETO_108` foram mantidos, mas geram **109** cartas (ADR-013). A fixture `deck108.json` continua com 108 e não representa o catálogo usado nas partidas.
 
 O motor não exporta uma segunda API de state machine. No Online, timers de Corta-Frente pertencem ao `RoomStore`. Persistência e coordenação atuais pressupõem **instância única**; aumentar réplicas exige coordenação distribuída por sala (ADR-011).
 
@@ -142,9 +143,9 @@ Quando houver solicitação de deploy, confirme serviço, ambiente e volume; pub
 
 ## Estado e próximos passos
 
-**Implementado no código:** modos Local/Online, salas públicas e privadas, chat e falas rápidas, retomada por token, persistência de salas, descarte múltiplo, Corta-Frente, +2 Para Todos, tutorial e personalização local de avatar/tema.
+**Implementado no código:** partida contra bots e Online na mesma mesa 3D, salas públicas e privadas, chat e falas rápidas, retomada por token, persistência de salas, descarte múltiplo, Corta-Frente, +2 Para Todos, dicas contextuais e personalização local de avatar/tema.
 
-**Pendências identificadas:** validação estrutural do estado Local restaurado e atualização do tutorial para mecânicas recentes. O briefing mais recente é o da [Sprint 7](./briefings/sprint-7.md).
+**Pendências identificadas:** validação estrutural do estado local restaurado e a meta de 60 fps de média em celular intermediário (ADR-014). O briefing mais recente é o da [Sprint 7](./briefings/sprint-7.md).
 
 ## Documentação
 
