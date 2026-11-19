@@ -53,7 +53,7 @@ async function abrirPartida(
   const convidado = await novoJogador(browser);
 
   await host.goto('/');
-  await host.getByLabel('Seu nome').fill('Host 3D');
+  await host.getByLabel('Seu apelido').fill('Host 3D');
   await host.getByRole('button', { name: 'Criar sala' }).click();
   await host
     .getByRole('dialog', { name: 'Criar sala' })
@@ -63,7 +63,7 @@ async function abrirPartida(
   const salaId = (await host.locator('.room-code').textContent()) ?? '';
 
   await convidado.goto('/');
-  await convidado.getByLabel('Seu nome').fill('Convidado 3D');
+  await convidado.getByLabel('Seu apelido').fill('Convidado 3D');
   await convidado.getByLabel('Código da sala').fill(salaId);
   await convidado.getByRole('button', { name: 'Entrar em sala' }).click();
   await expect(convidado.locator('.room-code')).toHaveText(salaId);
@@ -243,10 +243,10 @@ test('sair no meio da partida volta ao menu e avisa quem ficou', async ({ browse
   const confirmacao = convidado.getByRole('dialog', { name: 'Sair da partida?' });
   await expect(confirmacao).toContainText('não poderá voltar');
   await confirmacao.getByRole('button', { name: 'Sair' }).click();
-  await expect(convidado.getByRole('heading', { name: 'Entre na mesa' })).toBeVisible();
+  await expect(convidado.getByRole('heading', { name: 'Como você quer jogar?' })).toBeVisible();
 
   const encerrada = host.getByRole('dialog', { name: 'Partida encerrada' });
   await expect(encerrada).toBeVisible();
   await encerrada.getByRole('button', { name: 'Voltar ao menu' }).click();
-  await expect(host.getByRole('heading', { name: 'Entre na mesa' })).toBeVisible();
+  await expect(host.getByRole('heading', { name: 'Como você quer jogar?' })).toBeVisible();
 });

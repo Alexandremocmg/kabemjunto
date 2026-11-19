@@ -503,10 +503,18 @@ Este arquivo registra as Decisões de Arquitetura (ADRs) do projeto Kabemjunto.
      pré-geradas em tempo ocioso; descarte limitado a 4 cartas visíveis;
      redesenho só quando algo muda; pixel ratio até 2, reduzido sozinho se os
      quadros ficam lentos; Three.js só no pedaço carregado sob demanda.
-  7. **Menu com dois caminhos** (Fase 2): a tela inicial é o lobby online
-     ("Entre na mesa": criar sala ou entrar por código) com um card "Jogar
-     contra bots" logo abaixo; o alternador Local/Online saiu. "Personalizar
-     perfil" fica no cabeçalho (o tema escolhido vale para a mesa 3D).
+  7. **Menu com dois caminhos** (Fase 2, redesenhado depois do primeiro teste
+     de uso): a tela inicial mostra a logo, um leque de cartas e duas escolhas
+     do mesmo peso. "Jogar contra bots" vem primeiro, em destaque, com o
+     número de jogadores em fichas (2 a 6; 7 a 10 atrás do botão "7+") e o botão
+     "Jogar agora"; "Jogar com amigos" traz "Criar sala" e o código com
+     "Entrar". O apelido é um campo só, no topo, e é opcional contra bots.
+     Salas públicas ficam recolhidas. O primeiro desenho escondia o card de
+     bots abaixo de "Criar sala", e quem abria o jogo achava que só havia
+     online. O alternador Local/Online saiu. "Personalizar perfil" fica no
+     cabeçalho (o tema escolhido vale para a mesa 3D). No celular o campo de
+     apelido não recebe foco sozinho (o teclado cobriria as escolhas) e o
+     aviso "Offline" não aparece enquanto ninguém tentou conectar.
   8. **Online na mesma mesa** (Fase 2): `MesaOnline3D` liga `useMesaOnline` à
      `Mesa3D`. Falas rápidas no HUD (com aviso de +2 durante o silêncio),
      balões sobre os assentos, menu ☰ com sala, jogadores e chat, e painel de

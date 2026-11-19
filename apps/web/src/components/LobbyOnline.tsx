@@ -3,6 +3,9 @@ import type { ServerSalaDisponivel } from '@kabemjunto/shared';
 
 const PLAYER_NAME_KEY = 'kabemjunto-player-name';
 
+/** Cartas que enfeitam o menu, da esquerda para a direita (arquivos pequenos em /assets/menu). */
+const LEQUE = ['troca-mao', 'coringa', 'mais-quatro', 'gira-mao', 'zero-mais'] as const;
+
 export interface LobbyOnlineCredentials {
   salaId: string;
   nome: string;
@@ -45,13 +48,16 @@ export const LobbyOnline: React.FC<LobbyOnlineProps> = ({
   const [nomeSalaInput, setNomeSalaInput] = useState('');
   const [visibilidade, setVisibilidade] = useState<'privada' | 'publica'>('privada');
   const [jogadoresContraBots, setJogadoresContraBots] = useState(4);
+  const [maisJogadores, setMaisJogadores] = useState(false);
+  const [salasAbertas, setSalasAbertas] = useState<boolean | undefined>();
   const nomeInputRef = useRef<HTMLInputElement>(null);
   const errorId = useId();
   const errorMessage = validationError ?? erro;
   const temNome = Boolean(nomeInput.trim());
 
   useEffect(() => {
-    nomeInputRef.current?.focus();
+    // No celular, focar o campo abriria o teclado e esconderia as duas escolhas do menu.
+    if (window.matchMedia?.('(pointer: fine)').matches) nomeInputRef.current?.focus();
   }, []);
 
   useEffect(() => {
@@ -70,6 +76,7 @@ export const LobbyOnline: React.FC<LobbyOnlineProps> = ({
     const nomeLimpo = nomeInput.trim();
     if (!nomeLimpo) {
       setValidationError('Informe seu nome antes de continuar.');
+      nomeInputRef.current?.focus();
       return undefined;
     }
     return nomeLimpo;
@@ -125,14 +132,42 @@ export const LobbyOnline: React.FC<LobbyOnlineProps> = ({
     onEntrar({ salaId, nome: nomeLimpo, criar: false });
   }
 
+  function jogarContraBots(): void {
+    const nome = nomeInput.trim();
+    if (nome) salvarNome(nome);
+    onJogarContraBots?.(nome || 'Você', jogadoresContraBots);
+  }
+
+  const totaisVisiveis = maisJogadores || jogadoresContraBots > 6 ? [7, 8, 9, 10] : [];
+  const salasVisiveis = salasAbertas ?? salasPublicas.length > 0;
+
   return (
-    <section className="lobby-panel" aria-labelledby="lobby-title">
-      <p className="eyebrow">JOGAR ONLINE</p>
-      <h2 id="lobby-title">Entre na mesa</h2>
-      <p className="muted">Crie uma sala ou use o código que seu grupo compartilhou.</p>
+    <section className="lobby-panel menu-inicial" aria-labelledby="lobby-title">
+      <h2 id="lobby-title" className="sr-only">
+        Como você quer jogar?
+      </h2>
+      <img
+        className="menu-logo"
+        src="/assets/cards/kabemjunto/brand-kabemjunto.webp"
+        alt="Kabemjunto"
+        width={230}
+        height={90}
+      />
+      <div className="menu-leque" aria-hidden="true">
+        {LEQUE.map((carta) => (
+          <img
+            key={carta}
+            className={`menu-leque-carta menu-leque-${carta}`}
+            src={`/assets/menu/leque-${carta}.webp`}
+            alt=""
+            width={180}
+            height={260}
+          />
+        ))}
+      </div>
       <form className="lobby-form" onSubmit={entrarExistente} noValidate>
         <label>
-          Seu nome
+          Seu apelido
           <input
             ref={nomeInputRef}
             name="nome"
@@ -143,78 +178,105 @@ export const LobbyOnline: React.FC<LobbyOnlineProps> = ({
             maxLength={24}
             required
             disabled={desabilitado}
-            placeholder="Seu apelido no jogo"
+            placeholder="Como você quer ser chamado"
             aria-describedby={errorMessage ? errorId : undefined}
             aria-invalid={Boolean(errorMessage)}
           />
         </label>
-        <label>
-          Código da sala
-          <input
-            name="codigo-sala"
-            autoComplete="off"
-            spellCheck={false}
-            value={salaInput}
-            onChange={(event) => setSalaInput(event.target.value.toUpperCase())}
-            maxLength={6}
-            placeholder="Ex: MOHPSR"
-            disabled={desabilitado}
-            aria-describedby={errorMessage ? errorId : undefined}
-            aria-invalid={Boolean(errorMessage)}
-          />
-        </label>
-        <div className="form-actions">
-          <button type="submit" className="button button-secondary" disabled={desabilitado}>
-            Entrar em sala
-          </button>
+        {onJogarContraBots && (
+          <section className="menu-escolha menu-escolha-bots" aria-labelledby="bots-title">
+            <span className="menu-etiqueta">Começa na hora</span>
+            <h3 id="bots-title">Jogar contra bots</h3>
+            <p className="muted">Sem internet e sem esperar ninguém.</p>
+            <fieldset className="menu-jogadores">
+              <legend>Quantos jogadores na mesa?</legend>
+              <div className="menu-fichas">
+                {[2, 3, 4, 5, 6, ...totaisVisiveis].map((total) => (
+                  <label key={total} className="menu-ficha">
+                    <input
+                      type="radio"
+                      name="jogadores-na-mesa"
+                      value={total}
+                      checked={jogadoresContraBots === total}
+                      onChange={() => setJogadoresContraBots(total)}
+                    />
+                    <span>{total}</span>
+                  </label>
+                ))}
+                {totaisVisiveis.length === 0 && (
+                  <button
+                    type="button"
+                    className="menu-ficha-mais"
+                    onClick={() => setMaisJogadores(true)}
+                    aria-label="Mais jogadores, de 7 a 10"
+                  >
+                    7+
+                  </button>
+                )}
+              </div>
+            </fieldset>
+            <button type="button" className="button button-primary" onClick={jogarContraBots}>
+              Jogar agora
+            </button>
+          </section>
+        )}
+        <p className="menu-ou" aria-hidden="true">
+          ou
+        </p>
+        <section className="menu-escolha" aria-labelledby="amigos-title">
+          <h3 id="amigos-title">Jogar com amigos</h3>
+          <p className="muted">Online: crie uma sala e mande o código.</p>
           <button
             type="button"
-            className="button button-primary"
+            className="button button-secondary"
             onClick={abrirCriacao}
             disabled={desabilitado}
           >
             Criar sala
           </button>
-        </div>
-      </form>
-      {onJogarContraBots && (
-        <section className="bots-card" aria-labelledby="bots-title">
-          <div>
-            <h3 id="bots-title">Jogar contra bots</h3>
-            <p className="muted">Partida rápida, sem esperar ninguém.</p>
-          </div>
-          <div className="bots-card-acoes">
-            <label>
-              Jogadores na mesa
-              <select
-                value={jogadoresContraBots}
-                onChange={(event) => setJogadoresContraBots(Number(event.target.value))}
-              >
-                {[2, 3, 4, 5, 6, 7, 8, 9, 10].map((total) => (
-                  <option key={total} value={total}>
-                    {total}
-                  </option>
-                ))}
-              </select>
+          <div className="menu-entrar">
+            <label className="sr-only" htmlFor="codigo-sala">
+              Código da sala
             </label>
+            <input
+              id="codigo-sala"
+              name="codigo-sala"
+              autoComplete="off"
+              spellCheck={false}
+              value={salaInput}
+              onChange={(event) => setSalaInput(event.target.value.toUpperCase())}
+              maxLength={6}
+              placeholder="Código: MOHPSR"
+              disabled={desabilitado}
+              aria-describedby={errorMessage ? errorId : undefined}
+              aria-invalid={Boolean(errorMessage)}
+            />
             <button
-              type="button"
-              className="button button-primary"
-              onClick={() => {
-                const nome = nomeInput.trim();
-                if (nome) salvarNome(nome);
-                onJogarContraBots(nome || 'Você', jogadoresContraBots);
-              }}
+              type="submit"
+              className="button button-secondary"
+              disabled={desabilitado}
+              aria-label="Entrar em sala"
             >
-              Começar contra bots
+              Entrar
             </button>
           </div>
         </section>
+      </form>
+      {errorMessage && (
+        <p id={errorId} className="error-message" aria-live="polite">
+          {errorMessage}
+        </p>
       )}
       {temNome && (
-        <section className="public-rooms" aria-labelledby="public-rooms-title">
+        <details
+          className="public-rooms"
+          open={salasVisiveis}
+          onToggle={(event) => setSalasAbertas(event.currentTarget.open)}
+        >
+          <summary>
+            <h3 id="public-rooms-title">Salas públicas ({salasPublicas.length})</h3>
+          </summary>
           <div className="public-rooms-heading">
-            <h3 id="public-rooms-title">Salas públicas</h3>
             <button type="button" className="button button-secondary" onClick={onListarSalas}>
               Atualizar
             </button>
@@ -243,14 +305,8 @@ export const LobbyOnline: React.FC<LobbyOnlineProps> = ({
               ))}
             </ul>
           )}
-        </section>
+        </details>
       )}
-      {errorMessage && (
-        <p id={errorId} className="error-message" aria-live="polite">
-          {errorMessage}
-        </p>
-      )}
-      <p className="lobby-hint">A conexão começa ao criar ou entrar em uma sala.</p>
       {criacaoAberta && (
         <div className="modal-overlay" role="presentation">
           <section

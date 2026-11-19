@@ -49,7 +49,7 @@ async function novaPagina(browser: Browser, opcoes: BrowserContextOptions = {}):
 
 async function criarSala(page: Page, nome: string): Promise<string> {
   await page.goto('/');
-  await page.getByLabel('Seu nome').fill(nome);
+  await page.getByLabel('Seu apelido').fill(nome);
   await page.getByRole('button', { name: 'Criar sala' }).click();
   const dialog = page.getByRole('dialog', { name: 'Criar sala' });
   await dialog.getByRole('button', { name: 'Criar sala privada' }).click();
@@ -59,7 +59,7 @@ async function criarSala(page: Page, nome: string): Promise<string> {
 
 async function entrarNaSala(page: Page, nome: string, salaId: string): Promise<void> {
   await page.goto('/');
-  await page.getByLabel('Seu nome').fill(nome);
+  await page.getByLabel('Seu apelido').fill(nome);
   await page.getByLabel('Código da sala').fill(salaId);
   await page.getByRole('button', { name: 'Entrar em sala' }).click();
   await expect(page.locator('.room-code')).toHaveText(salaId);
@@ -133,7 +133,7 @@ test('sair da partida ativa pede confirmação antes de abandonar', async ({ bro
 
   await host.getByRole('button', { name: 'Sair da partida' }).click();
   await confirmacao.getByRole('button', { name: 'Sair' }).click();
-  await expect(host.getByRole('heading', { name: 'Entre na mesa' })).toBeVisible();
+  await expect(host.getByRole('heading', { name: 'Como você quer jogar?' })).toBeVisible();
 });
 
 test('chat online entrega mensagem com o nome humano do remetente e preserva o histórico no Menu', async ({
@@ -197,9 +197,10 @@ test('falas rápidas enviam pelo chat, fecham a bandeja e aparecem como balão n
 test('mesa local distribui dez jogadores em ordem de turno sem overflow', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
-  await page.getByLabel('Seu nome').fill('Ana');
-  await page.getByLabel('Jogadores na mesa').selectOption('10');
-  await page.getByRole('button', { name: 'Começar contra bots' }).click();
+  await page.getByLabel('Seu apelido').fill('Ana');
+  await page.getByRole('button', { name: 'Mais jogadores, de 7 a 10' }).click();
+  await page.getByLabel('10', { exact: true }).check();
+  await page.getByRole('button', { name: 'Jogar agora' }).click();
 
   await expect(page.locator('.mesa3d canvas')).toBeVisible();
   const itens = jogadores(page).getByRole('listitem');
@@ -309,7 +310,7 @@ test('layout online: menu da partida prende o foco e a mesa não tem overflow ne
 
 test('entrada em sala inexistente mostra estado de sala não encontrada', async ({ page }) => {
   await page.goto('/');
-  await page.getByLabel('Seu nome').fill('Jogador inválido');
+  await page.getByLabel('Seu apelido').fill('Jogador inválido');
   await page.getByLabel('Código da sala').fill('NAOEXI');
   await page.getByRole('button', { name: 'Entrar em sala' }).click();
 
@@ -324,7 +325,7 @@ test('lobby lista a projeção pública compartilhada e permite entrar pela sala
   const guest = await novaPagina(browser);
 
   await host.goto('/');
-  await host.getByLabel('Seu nome').fill('Host público');
+  await host.getByLabel('Seu apelido').fill('Host público');
   await host.getByRole('button', { name: 'Criar sala' }).click();
   const dialog = host.getByRole('dialog', { name: 'Criar sala' });
   await dialog.getByLabel('Nome da sala').fill('Mesa pública E2E');
@@ -333,7 +334,7 @@ test('lobby lista a projeção pública compartilhada e permite entrar pela sala
   await expect(host.getByText('Aguardando o grupo')).toBeVisible();
 
   await guest.goto('/');
-  await guest.getByLabel('Seu nome').fill('Convidado público');
+  await guest.getByLabel('Seu apelido').fill('Convidado público');
   const room = guest.locator('.public-room-card', { hasText: 'Mesa pública E2E' });
   await expect(room).toContainText('Criada por Host público');
   await expect(room).toContainText('1/10 jogadores');
@@ -351,7 +352,7 @@ test('lobby pede nome antes de exibir salas públicas e cria uma sala privada no
   await page.getByRole('button', { name: 'Criar sala' }).click();
   await expect(page.getByText('Informe seu nome antes de continuar.')).toBeVisible();
 
-  await page.getByLabel('Seu nome').fill('Criador E2E');
+  await page.getByLabel('Seu apelido').fill('Criador E2E');
   await expect(page.getByRole('heading', { name: 'Salas públicas' })).toBeVisible();
   await page.getByRole('button', { name: 'Criar sala' }).click();
 
@@ -371,7 +372,7 @@ test('cliente usa o mesmo host da aplicação para o transporte Socket.IO', asyn
   });
 
   await page.goto('/');
-  await page.getByLabel('Seu nome').fill('Proxy E2E');
+  await page.getByLabel('Seu apelido').fill('Proxy E2E');
   await page.getByRole('button', { name: 'Criar sala' }).click();
   const dialog = page.getByRole('dialog', { name: 'Criar sala' });
   await dialog.getByRole('button', { name: 'Criar sala privada' }).click();

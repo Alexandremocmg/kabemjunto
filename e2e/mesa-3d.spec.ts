@@ -488,12 +488,12 @@ test.describe('Menu e dicas', () => {
       window.localStorage.removeItem('kabemjunto.mesa');
     }, TODAS_AS_DICAS);
     await page.goto('/');
-    await expect(page.getByRole('heading', { name: 'Entre na mesa' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Como você quer jogar?' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Jogar contra bots' })).toBeVisible();
 
-    await page.getByLabel('Seu nome').fill('Duda');
-    await page.getByLabel('Jogadores na mesa').selectOption('3');
-    await page.getByRole('button', { name: 'Começar contra bots' }).click();
+    await page.getByLabel('Seu apelido').fill('Duda');
+    await page.getByLabel('3', { exact: true }).check();
+    await page.getByRole('button', { name: 'Jogar agora' }).click();
 
     await expect(page.locator('.mesa3d canvas')).toBeVisible();
     const jogadores = page.getByRole('list', { name: 'Jogadores' }).getByRole('listitem');
@@ -506,7 +506,7 @@ test.describe('Menu e dicas', () => {
       .getByRole('dialog', { name: 'Sair da partida?' })
       .getByRole('button', { name: 'Sair' })
       .click();
-    await expect(page.getByRole('heading', { name: 'Entre na mesa' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Como você quer jogar?' })).toBeVisible();
   });
 
   test('na primeira partida, a dica certa aparece uma vez e não volta depois de "Entendi"', async ({

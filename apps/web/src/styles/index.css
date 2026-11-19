@@ -833,47 +833,235 @@ h5 {
   color: #c9d7e5;
 }
 
-/* Menu inicial — segundo caminho: partida contra bots, sem esperar ninguém. */
-.bots-card {
-  display: grid;
+/* Menu inicial: logo, leque de cartas e duas escolhas grandes (bots e amigos). */
+.app-header-menu {
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.menu-logo {
+  display: block;
+  width: min(210px, 70%);
+  height: auto;
+  margin: 0 auto;
+  /* o arquivo tem fundo preto: "screen" faz o preto sumir sobre a mesa escura */
+  mix-blend-mode: screen;
+}
+
+.menu-leque {
+  position: relative;
+  width: min(260px, 100%);
+  aspect-ratio: 300 / 104;
+  margin: -2px auto 16px;
+  pointer-events: none;
+}
+
+.menu-leque-carta {
+  position: absolute;
+  bottom: 0;
+  width: 22%;
+  height: auto;
+  border-radius: 7px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.55);
+  transform-origin: bottom center;
+}
+
+.menu-leque-troca-mao {
+  left: 0;
+  transform: rotate(-24deg);
+}
+
+.menu-leque-coringa {
+  left: 16.7%;
+  transform: rotate(-12deg);
+}
+
+.menu-leque-mais-quatro {
+  left: 39%;
+  z-index: 1;
+}
+
+.menu-leque-gira-mao {
+  left: 61.3%;
+  transform: rotate(12deg);
+}
+
+.menu-leque-zero-mais {
+  left: 78%;
+  transform: rotate(24deg);
+}
+
+.menu-inicial .lobby-form {
+  margin-top: 0;
   gap: 12px;
-  margin-top: 24px;
-  padding: 16px;
-  border: 1px solid rgba(248, 197, 107, 0.28);
-  border-radius: 14px;
-  background: rgba(22, 27, 34, 0.75);
 }
 
-.bots-card h3 {
-  margin: 0 0 4px;
+.menu-escolha {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid #2c4a3a;
+  border-radius: 15px;
+  background: #102a1e;
 }
 
-.bots-card p {
+.menu-escolha-bots {
+  border: 2px solid #f5a30f;
+}
+
+.menu-escolha h3 {
   margin: 0;
+  font-size: 17px;
 }
 
-.bots-card-acoes {
+.menu-escolha p {
+  margin: 0;
+  font-size: 13px;
+}
+
+.menu-escolha .button {
+  width: 100%;
+  min-height: 46px;
+  font-size: 15px;
+}
+
+.menu-etiqueta {
+  justify-self: start;
+  padding: 3px 9px;
+  border-radius: 7px;
+  color: #f5a30f;
+  background: #3b2a05;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.menu-ou {
+  margin: -2px 0;
+  color: #9db3a7;
+  font-size: 13px;
+  text-align: center;
+}
+
+.menu-jogadores {
+  min-width: 0;
+  margin: 4px 0;
+  padding: 0;
+  border: 0;
+}
+
+.menu-jogadores legend {
+  margin-bottom: 8px;
+  padding: 0;
+  color: #9db3a7;
+  font-size: 13px;
+}
+
+.menu-fichas {
   display: flex;
   flex-wrap: wrap;
-  align-items: end;
-  gap: 10px;
+  gap: 8px;
 }
 
-.bots-card-acoes label {
-  flex: 1 1 120px;
+.menu-ficha {
+  position: relative;
+  display: block;
+  font-size: 15px;
+  font-weight: 400;
 }
 
-.bots-card-acoes select {
+.menu-ficha input {
+  position: absolute;
+  inset: 0;
   width: 100%;
-  padding: 11px 12px;
-  border: 1px solid #475569;
-  border-radius: 8px;
-  color: #f8fafc;
-  background: #111827;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: pointer;
 }
 
-.bots-card-acoes .button {
-  flex: 1 1 160px;
+.menu-ficha span,
+.menu-ficha-mais {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid #2c4a3a;
+  border-radius: 50%;
+  color: #f3f1e8;
+  background: #0a1a13;
+  font-size: 15px;
+}
+
+.menu-ficha input:checked + span {
+  color: #2b1a00;
+  background: #f5a30f;
+  border-color: #f5a30f;
+  font-weight: 700;
+}
+
+.menu-ficha input:focus-visible + span {
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.4);
+}
+
+.menu-ficha-mais {
+  color: #f5a30f;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.menu-entrar {
+  display: flex;
+  gap: 9px;
+}
+
+.menu-entrar input {
+  flex: 1;
+  min-width: 0;
+}
+
+.menu-entrar .button {
+  flex: none;
+  width: 90px;
+  min-height: 44px;
+  padding: 0;
+}
+
+.menu-inicial .public-rooms {
+  display: block;
+  margin-top: 14px;
+}
+
+.menu-inicial .public-rooms summary {
+  list-style: none;
+  text-align: center;
+  cursor: pointer;
+}
+
+.menu-inicial .public-rooms summary::-webkit-details-marker {
+  display: none;
+}
+
+.menu-inicial .public-rooms summary h3 {
+  display: inline;
+  margin: 0;
+  color: #9db3a7;
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.menu-inicial .public-rooms summary::after {
+  content: ' ▾';
+  color: #9db3a7;
+}
+
+.menu-inicial .public-rooms[open] summary::after {
+  content: ' ▴';
+}
+
+.menu-inicial .public-rooms > :not(summary) {
+  margin-top: 12px;
 }
 
 .menu-perfil {

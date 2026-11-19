@@ -287,26 +287,33 @@ function OnlineApp({
   return (
     <>
       {!partidaIniciada && (
-        <header className="app-header">
-          <img
-            src="/assets/cards/kabemjunto/brand-kabemjunto.webp"
-            alt="Kabemjunto"
-            className="header-logo"
-            width={160}
-            height={46}
-          />
-          <div className={`connection connection-${online.state.status}`}>
-            <WifiStatus status={wifiOn ? 'online' : 'offline'} size={20} />
-            <span>
-              {online.state.status === 'reconnecting'
-                ? 'Reconectando...'
-                : online.state.status === 'connecting'
-                  ? 'Conectando...'
-                  : online.state.status === 'connected'
-                    ? 'Online'
-                    : 'Offline'}
-            </span>
-          </div>
+        <header className={`app-header${entrouNaSala ? '' : ' app-header-menu'}`}>
+          {/* No menu inicial a logo grande fica no próprio menu. */}
+          {entrouNaSala && (
+            <img
+              src="/assets/cards/kabemjunto/brand-kabemjunto.webp"
+              alt="Kabemjunto"
+              className="header-logo"
+              width={160}
+              height={46}
+            />
+          )}
+          {/* No menu, antes de criar ou entrar numa sala, ninguém está conectado de propósito:
+              mostrar "Offline" ali sugeriria um erro. */}
+          {(entrouNaSala || online.state.status !== 'idle') && (
+            <div className={`connection connection-${online.state.status}`}>
+              <WifiStatus status={wifiOn ? 'online' : 'offline'} size={20} />
+              <span>
+                {online.state.status === 'reconnecting'
+                  ? 'Reconectando...'
+                  : online.state.status === 'connecting'
+                    ? 'Conectando...'
+                    : online.state.status === 'connected'
+                      ? 'Online'
+                      : 'Offline'}
+              </span>
+            </div>
+          )}
           <BotaoPerfil />
         </header>
       )}
