@@ -17,6 +17,7 @@ Este arquivo registra as Decisões de Arquitetura (ADRs) do projeto Kabemjunto.
 - [ADR-011: Persistência Atômica em Instância Única e Container Same-Origin](#adr-011-persistência-atômica-em-instância-única-e-container-same-origin)
 - [ADR-012: Remover a API de State Machine sem Consumidor](#adr-012-remover-a-api-de-state-machine-sem-consumidor)
 - [ADR-013: Carta "+2 Para Todos" (MAIS_DOIS_TODOS) e Expansão do Baralho para 109](#adr-013-carta-2-para-todos-mais_dois_todos-e-expansão-do-baralho-para-109)
+- [ADR-014: Mesa 3D com Three.js, Camada Acessível em DOM e Fallback 2D](#adr-014-mesa-3d-com-threejs-camada-acessível-em-dom-e-fallback-2d)
 
 ---
 
@@ -458,3 +459,88 @@ Este arquivo registra as Decisões de Arquitetura (ADRs) do projeto Kabemjunto.
     como efeito colateral.
   - ❌ UI/arte ficam pendentes; a carta é jogável (motor completo, testado),
     mas sem apresentação visual própria até um follow-up.
+
+---
+
+### ADR-014: Mesa 3D com Three.js, Camada Acessível em DOM e Fallback 2D
+
+- **Status:** Proposta · Fases 1 (local), 2 (online, menu, dicas) e 3 (limpeza) implementadas · 2026-11-17 · @User
+- **Contexto:** O produto pediu uma mesa 3D mais fluida e simples, sem mudar
+  regras, protocolo nem servidor. A mesa 2D atual exigia toque duplo para
+  jogar e tinha dois componentes de mesa paralelos (`AppSingleplayer` e
+  `MesaOnline`).
+- **Decisões:**
+  1. **Three.js puro** (`three@0.186.1`), sem react-three-fiber. As cartas são
+     objetos que voam entre mão, descarte e assentos; isso é mais simples e
+     barato de animar de forma imperativa (`apps/web/src/mesa/cena/CenaMesa.ts`)
+     do que por reconciliação declarativa. O React só entrega um instantâneo
+     (estado público + mão) e recebe intenções.
+  2. **Um contrato para os dois modos** (`ControladorMesa`): a mesa só vê o
+     estado público e a própria mão, e só envia intenções. No local, o motor
+     puro roda no navegador com bots no lugar do socket (`useMesaLocal`); no
+     online, um adaptador fino sobre `useGameSocket` (`useMesaOnline`, ligado
+     na Fase 2).
+  3. **Arrastar até o centro joga.** Tocar seleciona (grupo de descarte
+     múltiplo); tocar de novo na carta selecionada também joga, para quem não
+     consegue arrastar. Cor em anel sobre o descarte; alvo da Troca Mão
+     tocando no assento.
+  4. **Camada acessível em DOM**: cada carta tem um botão real alinhado à sua
+     projeção na tela (invisível ao ponteiro, visível no foco do teclado),
+     com `aria-live` para os anúncios da partida. Enter joga, Espaço
+     seleciona, setas trocam de carta. `prefers-reduced-motion` desliga voos,
+     pulsos e giros.
+  5. **Mesa 2D simples na própria mesa nova** (Fase 3): sem WebGL, com perda
+     de contexto ou com `?mesa=2d`, a `Mesa3D` troca o canvas por uma mesa em
+     DOM (a camada acessível fica visível, com as cartas desenhadas pelo
+     `CartaView`) e avisa quando foi por falta de WebGL. Mesmas regras de
+     interação, sem baixar o Three.js. Com isso as mesas antigas
+     (`AppSingleplayer`, `MesaOnline` e componentes que só elas usavam) e o
+     CSS delas saíram.
+  6. **Orçamento de performance**: geometria de carta única com 2 grupos de
+     material (frente com borda, verso); adversários em um `InstancedMesh`
+     com materiais próprios (compartilhar material entre malha instanciada e
+     comum força troca de shader a cada desenho); faces em cache por chave e
+     pré-geradas em tempo ocioso; descarte limitado a 4 cartas visíveis;
+     redesenho só quando algo muda; pixel ratio até 2, reduzido sozinho se os
+     quadros ficam lentos; Three.js só no pedaço carregado sob demanda.
+  7. **Menu com dois caminhos** (Fase 2, redesenhado depois do primeiro teste
+     de uso): a tela inicial mostra a logo, um leque de cartas e duas escolhas
+     do mesmo peso. "Jogar contra bots" vem primeiro, em destaque, com o
+     número de jogadores em fichas (2 a 6; 7 a 10 atrás do botão "7+") e o botão
+     "Jogar agora"; "Jogar com amigos" traz "Criar sala" e o código com
+     "Entrar". O apelido é um campo só, no topo, e é opcional contra bots.
+     Salas públicas ficam recolhidas. O primeiro desenho escondia o card de
+     bots abaixo de "Criar sala", e quem abria o jogo achava que só havia
+     online. O alternador Local/Online saiu. "Personalizar perfil" fica no
+     cabeçalho (o tema escolhido vale para a mesa 3D). No celular o campo de
+     apelido não recebe foco sozinho (o teclado cobriria as escolhas) e o
+     aviso "Offline" não aparece enquanto ninguém tentou conectar.
+  8. **Online na mesma mesa** (Fase 2): `MesaOnline3D` liga `useMesaOnline` à
+     `Mesa3D`. Falas rápidas no HUD (com aviso de +2 durante o silêncio),
+     balões sobre os assentos, menu ☰ com sala, jogadores e chat, e painel de
+     "Partida encerrada" quando o adversário abandona.
+  9. **Dicas contextuais no lugar do tutorial** (Fase 2): cada regra
+     (arrastar, comprar, ataque, silêncio, grupo de cartas, 0+) é explicada
+     uma vez, no momento em que importa; "Entendi" não mostra de novo e "Não
+     mostrar dicas" desliga todas (`kabemjunto.dicas-vistas`).
+  10. **Saída confirmada pelo servidor** (Fase 2, correção): o cliente enviava
+      `client:abandonar:partida` e desconectava no mesmo instante; o Socket.IO
+      do servidor despacha eventos no tick seguinte e descarta os que chegam
+      junto com a desconexão, então o abandono às vezes se perdia e o
+      adversário ficava numa partida sem fim (valia também para a mesa 2D).
+      Agora o cliente só desconecta depois da resposta do servidor (máx. 1,5 s).
+- **Medição (Fase 1, build de produção, 375×812 @2x, CPU 4× mais lenta,
+  6 jogadores, Intel HD 630):** mediana de 16,7 ms por quadro (60 fps),
+  média entre 49 e 56 fps, p95 de 33 ms, picos de 150 a 200 ms nos eventos
+  de jogada; 33 a 42 chamadas de desenho. Depois da Fase 3, o bundle inicial
+  ficou em 78 kB gzip (antes 101 kB) e o CSS inicial em 4,6 kB (antes 12 kB);
+  a mesa sem Three.js tem 16 kB e o Three.js, 144 kB, só na 3D. Na Fase 1, o acréscimo ao bundle inicial do menu tinha sido de +1,1 kB gzip.
+- **Consequências:**
+  - ✅ Jogar vira um gesto só; o estado da mesa é sempre visível (vez, cor,
+    sentido, ataque, Corta-Frente com anel de contagem).
+  - ✅ Motor e servidor intocados.
+  - ❌ A meta de 60 fps de média no perfil acima ainda não foi atingida: os
+    picos nos eventos vêm da renderização do React e da criação de material
+    por carta. Próximo passo: atlas de faces (um material para todas).
+  - ❌ Hot-seat (vários humanos no mesmo aparelho) saiu do menu; só a mesa
+    2D (fallback) ainda o oferece, pela tela de fim de partida.

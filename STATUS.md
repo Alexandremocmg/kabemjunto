@@ -4,8 +4,20 @@
 
 **Time:** Mavis (lead) · Codex (eng. pleno) · Antigravity (eng. júnior)
 **Fonte da verdade:** [`GDD-Kabemjunto.md`](./GDD-Kabemjunto.md) v1.0 + [`PLANO-EQUIPE-3DEVS.md`](./PLANO-EQUIPE-3DEVS.md) v1.0
-**Branch:** `main`
+**Branch:** `main` (mesa 3D em `feat/mesa-3d`)
 **Sprint atual:** Sprint 6 — **EM ANDAMENTO** — persistência, produção e operação v0.5.0
+
+### 2026-11-17 · Mesa 3D (branch `feat/mesa-3d`, ADR-014) — Fases 1 a 3
+
+- ✅ **Mesa 3D** em Three.js para Local e Online, num componente só (`apps/web/src/mesa/`): arrastar a carta até o centro joga; anel de cores; alvo da Troca Mão no assento; anel de contagem do Corta-Frente; camada acessível em DOM (teclado e leitor de tela). Three.js só é baixado quando a 3D é usada.
+- ✅ **Mesa 2D simples** como alternativa: sem WebGL (ou com `?mesa=2d`), a mesma mesa aparece em DOM, com as mesmas regras de interação. As mesas antigas (`AppSingleplayer`, `MesaOnline` e componentes ligados) e ~50 kB de CSS morto saíram.
+- ✅ **Menu com dois caminhos** (logo, leque de cartas, "Jogar contra bots" em destaque e "Jogar com amigos"), **dicas contextuais** no lugar do tutorial, falas rápidas com balão no assento e painel de partida encerrada por abandono.
+- 🐛 **Abandono perdido** (valia também para a mesa antiga): o cliente desconectava antes de o servidor processar `client:abandonar:partida`, e o adversário ficava numa partida sem fim. Agora a desconexão espera a resposta do servidor.
+- 🐛 **Troca Mão na mesa antiga** era enviada sem cor (o motor exige cor para neutras); a mesa nova pede alvo e cor, com E2E.
+- 🐛 No menu, sem servidor, o aviso "Conexão perdida" cobria a tela e bloqueava até o jogo contra bots; agora só aparece dentro de uma sala.
+- ✅ `npm run validate` (437 testes) e 44 E2E verdes. Motor e servidor sem diff.
+- ⚠️ Performance ainda abaixo da meta: 49–56 fps de média (mediana 60) em celular simulado com CPU 4x mais lenta e 6 jogadores; próximo passo é atlas de faces (ADR-014).
+- ⚠️ Hot-seat (vários humanos no mesmo aparelho) não existe mais no menu.
 
 ### 2026-08-01 · Corta-Frente V1 (interceptação fora da vez) — completo Local + Online
 
