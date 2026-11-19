@@ -1,11 +1,11 @@
 # 🎴 GDD — KABEMJUNTO
 
 **Documento de Game Design para o time de desenvolvimento**
-**Versão:** 1.0 · **Data:** 2026-07-26 · **Status:** Draft para Dev
+**Versão:** 1.1 · **Revisão documental:** 2026-11-18 · **Status:** regras aprovadas, reconciliadas com `54c4601`
 **Autor:** Mavis Team · **Idioma:** PT-BR
 **Público-alvo:** Engenharia, Game Design, Produto, QA
 
-> **Como ler este documento:** Este é o **arquivo-mestre** do GDD, com índice clicável, resumo executivo, glossário consolidado e regras canônicas. As seções detalhadas vivem em `./secoes/01-...md` a `./secoes/04-...md` e somam **~18.500 palavras**. Cada link deste índice leva ao documento de referência. **Total do GDD:** ~20.000 palavras.
+> **Como ler:** este é o GDD mestre. A seção 7 concentra as regras vigentes. As quatro seções detalhadas na raiz preservam o design original; seus pseudocódigos, estimativas e propostas devem ser confrontados com este resumo e com o motor atual. Consulte o [README](./README.md) para operação e o [relatório de revisão](./docs/REVISAO-2026-11-18.md) para evidências e pendências.
 
 ---
 
@@ -14,40 +14,40 @@
 ### Documento principal (consolidado)
 
 - [0. Resumo Executivo](#0-resumo-executivo)
-- [1. Pesquisa de Mercado e Referências](./secoes/01-pesquisa-mercado.md)
-  - [1.1 Mercado global de jogos de cartas (2024-2026)](./secoes/01-pesquisa-mercado.md#1-visão-geral-do-mercado-de-jogos-de-cartas-20242026)
-  - [1.2 Análise de 5 jogos similares](./secoes/01-pesquisa-mercado.md#2-análise-de-jogos-similares)
-  - [1.3 Público-alvo e personas](./secoes/01-pesquisa-mercado.md#3-público-alvo-do-kabemjunto)
-  - [1.4 SWOT](./secoes/01-pesquisa-mercado.md#4-análise-swot-do-kabemjunto)
-  - [1.5 Posicionamento](./secoes/01-pesquisa-mercado.md#5-posicionamento-sugerido)
-  - [1.6 Referências bibliográficas](./secoes/01-pesquisa-mercado.md#6-referências)
-- [2. Game Design Detalhado](./secoes/02-game-design.md)
-  - [2.1 Overview e pilares](./secoes/02-game-design.md#1-overview-do-jogo)
-  - [2.2 Composição do baralho (108 cartas)](./secoes/02-game-design.md#3-composição-precisa-do-baralho)
-  - [2.3 Setup](./secoes/02-game-design.md#4-setup-passo-a-passo)
-  - [2.4 State machine de turno](./secoes/02-game-design.md#5-loop-de-turno-state-machine)
-  - [2.5 Validação de jogada](./secoes/02-game-design.md#6-tabela-de-validação-de-jogada)
-  - [2.6 Resolução de cartas especiais](./secoes/02-game-design.md#7-resolução-de-ações-especiais)
-  - [2.7 Regra do 7 / Silêncio](./secoes/02-game-design.md#8-regra-do-7--silêncio-detalhamento)
-  - [2.8 Vitória e edge cases](./secoes/02-game-design.md#9-condições-de-vitória-e-fim-de-jogo)
-  - [2.9 Variantes opcionais](./secoes/02-game-design.md#11-variantes-opcionais)
-- [3. Produção, Arte, UX e Implementação](./secoes/03-producao.md)
-  - [3.1 Balanceamento matemático](./secoes/03-producao.md#1-balanceamento-matemático)
-  - [3.2 Direção de arte](./secoes/03-producao.md#2-direção-de-arte)
-  - [3.3 Experiência do usuário (UX)](./secoes/03-producao.md#3-experiência-do-usuário-ux)
-  - [3.4 Arquitetura técnica](./secoes/03-producao.md#4-arquitetura-técnica-sugerida)
-  - [3.5 Plano de monetização](./secoes/03-producao.md#5-plano-de-monetização)
-  - [3.6 Roadmap de desenvolvimento](./secoes/03-producao.md#6-roadmap-de-desenvolvimento)
-  - [3.7 KPIs e métricas de sucesso](./secoes/03-producao.md#7-métricas-de-sucesso-kpis)
-- [4. Pitch, Anexos e Diagramas](./secoes/04-pitch-anexos.md)
-  - [4.1 Pitch executivo (1 página)](./secoes/04-pitch-anexos.md#1-pitch-executivo-1-página)
-  - [4.2 Manual rápido (cola de 1 página)](./secoes/04-pitch-anexos.md#2-manual-rápido-de-uma-página)
-  - [4.3 Glossário](./secoes/04-pitch-anexos.md#3-glossário)
-  - [4.4 Diagrama de fluxo de turno](./secoes/04-pitch-anexos.md#4-diagrama-de-fluxo-de-turno)
-  - [4.5 Árvore de decisão "posso jogar?"](./secoes/04-pitch-anexos.md#5-árvore-de-decisão-posso-jogar-esta-carta)
-  - [4.6 Tabela de cartas especiais](./secoes/04-pitch-anexos.md#6-tabela-de-cartas-especiais--referência-rápida)
-  - [4.7 Lista de assets a produzir](./secoes/04-pitch-anexos.md#7-lista-de-assets-a-produzir)
-  - [4.8 Matriz de riscos](./secoes/04-pitch-anexos.md#8-riscos-do-projeto-matriz)
+- [1. Pesquisa de Mercado e Referências](./01-pesquisa-mercado.md)
+  - [1.1 Mercado global de jogos de cartas (2024-2026)](./01-pesquisa-mercado.md#1-visão-geral-do-mercado-de-jogos-de-cartas-20242026)
+  - [1.2 Análise de 5 jogos similares](./01-pesquisa-mercado.md#2-análise-de-5-jogos-similares)
+  - [1.3 Público-alvo e personas](./01-pesquisa-mercado.md#3-público-alvo-do-kabemjunto)
+  - [1.4 SWOT](./01-pesquisa-mercado.md#4-análise-swot-do-kabemjunto)
+  - [1.5 Posicionamento](./01-pesquisa-mercado.md#5-posicionamento-sugerido)
+  - [1.6 Referências bibliográficas](./01-pesquisa-mercado.md#6-referências)
+- [2. Game Design Detalhado](./02-game-design.md)
+  - [2.1 Overview e pilares](./02-game-design.md#1-overview-do-jogo)
+  - [2.2 Composição histórica do baralho](./02-game-design.md#3-composição-precisa-do-baralho)
+  - [2.3 Setup](./02-game-design.md#4-setup-passo-a-passo)
+  - [2.4 State machine de turno](./02-game-design.md#5-loop-de-turno-state-machine)
+  - [2.5 Validação de jogada](./02-game-design.md#6-tabela-de-validação-de-jogada)
+  - [2.6 Resolução de cartas especiais](./02-game-design.md#7-resolução-de-ações-especiais)
+  - [2.7 Regra do 7 / Silêncio](./02-game-design.md#8-regra-do-7--silêncio-detalhamento)
+  - [2.8 Vitória e edge cases](./02-game-design.md#9-condições-de-vitória-e-fim-de-jogo)
+  - [2.9 Variantes opcionais](./02-game-design.md#11-variantes-opcionais)
+- [3. Produção, Arte, UX e Implementação](./03-producao.md)
+  - [3.1 Balanceamento matemático](./03-producao.md#1-balanceamento-matemático)
+  - [3.2 Direção de arte](./03-producao.md#2-direção-de-arte)
+  - [3.3 Experiência do usuário (UX)](./03-producao.md#3-experiência-do-usuário-ux)
+  - [3.4 Arquitetura técnica](./03-producao.md#4-arquitetura-técnica-sugerida)
+  - [3.5 Plano de monetização](./03-producao.md#5-plano-de-monetização)
+  - [3.6 Roadmap de desenvolvimento](./03-producao.md#6-roadmap-de-desenvolvimento)
+  - [3.7 KPIs e métricas de sucesso](./03-producao.md#7-métricas-de-sucesso-kpis)
+- [4. Pitch, Anexos e Diagramas](./04-pitch-anexos.md)
+  - [4.1 Pitch executivo (1 página)](./04-pitch-anexos.md#1-pitch-executivo-1-página)
+  - [4.2 Manual rápido (cola de 1 página)](./04-pitch-anexos.md#2-manual-rápido--cola-de-uma-página)
+  - [4.3 Glossário](./04-pitch-anexos.md#3-glossário--15-termos)
+  - [4.4 Diagrama de fluxo de turno](./04-pitch-anexos.md#4-diagrama-de-fluxo-de-turno-state-machine)
+  - [4.5 Árvore de decisão "posso jogar?"](./04-pitch-anexos.md#5-árvore-de-decisão-posso-jogar-esta-carta)
+  - [4.6 Tabela de cartas especiais](./04-pitch-anexos.md#6-tabela-de-cartas-especiais--referência-rápida)
+  - [4.7 Lista de assets a produzir](./04-pitch-anexos.md#7-lista-de-assets-a-produzir-art--design)
+  - [4.8 Matriz de riscos](./04-pitch-anexos.md#8-riscos-do-projeto-matriz)
 
 ### Seções de referência
 
@@ -74,6 +74,8 @@
 | Plataforma-alvo        | Web (PWA) + Mobile (iOS/Android) + Desktop                                                                            |
 | Modelo de negócio      | F2P com baralhos temáticos pagos + passe de temporada                                                                 |
 | Time de partida        | < 2-3 meses para MVP                                                                                                  |
+
+> Os valores de duração, setup, explicação e tamanho de equipe são metas de design, não medições desta revisão. PWA offline, bridge nativa, monetização e passe são propostas: não estão entregues no runtime atual.
 
 ### Pilares de design (resumo)
 
@@ -134,10 +136,11 @@ Termos canônicos usados em todo o GDD. Cada termo mantém o mesmo significado e
 
 ## 6. Changelog do GDD
 
-| Versão | Data       | Status         | Notas                                                                                                                                     |
-| ------ | ---------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| 1.0    | 2026-07-26 | Draft para Dev | Versão inicial consolidada a partir das 4 seções de pesquisa, design, produção e pitch. Aprovado para repasse ao time de desenvolvimento. |
-| 1.1    | 2026-08-01 | Aprovado       | ADR-013: baralho expandido de 108 para 109 cartas com a nova carta neutra "+2 Para Todos" (ataque global/AoE, `MAIS_DOIS_TODOS`).         |
+| Versão                   | Data       | Status         | Notas                                                                                                                                     |
+| ------------------------ | ---------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.0                      | 2026-07-26 | Draft para Dev | Versão inicial consolidada a partir das 4 seções de pesquisa, design, produção e pitch. Aprovado para repasse ao time de desenvolvimento. |
+| 1.1                      | 2026-08-01 | Aprovado       | ADR-013: baralho expandido de 108 para 109 cartas com a nova carta neutra "+2 Para Todos" (ataque global/AoE, `MAIS_DOIS_TODOS`).         |
+| 1.1 (revisão documental) | 2026-11-18 | Reconciliado   | Links, escopo histórico, composição, compra, abertura e Corta-Frente alinhados à revisão `54c4601`; sem nova regra.                       |
 
 ---
 
@@ -146,6 +149,8 @@ Termos canônicos usados em todo o GDD. Cada termo mantém o mesmo significado e
 > Esta é a fonte canônica das regras, copiada do manual oficial. As seções 02 (game design) e 04 (anexos) expandem cada regra com pseudocódigo, casos extremos e referências para implementação.
 
 ### Composição do baralho
+
+Cada cor contém 1 zero, 2 cópias de cada número de 1 a 9 (incluindo o 7 com Silêncio), 2 Skip, 2 Reverse e 2 +2: 25 por cor, total de 100 coloridas. As 9 neutras completam 109. `gerarBaralho108`/`BARALHO_COMPLETO_108` mantêm nomes históricos; a fixture `deck108.json` preserva o catálogo antigo de 108.
 
 - **Cartas numeradas 0-9** em 4 cores (Laranja, Azul, Verde, Preto)
 - **Ações coloridas:** Skip, Reverse, +2 (em 4 cores)
@@ -159,7 +164,7 @@ Termos canônicos usados em todo o GDD. Cada termo mantém o mesmo significado e
 3. Monte de Compra virado pra baixo no centro
 4. Vira a primeira carta do Monte de Compra para o Monte de Descarte
    - Se for neutra, volta pro meio do baralho e vira outra
-5. Jogador à esquerda do distribuidor começa
+5. O motor usa a ordem de jogadores recebida, iniciando no primeiro, salvo o efeito da carta inicial: Skip pula esse jogador; Reverse com 3 ou mais inverte e começa no último; com 2, mantém o primeiro. Um +2 inicial exige defesa ou pagamento pelo primeiro jogador
 
 ### Fluxo de turno
 
@@ -169,8 +174,8 @@ Termos canônicos usados em todo o GDD. Cada termo mantém o mesmo significado e
   - a última carta define a nova cor ativa;
   - os efeitos são agregados: `+2` soma, Skip pula N jogadores e Reverse inverte apenas se a quantidade for ímpar;
   - +4, Silêncio, 0+, Troca Mão, Gira Mão e demais neutras/ações complexas não podem entrar em lote nesta versão.
-- Carta válida: mesma cor, mesmo número, ou neutra
-- Sem carta válida: comprar 1 do Monte de Compra
+- Carta válida: mesma cor ativa, mesmo número, mesma ação colorida, ou neutra; sob ataque, prevalecem as restrições de defesa
+- Sem carta válida que bloqueie compra: comprar 1 do Monte de Compra. `TROCA_MAO` não bloqueia a compra voluntária; as demais cartas válidas bloqueiam
   - Se a carta comprada puder ser jogada, pode descartar imediatamente
   - Senão, mantém na mão e passa o turno
 
@@ -188,14 +193,14 @@ Termos canônicos usados em todo o GDD. Cada termo mantém o mesmo significado e
   - a compra de um ataque é integral: recicla o descarte preservando o topo; se o baralho inteiro ainda não bastar, não há compra parcial e a partida termina pelo critério determinístico da menor mão
 - **0+ (Zero Mais):** sem ataque acumulado, é somente um coringa neutro: escolhe a cor ativa e o turno segue normalmente, sem giro/troca de mãos. Com ataque acumulado, identifica o último atacante pelo histórico canônico, obriga-o a comprar integralmente a pilha (reciclando o descarte quando necessário), encerra a pilha e passa o turno a partir desse alvo; quem recebe o reflexo não pode rebater.
 - **Troca Mão:** escolha um jogador e troque toda a sua mão com a dele; se for a última carta de quem a jogou, esse jogador vence imediatamente e o efeito não acontece
-- **Gira Mão:** escolha um sentido; todos passam suas mãos para o vizinho; se for a última carta de quem a jogou, esse jogador vence imediatamente e o efeito não acontece
+- **Gira Mão:** todos passam suas mãos para o vizinho no sentido vigente; se for a última carta de quem a jogou, esse jogador vence imediatamente e o efeito não acontece
 - **+2 Para Todos (ADR-013):** coringa de ataque global — assim que descartada, todos os adversários (nunca quem jogou) compram 2 cartas cada, imediatamente, em ordem de turno; você escolhe a nova cor ativa. É atômica e não acumula: não entra no sistema de ataque acumulado, não pode ser jogada como resposta a um `+2`/`+4` em andamento, e não abre janela de defesa/repasse. Se o baralho não tiver 2 cartas completas (mesmo reciclando o descarte) para algum adversário, a partida termina pelo critério determinístico da menor mão. Se for a última carta de quem a jogou, esse jogador vence imediatamente e a distribuição não acontece.
 - **Coringa Simples:** altera a cor ativa do jogo
 - **Regra do 7 (Silêncio):** jogar 7 abre uma janela até a próxima carta. Chat escrito e Falas rápidas seguem disponíveis; a primeira mensagem de cada jogador na janela é entregue e gera +2 cartas imediatas, sem passar o turno. Novas mensagens daquele mesmo jogador não acumulam punição até outro 7 abrir uma nova janela.
 
 ### Corta-Frente (interceptação fora da vez)
 
-- Quando um jogador descarta uma carta **elegível** (número sem ação, ou `+2`/Skip/Reverse coloridos), o servidor abre uma janela de alguns segundos antes de confirmar o próximo turno normal. `+4`, Coringa Simples, 0+, Troca Mão, Gira Mão e Silêncio ficam fora desta V1.
+- Quando um jogador descarta uma carta **elegível** (número sem ação, ou `+2`/Skip/Reverse coloridos), o orquestrador abre uma janela (4 segundos no Local; 5 segundos no servidor Online) antes de confirmar o próximo turno normal. `+4`, +2 Para Todos, Coringa Simples, 0+, Troca Mão, Gira Mão e Silêncio ficam fora desta V1.
 - Qualquer outro jogador com uma carta **idêntica** (mesma cor **e** mesmo número/ação — não basta a mesma face) pode jogá-la fora da vez para "cortar a frente": o turno passa a seguir a partir de quem interceptou, no sentido vigente, e a carta interceptadora aplica seu próprio efeito normalmente (`+2` acumula, Skip pula, Reverse inverte).
 - Quem descartou a carta alvo não pode interceptar a própria jogada.
 - O servidor é a única autoridade: primeiro pedido válido recebido antes do prazo vence, sem compensação por latência de rede; o cliente nunca decide o resultado, só envia o pedido e exibe a contagem regressiva.
@@ -209,67 +214,16 @@ Termos canônicos usados em todo o GDD. Cada termo mantém o mesmo significado e
 
 ---
 
-## 8. Sumário das seções detalhadas
+## 8. Referências históricas e próximos passos
 
-Para navegação rápida, cada seção tem um verbete com os pontos-chave que ela cobre.
+As seções abaixo preservam a pesquisa e o planejamento originais. Não são uma segunda especificação vigente; números de mercado, probabilidades, estimativas de duração, pseudocódigos e roadmap não foram revalidados para o baralho de 109 cartas.
 
-### 8.1 [Seção 01 — Pesquisa de Mercado e Referências](./secoes/01-pesquisa-mercado.md) (2.914 palavras)
+- [Seção 01 — Pesquisa de Mercado](./01-pesquisa-mercado.md).
+- [Seção 02 — Design original](./02-game-design.md): composição antiga de 108 cartas e modelos conceituais; prevalecem as regras da seção 7 deste GDD.
+- [Seção 03 — Produção original](./03-producao.md): contém uma hipótese antiga de 60 cartas, arquitetura sugerida e monetização planejada; consulte o README para o runtime atual.
+- [Seção 04 — Pitch e Anexos](./04-pitch-anexos.md): manual e diagramas anteriores às mecânicas mais recentes.
 
-- Mercado global de board/card games: **USD 19,90 bi** (Grand View, 2024), CAGR 8,3% até 2030
-- TCG: **USD 15,11 bi** (Mordor, 2026), CAGR 10,03% até 2031
-- Mobile/card games: **~10% do consumer spend** (data.ai, 2024)
-- 5 jogos similares analisados em detalhe (UNO, Buraco/Truco+M11, Coup, Taki/Dobble, The Crew) com pontuação em 4 critérios
-- Personas: Aline (22, universitária) e Rodrigo (38, pai)
-- SWOT completo (5 itens por quadrante)
-- Tagline: **"O jogo de cartas que te denuncia."**
-- PVU: baralho party onde cada carta vira confissão ou blefe, 15 min, sem eliminação
-- Comparação com UNO: "UNO é sobre ganhar; Kabemjunto é sobre rir"
-
-### 8.2 [Seção 02 — Game Design Detalhado](./secoes/02-game-design.md) (5.751 palavras)
-
-- 13 subseções: overview, pilares, **108 cartas tabeladas**, setup, **state machine ASCII com 8 estados**, matriz de validação, **9 ações especiais com pseudocódigo**, regra do 7, vitória, **15 edge cases**, variantes, contratos TypeScript, checklist de QA
-- State machine formal: `INICIO_TURNO → ESPERAR_CARTA → VALIDAR → RESOLVER_ACAO → FIM_TURNO` (com `COMPRAR` intermediário)
-- 4 regras de acúmulo implementadas: `+2/+2 OK`, `+4/+2 OK`, `+2/+4 PROIBIDO`, `+4/+4 OK`
-- 0+ encerra pilha e não pode ser rebatido
-- Regra do 7 detalhada e decidida para modo digital: chat escrito e Falas rápidas contam como falar; punição autoritativa é uma vez por jogador em cada janela de SILÊNCIO.
-
-### 8.3 [Seção 03 — Produção, Arte, UX e Implementação](./secoes/03-producao.md) (5.480 palavras)
-
-- **Cálculo hipergeométrico:** P(≥1 carta jogável) = 97,8% na mão inicial de 7 cartas
-- Distribuição por raridade: comum (50%), incomum (30%), rara (15%), única (5%)
-- Tempos médios: 8-12 min (2-4 jogadores), 12-18 min (6-10 jogadores)
-- Análise de risco do 0+ (1 carta em 108, mas efeito viral)
-- Paleta: Laranja `#F39C12`, Azul `#3498DB`, Verde `#27AE60`, Preto `#2C3E50`
-- Estilo recomendado: **flat/low-poly** (custo reduzido)
-- Stack: **TypeScript + React + Node + WebSocket**
-- Modelo de dados `Carta` com union types para validação
-- 4 fases de roadmap: MVP (8 sem) → Beta (12 sem) → Release (16 sem) → Pós-launch
-- 20 KPIs com targets em M6 e M12
-
-### 8.4 [Seção 04 — Pitch, Anexos e Diagramas](./secoes/04-pitch-anexos.md) (4.354 palavras)
-
-- Pitch executivo completo (Problema/Solução/Mercado/Diferencial/Receita/Timing)
-- **Manual rápido de 1 página** (cola para jogadores)
-- **Glossário de 22 termos**
-- **Diagrama ASCII de state machine de turno**
-- **Árvore de decisão "posso jogar esta carta?"** (fluxograma)
-- Tabela de 9 cartas especiais (referência rápida)
-- Lista de assets com prioridade (P0/P1/P2) e estimativa
-- **Matriz de 8 riscos** com probabilidade × impacto × mitigação
-- Heatmap de risco líquido priorizado (top 3: R2 0+, R4+R5 online/anti-cheat, R1 regra do 7)
-
----
-
-> **Próximos passos sugeridos:**
->
-> 1. Revisar este GDD com o time (estimativa: 1 reunião de 1h)
-> 2. Manter as funções puras do motor conformes ao modelo conceitual de turno da seção 02, sem duplicar o fluxo em uma API de state machine sem consumidor
-> 3. Prototipar cartas numeradas + Skip/Reverse/+2 (sem neutras) em modo hot-seat
-> 4. Rodar playtest interno com 5 partidas por configuração (2, 4, 6, 8, 10 jogadores)
-> 5. Validar UX da Regra do 7 com usuários reais antes de expandir para multiplayer online
-> 6. Cronograma detalhado: ver seção 03.6 (Roadmap) e 04.7 (Lista de assets)
-
-**Fim do GDD — Kabemjunto v1.0**
+Próximos passos: validar os gates da revisão atual e realizar playtest de entrada, compra, descarte múltiplo, Corta-Frente, carta global e retomada com dois clientes. Pendências de PWA, restauração Local e ajuda na interface estão no [relatório](./docs/REVISAO-2026-11-18.md). Esses próximos passos não alteram as regras aprovadas.
 
 ---
 

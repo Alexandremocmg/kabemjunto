@@ -1,324 +1,163 @@
-# 🃏 Kabemjunto
+# Kabemjunto
 
-> **O jogo de cartas que te denuncia.** · 2 a 10 jogadores · 8 a 15 minutos por partida.
+> O jogo de cartas que te denuncia. De 2 a 10 jogadores; duração estimada de 8 a 15 minutos.
 
-Kabemjunto é um jogo de cartas digital inspirado no UNO, mas com três camadas estratégicas próprias: a **regra do 7** (silêncio social), o **acúmulo assimétrico de ataques** (+2 sobre +4 é proibido) e a carta **0+ (Zero Mais)** que reflete ataques para o último atacante. Tematização brasileira, party game com 109 cartas (ADR-013), mesa 3D, partida contra bots e multiplayer online.
+Jogo de cartas com temática brasileira, **109 cartas**, regra do 7 (Silêncio), ataques acumuláveis assimétricos, reflexo com **0+**, **+2 Para Todos**, descarte múltiplo e **Corta-Frente**. Há partida contra bots no próprio navegador e modo Online, ambos na mesma **mesa 3D**, com servidor autoritativo no Online.
 
 [![CI](https://github.com/Alexandremocmg/kabemjunto/actions/workflows/ci.yml/badge.svg)](https://github.com/Alexandremocmg/kabemjunto/actions/workflows/ci.yml)
-[![Release v0.3.1](https://img.shields.io/badge/release-v0.3.1-success)](https://github.com/Alexandremocmg/kabemjunto/releases/tag/v0.3.1)
-![Tests: 437 unit + 44 E2E](https://img.shields.io/badge/tests-437%20unit%20%2B%2044%20E2E-success)
-![TS: strict](https://img.shields.io/badge/TypeScript-strict-blue)
-![Lint: clean](https://img.shields.io/badge/lint-clean-success)
-![Coverage: ≥80%](https://img.shields.io/badge/coverage-%E2%89%A580%25-success)
 
----
+Documentação reconciliada em **2026-11-18**, a partir de `54c4601`. A tag mais recente encontrada é `v0.5.1`; ela não inclui todas as mudanças posteriores da branch. A versão `1.0.0` no `package.json` também não comprova lançamento público v1.0. Contagens antigas de testes e relatos de deploy são evidências históricas, não resultados desta revisão.
 
-## 📚 Documentação
+## Jogar
 
-- **[GDD — Game Design Document](./GDD-Kabemjunto.md)** — documento mestre do jogo
-- **[PLANO-EQUIPE-3DEVS.md](./PLANO-EQUIPE-3DEVS.md)** — plano de desenvolvimento multi-agente
-- **[STATUS.md](./STATUS.md)** — caderno de comunicação do time (atualizado diariamente)
-- **[Diário de mudanças de 2026-07-27](./docs/CHANGELOG-2026-07-27.md)** — consolidação completa das entregas, commits e validações
-- **[Handover de Mavis](./briefings/handover-mavis.md)** — contexto operacional para o próximo gerente/revisor
-- **[DECISIONS.md](./DECISIONS.md)** — ADRs (decisões arquiteturais)
-- **[CONTRIBUTING.md](./CONTRIBUTING.md)** — como contribuir
+- **Contra bots:** no menu, escolha de 2 a 10 jogadores (fichas de 2 a 6; "7+" abre 7 a 10) e toque em **Jogar agora**. A partida roda no navegador e fica no `sessionStorage` da aba; avatar e tema ficam no `localStorage`. Isso não equivale a uma conta ou backup entre dispositivos. Mesa compartilhada (hot-seat) não existe mais.
+- **Na mesa:** arraste a carta que brilha até o centro (ou toque duas vezes). Cartas de mesma face: toque nelas para montar o grupo do descarte múltiplo. Sem jogada, toque no monte. Coringas abrem um anel de cores e a Troca Mão pede o adversário. Teclado: `Tab` chega à mão, setas trocam de carta, `Enter` joga, `Espaço` seleciona. Sem WebGL (ou com `?mesa=2d`), a mesma mesa aparece em 2D.
+- **Online:** informe seu apelido, crie uma sala ou entre por código/listagem pública. Salas são privadas por padrão; somente o host inicia. As mãos são enviadas privadamente, e o servidor decide as jogadas. A retomada usa um token de sessão, sem cadastro por e-mail.
+- **Objetivo:** descartar todas as cartas. Cada participante começa com 7. Jogue por cor, número ou ação; neutras permitem escolher cor, respeitando as restrições de ataque.
+- **Compra:** sem jogada que bloqueie a compra, compre uma carta. Se ela for jogável, o turno é mantido; caso contrário, passa. `TROCA_MAO` é a exceção: tê-la na mão não obriga usá-la antes de comprar. Pagar ataque sempre passa a vez.
+- **Ataques:** `+2` sobre `+2`, `+4` sobre `+2` e `+4` sobre `+4` acumulam. `+2` sobre `+4` é proibido. `0+` reflete a pilha ao último atacante, sem defesa do reflexo; sem ataque, funciona como coringa.
+- **+2 Para Todos:** cada adversário compra 2 imediatamente, sem repasse ou defesa; quem jogou escolhe a cor. Não responde a ataque acumulado, não entra em lote e não participa do Corta-Frente.
+- **Silêncio:** um 7 abre uma janela até o próximo descarte. No Online, chat e falas rápidas continuam disponíveis; a primeira mensagem de cada jogador nessa janela gera +2 imediato, sem passar o turno. Outro 7 abre uma nova janela de penalização.
+- **Descarte múltiplo:** duas ou mais cartas da mesma face permitida (número sem ação, `+2`, Skip ou Reverse), inclusive de cores diferentes. A primeira precisa ser válida; a última define a cor. A pilha pode ser preparada fora da vez, mas só é jogada no turno correto.
+- **Corta-Frente:** durante a janela (4 segundos contra bots, 5 no Online), outro jogador pode interceptar com carta idêntica em cor e número/ação. Somente números sem ação, `+2`, Skip e Reverse são elegíveis. O primeiro pedido válido no servidor vence e pode abrir nova janela.
 
----
+Consulte [GDD, regras canônicas](./GDD-Kabemjunto.md#7-regras-oficiais-canônicas-resumo), incluindo vitória imediata, efeitos de mão e esgotamento do monte.
 
-## 🎴 Como jogar (TL;DR)
+## Executar localmente
 
-- Cada jogador começa com **7 cartas**. O objetivo: descartar todas.
-- Na sua vez, jogue **1 carta** que combine com o topo (mesma cor, número ou ação).
-- Sem carta válida? Compre 1 do monte (e pode jogar de imediato se for válida).
-- Ações coloridas: **Pula** (próximo perde a vez), **Inverte**, **+2**.
-- Coringas: **Coringa** (muda cor), **+4** (compra 4 e muda cor), **0+** (reflete o ataque!), **Troca Mão**, **Gira Mão**.
-- Regra do **7**: jogou 7 = silêncio até a próxima carta. Quem falar paga +2.
-- **Corta-Frente**: com uma carta idêntica ao descarte, você pode jogá-la fora da vez antes do tempo acabar.
-
-### Na mesa
-
-- **Arraste uma carta que brilha até o centro** para jogar. Também vale tocar na carta e tocar de novo.
-- Cartas de mesma face: toque nelas para juntar e jogue o grupo de uma vez (descarte múltiplo).
-- Nenhuma carta serve? Toque no monte.
-- Coringas abrem um anel de cores; a Troca Mão pede o adversário e depois a cor.
-- Teclado: `Tab` chega à mão, setas trocam de carta, `Enter` joga, `Espaço` seleciona.
-- Na primeira partida, dicas curtas explicam cada regra quando ela aparece.
-- Sem WebGL (ou com `?mesa=2d`), a mesma mesa aparece em 2D simples, com as mesmas regras.
-
-Detalhes completos em [`GDD-Kabemjunto.md §7`](./GDD-Kabemjunto.md#7-regras-oficiais-canônicas-resumo).
-
----
-
-## 🚀 Quick start
-
-### Pré-requisitos
-
-- **Node.js** >= 20
-- **npm** >= 10 (ou pnpm/yarn, mas o time usa npm por enquanto)
-
-### Setup
+O CI e o Docker usam **Node.js 20**. Utilize npm com suporte a workspaces; o projeto mantém um `package-lock.json` na raiz.
 
 ```bash
-# 1. Clone o repo
-git clone <url-do-repo> kabemjunto
+git clone https://github.com/Alexandremocmg/kabemjunto.git
 cd kabemjunto
-
-# 2. Instale as dependências
-npm install
-
-# 3. Rode os testes (opcional, mas recomendado — todos devem passar)
-npm test
-
-# 4. Inicie o dev server
+npm ci
 npm run dev
-# → inicia backend (http://localhost:3001) e frontend (http://localhost:5173)
-# → abre em http://localhost:5173
 ```
 
-### Exposição pública / túnel
+O supervisor inicia backend em `http://localhost:3001` e frontend em `http://localhost:5173`. O Vite pode escolher outra porta se 5173 estiver ocupada; confira o terminal. Para iniciar separadamente, use `npm run dev:server` e `npm run dev:web`.
 
-O frontend usa o mesmo host da aplicação como endpoint padrão do Socket.IO. O Vite encaminha `/socket.io` para `http://127.0.0.1:3001`, incluindo WebSocket.
-
-Para publicar frontend e backend em origens separadas, defina `VITE_SOCKET_URL` **antes do build**:
-
-```bash
-VITE_SOCKET_URL=https://seu-backend.example.com npm run build
-```
-
-Para um túnel Cloudflare apontando para o frontend local:
+O cliente usa a origem da página como destino Socket.IO por padrão; Vite encaminha `/socket.io` ao backend local, inclusive WebSocket. Para origens separadas, configure `VITE_SOCKET_URL` em `apps/web/.env.local` **antes do build**. Não use `localhost` nessa variável para links acessados em outro dispositivo. `VITE_TUNNEL_HOST` permite declarar o host aceito pelo servidor Vite ao usar túnel.
 
 ```bash
 cloudflared tunnel --url http://127.0.0.1:5173 --http-host-header localhost:5173
 ```
 
-Não use `127.0.0.1` ou `localhost` como `VITE_SOCKET_URL` em um link acessado por outro dispositivo: esses endereços apontam para o dispositivo do jogador.
+## Instalar e jogar offline
 
-### Validação completa (CI local)
+1. Abra o build de produção em HTTPS ou localhost, com conexão, e aguarde o carregamento inicial. Em Chromium, use a opção de instalação no navegador. No Safari do iPhone, use **Compartilhar → Adicionar à Tela de Início**.
+2. Após o service worker baixar os arquivos, reabra o jogo sem rede. No menu, use **Jogar contra bots**: a mesa 3D, as cartas e os bots funcionam offline. Criar ou entrar em sala exige conexão.
+3. Para retomar uma partida após recarregar, mantenha a mesma aba ou janela. A partida fica na sessão dela. O modo Online precisa de conexão com o servidor.
+
+O build web inclui `manifest.json`, ícones PNG e `sw.js`. O worker guarda somente os arquivos públicos do build. A próxima versão fica em espera até as abas e janelas controladas pela anterior serem fechadas. O Vite em modo dev não registra o worker. Para testar o build localmente, execute `npm run build` e `npm run preview`.
+
+## Scripts e validação
+
+| Comando                                   | Comportamento atual                                                        |
+| ----------------------------------------- | -------------------------------------------------------------------------- |
+| `npm run dev`                             | Inicia e supervisiona servidor e frontend.                                 |
+| `npm run dev:server` / `npm run dev:web`  | Inicia cada aplicação separadamente.                                       |
+| `npm run build`                           | Compila shared, servidor e frontend, nessa ordem.                          |
+| `npm run preview`                         | Serve o build web; multiplayer exige backend acessível.                    |
+| `npm run typecheck`                       | Compila shared e verifica tipos de servidor e web.                         |
+| `npm test` / `npm run test:watch`         | Vitest: motor, servidor e frontend; exclui `e2e/`.                         |
+| `npm run test:cov`                        | Executa Vitest com cobertura.                                              |
+| `npm run e2e`                             | Playwright/Chromium; inicia backend em 3101 e frontend em 5175.            |
+| `npm run lint` / `npm run lint:fix`       | ESLint; a segunda opção modifica arquivos.                                 |
+| `npm run format` / `npm run format:check` | Prettier; a primeira opção modifica arquivos.                              |
+| `npm run validate`                        | Typecheck, lint, formatação, testes e build. Não inclui E2E nem cobertura. |
 
 ```bash
 npm run validate
-# → Roda: typecheck + lint + format:check + test + build
+npm run test:cov
+npx playwright install chromium
+npm run e2e
 ```
 
----
+O CI também executa auditoria de dependências de produção e exige pelo menos 80% de cobertura de statements no motor e na persistência. Consulte o [workflow](./.github/workflows/ci.yml). Resultados desta revisão estão no [relatório](./docs/REVISAO-2026-11-18.md).
 
-## 🐳 Deploy com Docker
+## Arquitetura implementada
 
-A imagem é única: Fastify + Socket.IO servem o frontend estático (`apps/web/dist`) no mesmo origin/porta. Multi-stage, executa como usuário não-root.
+| Parte                    | Implementação                                                                                       |
+| ------------------------ | --------------------------------------------------------------------------------------------------- |
+| Frontend                 | React 18, TypeScript, Vite e CSS; mesa em Three.js puro, carregada sob demanda (ADR-014).           |
+| Estado da interface      | Hooks React e armazenamento do navegador; dependência declarada não comprova uso no runtime.        |
+| Regras                   | Motor TypeScript compartilhado, sem DOM ou rede; RNG substituível nos fluxos que embaralham cartas. |
+| Backend                  | Fastify 5 e Socket.IO; valida ações e distribui estado público e mãos privadas.                     |
+| Persistência do servidor | Snapshot JSON atômico, schema v3, leitura compatível com v2; sem PostgreSQL/Redis implementados.    |
+| Áudio                    | Web Audio API, síntese de efeitos.                                                                  |
+| Testes                   | Vitest, fast-check e Playwright.                                                                    |
+
+```text
+apps/web/src/             Menu, mesa 3D/2D (`mesa/`) e serviços do navegador
+apps/web/public/          Arte, manifest e ícones copiados pelo Vite
+apps/server/src/          Salas, Socket.IO, persistência, configuração e operação
+packages/shared/src/     Tipos, regras, constantes, fixtures e telemetria
+e2e/                     Cenários Playwright
+assets/                  Fontes de assets
+docs/                    Relatórios e especificações complementares
+briefings/ e feedback/    Planejamento e revisões históricos
+```
+
+`App.tsx` mostra o menu e leva à mesa contra bots (`mesa/MesaLocal3D.tsx`, motor no navegador) ou à sala Online (`mesa/MesaOnline3D.tsx`); as duas usam a mesma `Mesa3D`. Não há mais aplicação de runtime em `src/` na raiz. Os nomes `gerarBaralho108` e `BARALHO_COMPLETO_108` foram mantidos, mas geram **109** cartas (ADR-013). A fixture `deck108.json` continua com 108 e não representa o catálogo usado nas partidas.
+
+O motor não exporta uma segunda API de state machine. No Online, timers de Corta-Frente pertencem ao `RoomStore`. Persistência e coordenação atuais pressupõem **instância única**; aumentar réplicas exige coordenação distribuída por sala (ADR-011).
+
+## Docker e operação
+
+A imagem serve `apps/web/dist` pelo Fastify, na mesma origem do Socket.IO. O entrypoint ajusta a posse do volume e executa o servidor como usuário `kabemjunto`.
 
 ```bash
-# Build local
 docker build -t kabemjunto .
-
-# Run local (produção exige CORS_ORIGINS e METRICS_TOKEN — ver abaixo)
-docker run -d --name kabemjunto \
-  -p 3001:3001 \
+docker run -d --name kabemjunto -p 3001:3001 \
   -v kabemjunto-data:/data \
-  -e CORS_ORIGINS=https://seu-dominio.example.com \
-  -e METRICS_TOKEN=<segredo-com-16+-caracteres> \
+  -e CORS_ORIGINS=http://localhost:3001 \
+  -e METRICS_TOKEN=SUBSTITUA_POR_UM_SEGREDO_UNICO \
   kabemjunto
 ```
 
-### Variáveis de ambiente
+Substitua o token ilustrativo antes de executar; mínimo de 16 caracteres. Em um domínio público, ajuste `CORS_ORIGINS` para a origem HTTPS correta. O exemplo usa continuação de linha Bash.
 
-| Variável                 | Obrigatória em produção | Descrição                                                                                                     |
-| ------------------------ | :---------------------: | ------------------------------------------------------------------------------------------------------------- |
-| `NODE_ENV`               |            —            | `development` \| `test` \| `production`. Falha cedo se inválida.                                              |
-| `PORT` / `HOST`          |            —            | Padrão `3001` / `0.0.0.0`.                                                                                    |
-| `ROOM_STORAGE_FILE`      |       recomendada       | Caminho do snapshot JSON em volume persistente (ex.: `/data/rooms.json`). Sem ela, salas ficam só em memória. |
-| `CORS_ORIGINS`           |           ✅            | Lista de origens separadas por vírgula. Sem `Origin` (health/probes) sempre passa.                            |
-| `METRICS_TOKEN`          |           ✅            | Bearer token (16+ caracteres) que protege `/metrics`.                                                         |
-| `KABEMJUNTO_E2E_FIXTURE` |            —            | Nunca liga em produção, mesmo setada — só afeta ambiente de teste/dev.                                        |
+| Variável                                     | Uso                                                                                                                               |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `NODE_ENV`                                   | `development`, `test` ou `production`; padrão `development` fora da imagem.                                                       |
+| `PORT` / `HOST`                              | Padrões `3001` / `0.0.0.0`.                                                                                                       |
+| `ROOM_STORAGE_FILE`                          | Snapshot persistente; opcional fora do Docker, cujo padrão é `/data/rooms.json`. Sem arquivo configurado, salas ficam em memória. |
+| `CORS_ORIGINS`                               | Obrigatória em produção; origens separadas por vírgula.                                                                           |
+| `METRICS_TOKEN`                              | Obrigatório em produção, mínimo 16 caracteres; bearer de `/metrics`.                                                              |
+| `KABEMJUNTO_E2E_FIXTURE`                     | `1` habilita fixtures somente fora de produção.                                                                                   |
+| `VITE_SOCKET_URL`                            | Endpoint público alternativo do Socket.IO, embutido no build web.                                                                 |
+| `VITE_TUNNEL_HOST`                           | Host adicional aceito pelo servidor de desenvolvimento Vite.                                                                      |
+| `VITE_POSTHOG_API_KEY` / `VITE_POSTHOG_HOST` | Configuração opcional do sink PostHog no build web; sem chave, ele não envia eventos.                                             |
 
-### Endpoints operacionais
+Endpoints: `/live` verifica o processo; `/ready` verifica carregamento e gravabilidade do storage configurado; `/health` fornece o healthcheck da aplicação; `/metrics` expõe Prometheus, protegido por bearer em produção; fora dela, a rota não exige autenticação.
 
-- `GET /live` — processo vivo.
-- `GET /ready` — 200 só depois que o storage carrega e um probe não destrutivo confirma que o volume `/data` continua gravável.
-- `GET /metrics` — formato Prometheus; exige `Authorization: Bearer <METRICS_TOKEN>` em produção.
+O Dockerfile **não declara `VOLUME`**: monte o volume no comando ou no provedor. Faça backup do snapshot antes de atualizar. O leitor aceita v2 e v3; a gravação usa v3. A primeira gravação migra dados antigos, e rollback para leitor v2 exige a cópia anterior.
 
-### Volume persistente
+### Railway
 
-O container declara `VOLUME ["/data"]`. Monte um volume real nesse caminho e aponte `ROOM_STORAGE_FILE=/data/rooms.json` — sem isso, um restart do container perde todas as salas. Restart com volume montado foi validado manualmente: sala criada antes do restart continua presente depois (jogadores voltam como `conectado: false` até reconectar pelo `resumeToken`).
+O repositório contém `railway.json` com Dockerfile e healthcheck `/live`. O domínio registrado nas entregas anteriores é [Kabemjunto no Railway](https://web-production-52c52.up.railway.app); sua disponibilidade e versão não foram revalidadas nesta revisão.
 
-O schema atual do snapshot é **v3**. O servidor lê v2 sem alterar o arquivo no `load` e grava v3 no próximo `save`; v3 adiciona `MONTE_ESGOTADO` ao histórico. Antes de atualizar uma instalação com snapshot v2, faça backup operacional do arquivo: rollback para um binário v2 requer essa cópia anterior à primeira gravação v3. Não rotule o evento novo como v2.
+Não há workflow de deploy Railway em `.github/workflows/`. O histórico registra publicação manual; confirme a configuração atual do provedor antes de presumir autodeploy. Um `git push` sozinho não comprova publicação.
 
-### Deploy no Railway
+Quando houver solicitação de deploy, confirme serviço, ambiente e volume; publique o SHA pretendido e confira assets, `/live`, `/ready`, `/health`, `/socket.io/?EIO=4&transport=polling` e uma partida com dois clientes, incluindo reconexão.
 
-`railway.json` aponta para o `Dockerfile` e configura o healthcheck em `/live`. O projeto/volume/segredos (`METRICS_TOKEN`, `CORS_ORIGINS`, domínio) são provisionados diretamente no provedor — nenhum segredo fica no repositório.
+## Estado e próximos passos
 
-#### Regra operacional: GitHub não publica Railway automaticamente
+**Implementado no código:** partida contra bots e Online na mesma mesa 3D, salas públicas e privadas, chat e falas rápidas, retomada por token, persistência de salas, descarte múltiplo, Corta-Frente, +2 Para Todos, dicas contextuais e personalização local de avatar/tema.
 
-Neste projeto, **um `git push origin main` não cria um deploy Railway por si só**: não há workflow de deploy no GitHub Actions nem source/autodeploy Railway conectado. Antes de dizer que uma alteração está pública, confira o deployment ativo e compare os assets servidos pelo domínio com os assets produzidos no build.
+**Pendências identificadas:** validação estrutural do estado local restaurado e a meta de 60 fps de média em celular intermediário (ADR-014). O briefing mais recente é o da [Sprint 7](./briefings/sprint-7.md).
 
-> Um deploy de `production` altera o serviço ativo e pode consumir o plano do provedor. Faça-o somente após autorização explícita do proprietário.
+## Documentação
 
-Depois de um commit aprovado e enviado, publique no serviço já vinculado:
+- [GDD mestre e regras canônicas](./GDD-Kabemjunto.md).
+- [Revisão do código e da documentação — 2026-11-18](./docs/REVISAO-2026-11-18.md).
+- [Como contribuir](./CONTRIBUTING.md) e [convenções dos agentes](./AGENTS.md).
+- [Status e histórico do time](./STATUS.md) e [changelog](./CHANGELOG.md).
+- [Decisões arquiteturais](./DECISIONS.md), incluindo ADR-011, ADR-012 e ADR-013.
+- [Plano original de equipe](./PLANO-EQUIPE-3DEVS.md) e [briefings](./briefings/): contexto histórico.
 
-```bash
-railway status
-railway up --service web --environment production --ci \
-  --message "deploy <sha-curto>: <resumo>"
-```
+As seções originais `01` a `04` e a cópia em `kabemjunto-gdd/gdd/` preservam propostas e pesquisas antigas. Para regras vigentes, use o GDD mestre; para operação e estrutura implementadas, este README e o código. As imagens `tela-01-...png` a `tela-06-...png` são referências visuais históricas.
 
-O comando deve terminar com `Deploy complete`. Em seguida, confirme **todos** os itens abaixo no domínio permanente, substituindo `PROD` pela URL Railway:
+## Licença e créditos
 
-```bash
-PROD='https://web-production-52c52.up.railway.app'
-
-# O deployment/volume correto está online e os assets mudaram para o build novo.
-railway status
-curl -sS "$PROD/" | grep -Eo '/assets/index-[A-Za-z0-9_-]+\.(js|css)' | sort -u
-
-# Processo, storage e serviço HTTP estão prontos.
-curl -sS -w ' HTTP=%{http_code}\n' "$PROD/live"
-curl -sS -w ' HTTP=%{http_code}\n' "$PROD/ready"
-curl -sS -w ' HTTP=%{http_code}\n' "$PROD/health"
-
-# Same-origin Socket.IO responde com frame Engine.IO e HTTP 200.
-curl -sS -w '\nHTTP=%{http_code}\n' \
-  "$PROD/socket.io/?EIO=4&transport=polling"
-```
-
-Por fim, faça smoke real no navegador público: criar sala com um cliente, entrar com outro, iniciar partida, validar reconexão/estado Online e confirmar a funcionalidade alterada. HTML 200 isolado não comprova que o deploy serve o frontend novo nem que Socket.IO está funcional.
-
----
-
-## 🛠️ Scripts disponíveis
-
-| Script                 | O que faz                                                               |
-| ---------------------- | ----------------------------------------------------------------------- |
-| `npm run dev`          | Sobe backend (http://localhost:3001) e frontend (http://localhost:5173) |
-| `npm run build`        | Build de produção (shared + server + web)                               |
-| `npm run preview`      | Serve o build de produção do frontend                                   |
-| `npm run typecheck`    | TypeScript sem emitir (shared, server e web)                            |
-| `npm test`             | Testes unitários e de componente (Vitest)                               |
-| `npm run test:watch`   | Modo watch (TDD)                                                        |
-| `npm run test:cov`     | Testes com cobertura                                                    |
-| `npm run e2e`          | Testes E2E no navegador (Playwright: sobe server e web de teste)        |
-| `npm run lint`         | ESLint em todo o projeto                                                |
-| `npm run lint:fix`     | ESLint com auto-fix                                                     |
-| `npm run format`       | Prettier write (formata tudo)                                           |
-| `npm run format:check` | Prettier check (CI)                                                     |
-| `npm run validate`     | Roda typecheck + lint + format:check + test + build (gate local/CI)     |
-
----
-
-## 🏗️ Arquitetura
-
-### Stack
-
-| Camada       | Stack                                                                      |
-| ------------ | -------------------------------------------------------------------------- |
-| Frontend     | TypeScript (strict) + React 18 + Vite 5                                    |
-| Mesa         | Three.js puro (3D, carregado sob demanda) + camada em DOM (acessível e 2D) |
-| Estado       | Hooks do React; partida local na `sessionStorage`                          |
-| Áudio        | Web Audio API (síntese em tempo real, sem assets)                          |
-| Backend      | Node + Fastify 5 + Socket.IO (servidor autoritativo)                       |
-| Persistência | Snapshot JSON atômico em volume, instância única (ADR-011)                 |
-| Testes       | Vitest + fast-check (propriedades) + Playwright (E2E)                      |
-| Lint/Format  | ESLint 9 + Prettier 3                                                      |
-| CI / Deploy  | GitHub Actions; Docker + Railway (deploy manual)                           |
-
-### Estrutura de pastas
-
-```
-.
-├── apps/
-│   ├── web/                      # Frontend React (Vite)
-│   │   └── src/
-│   │       ├── mesa/             # Mesa de jogo: 3D, 2D, interação, dicas, controladores
-│   │       │   └── cena/         # Cena Three.js (texturas, geometria, animação)
-│   │       ├── components/       # Lobby/menu, coleção, vitória, status de conexão
-│   │       ├── services/         # Socket.IO, wrapper do motor, áudio, telemetria
-│   │       └── App.tsx           # Menu → partida local ou sala online
-│   └── server/                   # Fastify + Socket.IO (salas, retomada, persistência)
-├── packages/
-│   └── shared/                   # Fonte única de verdade
-│       └── src/
-│           ├── types/            # Tipos canônicos (Carta, EstadoPartida, Jogador, eventos)
-│           ├── rules/            # Motor de regras PURO (sem I/O)
-│           ├── constants/        # Baralho de 109 cartas, paleta de cores
-│           └── fixtures/         # deck108.json (nome histórico)
-├── e2e/                          # Playwright: menu, salas, mesa 3D local e online
-├── assets/                       # SVGs, SFX
-├── .github/                      # CI, templates de issue/PR
-├── DECISIONS.md                  # ADRs (a mesa 3D é a ADR-014)
-└── STATUS.md                     # Caderno do time
-```
-
-### Regra de ouro: **o motor é puro**
-
-`packages/shared/src/rules/*` é **puro** — zero I/O, zero áudio, zero DOM, zero dependência de browser. Isso permite que:
-
-1. **O servidor (Beta)** valide jogadas sem precisar de browser
-2. **Os testes** rodem em 23ms e sejam determinísticos (com seed)
-3. **O front** tenha um wrapper fino (`src/services/gameEngine.ts`) que toca áudio baseado no que o motor retorna
-
-Detalhe completo em [ADR-004](./DECISIONS.md#adr-004-refactor-do-motor-de-regras-para-packagessharedsrules).
-
-`@kabemjunto/shared` é um pacote **privado do monorepo**. A state machine descrita no GDD é um modelo conceitual para revisar o fluxo; a antiga API exportada de estados foi removida porque não tinha consumidor no runtime e duplicava as funções executáveis do motor. Veja [ADR-012](./DECISIONS.md#adr-012-remover-a-api-de-state-machine-sem-consumidor).
-
----
-
-## 🤖 Time multi-agente
-
-Este projeto é mantido por **3 agentes de IA** sob coordenação de um humano:
-
-| Agente           | Papel             | Escopo                                                      |
-| ---------------- | ----------------- | ----------------------------------------------------------- |
-| **Mavis** (lead) | Engenheiro sênior | Motor de regras, tipos, ADRs estruturais, code review final |
-| **Codex**        | Engenheiro pleno  | UI/UX, API, WebSocket, CI/CD, devops                        |
-| **Antigravity**  | Engenheiro júnior | Assets, SFX, CSS, copy, fixtures, README                    |
-
-**Regra de lock estrito** (ADR-003): cada agente só toca em arquivos dentro do escopo da issue dele. Mavis revisa PRs. Detalhes em [`PLANO-EQUIPE-3DEVS.md §5.0`](./PLANO-EQUIPE-3DEVS.md#50-lock-estrito-por-issue-regra-de-convivência).
-
----
-
-## 🗺️ Roadmap
-
-O andamento detalhado, sprint a sprint, está em [`STATUS.md`](./STATUS.md). Hoje:
-
-- ✅ Motor puro completo (109 cartas, Silêncio, 0+, Corta-Frente, descarte múltiplo, Troca/Gira Mão, +2 Para Todos).
-- ✅ Multiplayer online com servidor autoritativo, salas públicas/privadas, retomada após recarregar e persistência em volume.
-- ✅ Mesa 3D (local e online) com alternativa 2D, menu de dois caminhos e dicas contextuais (ADR-014).
-- 🔜 Performance: 60 fps de média em celular intermediário (hoje 49–56 no perfil de teste; ver ADR-014).
-- 📋 PWA instalável, loja de baralhos.
-
----
-
-## 📸 Screenshots (preview)
-
-_(Mockups do GDD, anteriores à mesa 3D atual.)_
-
-| Tela            | Mockup                       |
-| --------------- | ---------------------------- |
-| Menu principal  | `tela-01-menu-principal.png` |
-| Lobby / Sala    | `tela-02-lobby-sala.png`     |
-| Gameplay (mesa) | `tela-03-gameplay-mesa.png`  |
-| Vitória         | `tela-04-vitoria.png`        |
-| Loja            | `tela-05-loja.png`           |
-| Tutorial        | `tela-06-tutorial.png`       |
-
----
-
-## 📊 Status atual
-
-- ✅ `npm run validate` verde: TypeScript strict, ESLint, Prettier, 437 testes unitários/de componente e build.
-- ✅ 44 testes E2E (Playwright) cobrindo menu, salas, mesa 3D local e online, mesa 2D e acessibilidade.
-- ✅ CI no GitHub Actions (com cobertura ≥ 80% nas regras).
-
----
-
-## 📝 Licença
-
-A definir (provavelmente MIT). Por enquanto: **todos os direitos reservados**.
-
----
-
-## 🙏 Créditos
-
-- **Game design**: [@Mavis](https://github.com/) + iteração com a equipe
-- **Código**: time multi-agente (Mavis, Codex, Antigravity)
-- **GDD**: baseado no documento original de [@Mavis](https://github.com/)
-
-Para contribuir, leia [`CONTRIBUTING.md`](./CONTRIBUTING.md).
+Licença ainda não definida: todos os direitos reservados. Game design, código, assets e documentação foram desenvolvidos pela equipe do projeto, com participação de Mavis, Codex e Antigravity.

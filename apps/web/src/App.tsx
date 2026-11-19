@@ -9,6 +9,7 @@ import { NotFound } from './components/NotFound';
 import { PainelColecao, type TemaColecao } from './components/PainelColecao';
 import { iniciarPartidaLocal, temPartidaLocal } from './mesa/partidaLocal';
 import { lerPreferenciaMesa } from './mesa/preferencias';
+import { useSemInternet } from './services/useSemInternet';
 
 // A mesa (e o Three.js, carregado só na 3D) fica fora do bundle inicial do menu.
 const MesaLocal3D = lazy(() => import('./mesa/MesaLocal3D'));
@@ -108,6 +109,7 @@ function OnlineApp({
   onJogarContraBots: (nome: string, totalJogadores: number) => void;
 }) {
   const online = useGameSocket();
+  const semInternet = useSemInternet();
   const [chatInput, setChatInput] = useState('');
   const [copiedCode, setCopiedCode] = useState(false);
   const [copyError, setCopyError] = useState(false);
@@ -328,6 +330,7 @@ function OnlineApp({
           onEntrar={(credentials) => online.entrarSala(credentials)}
           erro={online.state.erro}
           desabilitado={online.state.status === 'connecting'}
+          semInternet={semInternet}
           salasPublicas={online.state.salasPublicas}
           onListarSalas={online.listarSalas}
           onJogarContraBots={onJogarContraBots}

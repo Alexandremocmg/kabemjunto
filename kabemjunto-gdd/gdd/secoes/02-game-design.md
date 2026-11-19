@@ -1,5 +1,8 @@
 # 02 — Game Design (técnico / dev-ready)
 
+> **Referência histórica — aviso de 2026-11-18:** conteúdo preservado do planejamento original; tabelas, pseudocódigos, roadmap e contagens abaixo não descrevem necessariamente o runtime atual. As regras vigentes estão no [GDD mestre](../../../GDD-Kabemjunto.md) (109 cartas, incluindo +2 Para Todos); a operação implementada está no README da raiz. Valores antigos de 60/108 cartas, estimativas e recursos propostos não devem ser usados como contrato atual.
+
+
 > Documento técnico de design do **Kabemjunto**. Esta é a fonte canônica que
 > o time de desenvolvimento usa para implementar regras, mecânicas e máquinas
 > de estado. Não inventa regras: formaliza o manual oficial em pseudocódigo,

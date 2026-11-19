@@ -7,11 +7,42 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ## [Não lançado]
 
+### Adicionado
+
+- PWA instalável com ícones PNG e cache dos arquivos do build. Sem rede, o menu abre e a partida contra bots na mesa 3D (com o Three.js em cache) começa e é retomada ao recarregar na mesma janela; criar ou entrar em sala fica desabilitado com um aviso até a conexão voltar.
+- Atualizações do service worker aguardam o fechamento das janelas da versão anterior. A suíte de navegador verifica o manifest, os ícones, a retomada da partida contra bots e as rotas que dependem de rede.
+
+### Documentação — 2026-11-18
+
+- README, contribuição e GDD reconciliados com `54c4601`; removidos badges fixos e afirmações de Sprint 0, backend futuro e PostgreSQL/Redis implementados.
+- Corrigidos links do GDD e instruções Docker; explicitadas limitações de PWA, sessão Local e instância única.
+- Seções antigas e plano identificados como históricos, com direcionamento para as fontes atuais.
+- Adicionado relatório com evidências, pendências e limites da verificação.
+
+### Funcionalidades após `v0.5.1`, consolidadas nesta revisão
+
+As entradas abaixo descrevem o código, não certificam uma nova release ou deployment. O STATUS registra um deploy de Corta-Frente em `a912454`; a produção não foi revalidada nesta revisão.
+
+- Salas públicas/privadas e abandono explícito (`dc1264d`).
+- Descarte múltiplo e pilhas preparáveis fora da vez (`b67c019` a `576628f`).
+- Compra com turno mantido quando a carta é jogável, starter Skip/Reverse e ajustes canônicos (`4f4daa8`, `ac1e89a`, `07c8f90`).
+- Troca Mão deixa de bloquear compra voluntária (`571b74d`).
+- Corta-Frente Local e Online, timer autoritativo, contratos e interface (`307f33a` a `a912454`).
+- +2 Para Todos e baralho de 109 cartas (ADR-013, `28b5678`), rótulo/ícone e arte dedicada (`460c247`, `bff0b08`).
+- Feedback de especiais dos bots (`6257085`), prevenção de descarte por arrasto acidental (`fc0d7d3`) e correção de pilha Local que bloqueava jogadas avulsas (`54c4601`).
+
 ### Alterado
 
 - Snapshot de salas evoluído para schema v3 para versionar explicitamente o evento `MONTE_ESGOTADO`; leitura de v2 permanece suportada e a migração ocorre somente no próximo `save`.
 - Validação persistida de `MONTE_ESGOTADO` agora exige `cartasSolicitadas >= 1` e `0 <= cartasObtidas < cartasSolicitadas`.
 - Removida a API exportada de state machine sem consumidor no runtime, junto com seus testes isolados. O pacote `@kabemjunto/shared` é privado e o modelo de estados permanece no GDD como especificação conceitual, evitando código morto e emissão de build desnecessária.
+
+---
+
+## [0.5.1] - 2026-07-28
+
+- Tag anotada em `06fbd0a`: elevação visual, logo oficial, lobby e coleção local.
+- A mensagem da tag registra verificação de deploy Railway naquela entrega; não é uma verificação atual da produção.
 
 ---
 

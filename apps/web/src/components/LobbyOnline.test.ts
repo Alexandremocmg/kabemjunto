@@ -54,4 +54,21 @@ describe('LobbyOnline', () => {
     expect(html).not.toContain('Jogar contra bots');
     expect(html).toContain('Jogar com amigos');
   });
+
+  it('sem internet, avisa e deixa só o caminho contra bots utilizável', () => {
+    const html = renderToStaticMarkup(
+      createElement(LobbyOnline, {
+        onEntrar: () => {},
+        onJogarContraBots: () => {},
+        semInternet: true,
+      }),
+    );
+
+    expect(html).toContain('Sem internet: só dá para jogar contra bots');
+    expect(html).toContain('role="status"');
+    // "Criar sala", o campo do código e "Entrar" ficam desabilitados; "Jogar agora" não.
+    expect(html.match(/disabled=""/g)).toHaveLength(3);
+    expect(html).toMatch(/<button[^>]*>Jogar agora<\/button>/);
+    expect(html).not.toMatch(/<button[^>]*disabled=""[^>]*>Jogar agora/);
+  });
 });
