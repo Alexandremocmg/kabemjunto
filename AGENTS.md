@@ -48,11 +48,11 @@ Cada agente só toca em arquivos do escopo da issue que pegou.
 - TS strict mode (zero `as any` em produção)
 - ESLint 0 erros
 - Prettier 100% conforme
-- Testes verdes (atualmente 171/171)
+- Testes verdes na revisão em trabalho; não reutilizar contagens históricas como evidência atual
 
 ## Onde achar o briefing atual
 
-→ [`briefings/sprint-6.md`](./briefings/sprint-6.md) (Sprint 6 — persistência, produção e operação)
+→ [`briefings/sprint-7.md`](./briefings/sprint-7.md) (último briefing registrado: beta fechado e onboarding)
 
 ## Onde achar feedback histórico
 

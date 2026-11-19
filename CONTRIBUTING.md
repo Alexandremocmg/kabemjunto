@@ -1,5 +1,7 @@
 # 🤝 Contributing to Kabemjunto
 
+> **Revisão documental:** 2026-11-18, base `54c4601`. Use Node.js 20 como no CI/Docker e o lockfile da raiz. A estrutura atual está no [README](./README.md); o [relatório](./docs/REVISAO-2026-11-18.md) distingue inspeção estática de testes executados.
+
 > Como contribuir com o projeto — para humanos **e** para os 3 agentes de IA (Mavis / Codex / Antigravity).
 
 ---
@@ -36,8 +38,8 @@ Este projeto é mantido por 3 agentes de IA. Se você é um deles, leia com aten
 | Agente          | Papel             | Arquivos permitidos (resumo)                                                                                                               |
 | --------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Mavis**       | Lead técnico      | `packages/shared/**` (especialmente `rules/**` e `types/**`), motor de regras, ADRs, code review final, **qualquer arquivo em emergência** |
-| **Codex**       | Engenheiro pleno  | `apps/web/src/**` (lógica, não assets), `apps/server/src/routes/**`, `apps/server/src/sockets/**`, CI, deploy                              |
-| **Antigravity** | Engenheiro júnior | `assets/**`, `src/styles/**`, `src/components/**` (só CSS), `*.md`, fixtures JSON, SFX, copy                                               |
+| **Codex**       | Engenheiro pleno  | `apps/web/src/**` (lógica, não assets), `apps/server/src/**`, CI, deploy                                                                   |
+| **Antigravity** | Engenheiro júnior | `assets/**`, `apps/web/src/**/*.css`, `apps/web/src/components/**` (só CSS), `*.md`, fixtures JSON, SFX, copy                              |
 
 Tabela completa no [`PLANO-EQUIPE-3DEVS.md §5.0`](./PLANO-EQUIPE-3DEVS.md#50-lock-estrito-por-issue-regra-de-convivência).
 
@@ -85,10 +87,10 @@ Cada agente só pode abrir/modificar arquivos **explicitamente listados na issue
 ### Setup local
 
 ```bash
-git clone <url>
+git clone https://github.com/Alexandremocmg/kabemjunto.git
 cd kabemjunto
-npm install
-npm test          # valida 41/41 testes
+npm ci
+npm test          # motor, servidor e frontend; confira o resultado atual
 npm run dev       # http://localhost:5173
 ```
 
@@ -108,7 +110,7 @@ Rode localmente:
 npm run validate
 ```
 
-Isso roda: typecheck + lint + format:check + test. **Tudo deve passar.**
+Isso roda: typecheck + lint + format:check + test + build. Cobertura e Playwright são verificações adicionais (`npm run test:cov` e `npm run e2e`). **Tudo deve passar.**
 
 ### Estrutura de PR
 
@@ -146,13 +148,13 @@ npm run test:watch       # modo TDD
 npm run test:cov         # com cobertura (gera coverage/)
 ```
 
-Os testes ficam em `packages/shared/src/rules/*.test.ts`. Cobrem os 15 edge cases do GDD §04.5 e as invariantes do motor.
+Os testes ficam em `packages/shared/src/**`, `apps/server/src/**` e `apps/web/src/**`; os cenários Playwright ficam em `e2e/` e são excluídos pelo Vitest raiz. Consulte a execução atual em vez de reutilizar contagens históricas.
 
 Para escrever um teste novo:
 
 ```typescript
 import { describe, it, expect } from 'vitest';
-import { executarJogada } from '@shared';
+import { executarJogada } from '@kabemjunto/shared';
 
 describe('minha feature', () => {
   it('faz o que deveria', () => {
@@ -170,14 +172,14 @@ describe('minha feature', () => {
 - **Strict mode sempre.** Nunca `as any` em produção (regra do ADR-004).
 - Prefira `unknown` + narrowing a `any`.
 - Imutabilidade: `readonly` em arrays, `as const` em literais.
-- Tipos compartilhados em `packages/shared/types/`.
+- Tipos compartilhados em `packages/shared/src/types/`.
 
 ### React
 
 - Componentes funcionais com `React.FC<Props>`.
-- Estado local com `useState`, global com Zustand.
+- O runtime atual usa hooks React e os serviços existentes; Zustand/React Query declarados no manifesto não tornam obrigatório introduzir outro gerenciador de estado.
 - Sem `useEffect` que muta estado sem dependências declaradas.
-- Imports com alias: `import { X } from '@shared'` (não `../../../packages/shared/src/...`).
+- Imports com alias: `import { X } from '@kabemjunto/shared'` (não `../../../packages/shared/src/...`).
 
 ### Commits
 

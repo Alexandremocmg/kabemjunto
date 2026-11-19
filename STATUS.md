@@ -3,9 +3,20 @@
 > Caderno de comunicação do time multi-agente. **Primeiro arquivo que cada agente lê antes de trabalhar.**
 
 **Time:** Mavis (lead) · Codex (eng. pleno) · Antigravity (eng. júnior)
-**Fonte da verdade:** [`GDD-Kabemjunto.md`](./GDD-Kabemjunto.md) v1.0 + [`PLANO-EQUIPE-3DEVS.md`](./PLANO-EQUIPE-3DEVS.md) v1.0
-**Branch:** `main`
-**Sprint atual:** Sprint 6 — **EM ANDAMENTO** — persistência, produção e operação v0.5.0
+**Fonte atual:** [README](./README.md) (operação), [GDD mestre](./GDD-Kabemjunto.md) v1.1 (regras) e código; plano e entradas anteriores são históricos
+**Base da revisão:** `main` em `54c4601`; alterações locais em `docs/revisao-documentacao`
+**Último briefing:** [Sprint 7](./briefings/sprint-7.md) — beta fechado e onboarding; conclusão das issues não revalidada nesta revisão
+
+### 2026-11-18 — Reconciliação documental com `54c4601`
+
+- Revisão solicitada pelo proprietário: escopo de documentação; sem alteração de regras, aplicação ou infraestrutura.
+- README atualizado para o monorepo real, 109 cartas, Local/Online, descarte múltiplo, Corta-Frente e +2 Para Todos.
+- GDD mestre com links corrigidos, versão reconciliada, compra com exceção de Troca Mão, Gira Mão no sentido vigente e durações atuais das janelas de interceptação.
+- Tag mais recente encontrada: `v0.5.1` (`06fbd0a`), anterior às funcionalidades acima; não equiparar HEAD, versão de pacote e deployment.
+- PWA implementado com manifest e ícones no build, abertura e recarga Local offline, e atualização do cache após fechamento das janelas da versão anterior. Validação estrutural da retomada Local e tutorial seguem no [relatório de revisão](./docs/REVISAO-2026-11-18.md).
+- Com o PWA, a suíte completa passou com 442 testes Vitest e 31 cenários Playwright, incluindo partida recuperada offline.
+- Validação local após autorização: tipos, ESLint e build aprovados; Vitest com 442 testes aprovados, cobertura de statements de 87,55% no motor e 93,37% na persistência; Playwright com 30 cenários aprovados. Prettier dos documentos aprovado; checagem global com LF aponta CRLF do checkout Windows, enquanto o diagnóstico com `--end-of-line auto` passa. O lançador `npm.cmd` foi bloqueado por política do Windows; ferramentas executadas diretamente pelos CLIs Node. Detalhes no relatório. Não houve deploy nem smoke de produção.
+- Entradas seguintes preservam evidências e pendências de suas datas; não representam automaticamente o estado atual.
 
 ### 2026-08-01 · Corta-Frente V1 (interceptação fora da vez) — completo Local + Online
 

@@ -15,7 +15,9 @@ type Modo = 'local' | 'online';
 
 export default function App() {
   const [modo, setModo] = useState<Modo>(() =>
-    window.sessionStorage.getItem('kabemjunto.modo') === 'local' ? 'local' : 'online',
+    !navigator.onLine || window.sessionStorage.getItem('kabemjunto.modo') === 'local'
+      ? 'local'
+      : 'online',
   );
 
   useEffect(() => {
