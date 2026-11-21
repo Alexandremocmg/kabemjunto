@@ -7,6 +7,13 @@
 **Base da revisão:** `main` em `54c4601`, com a mesa 3D (`feat/mesa-3d`, PR #29) como base do PWA em `docs/revisao-documentacao` (PR #30)
 **Último briefing:** [Sprint 7](./briefings/sprint-7.md) — beta fechado e onboarding; conclusão das issues não revalidada nesta revisão
 
+### 2026-11-21 — Vitrine dos jogos publicada
+
+- **https://jogos.kabemmanager.online** reúne os cinco jogos no ar (Kabemjunto, Circuito das Fendas, Corrida Sem Fim, Raízes Cruzadas e Esconde ou Morre) numa página com imagem de partida, descrição e botão **Jogar**, para trazer jogadores de forma orgânica. Código em `Alexandremocmg/kabem-jogos` (público).
+- Mesma infraestrutura dos jogos estáticos: clone em `/srv/jogos/vitrine`, `server` no nginx dos jogos, rota `jogos-vitrine.yaml` no Traefik e registro `A` `jogos` no hPanel. Log de acesso em `/var/log/jogos-static/access.log`, com rotação semanal; mostra o IP do Traefik, não o do visitante.
+- Validado de fora, em Chromium (desktop e celular): sem erro de console, sem rolagem horizontal, imagens carregando e o botão **Jogar** dos cinco jogos abrindo o jogo certo. Os PRs de documentação dos quatro jogos (#33 e os três dos repositórios dos jogos) foram mergeados.
+- Pendências: cadastrar o endereço no Google Search Console e no Bing Webmaster e enviar o `sitemap.xml`; conferir a prévia ao compartilhar no WhatsApp; os jogos Circuito das Fendas (Beta) e Esconde ou Morre (Protótipo) aparecem com esses selos e podem ser tirados do `games.json` se ainda não devem ser divulgados.
+
 ### 2026-11-21 — Outros jogos na mesma VPS e documentação
 
 - A VPS passou a servir também **Raízes Cruzadas** (`raizes.`), **Corrida Sem Fim** (`corrida.`) e **Esconde ou Morre** (`esconde.`, cliente e servidor WebSocket), todos em `kabemmanager.online` com HTTPS. Infraestrutura comum: usuário `jogos` sem privilégios, nginx próprio escutando só em `172.18.0.1:8081`, uma rota do Traefik por jogo e firewall da 8787. Validado de fora no navegador, incluindo uma partida online do Esconde ou Morre.

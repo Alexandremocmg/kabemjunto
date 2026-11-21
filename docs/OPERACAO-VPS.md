@@ -1,6 +1,6 @@
 # Operação na VPS (ambiente de teste atual)
 
-**Verificado em 2026-11-21**, pelo terminal web da Hostinger, com leitura do estado, uma atualização real para a `main` (`ee4efe1`) a configuração da URL estável e do firewall da porta 3001 (seção 5) e a hospedagem de mais três jogos na mesma VPS (seção 6). Este documento descreve o que existe hoje e como atualizar. Não é uma decisão de arquitetura: a hospedagem "oficial" documentada antes (Railway, ver o [README](../README.md#railway)) **não foi revalidada** e não é a que está no ar para testes.
+**Verificado em 2026-11-21**, pelo terminal web da Hostinger, com leitura do estado, uma atualização real para a `main` (`ee4efe1`) a configuração da URL estável e do firewall da porta 3001 (seção 5) a hospedagem de mais três jogos na mesma VPS e a vitrine que reúne todos eles (seção 6). Este documento descreve o que existe hoje e como atualizar. Não é uma decisão de arquitetura: a hospedagem "oficial" documentada antes (Railway, ver o [README](../README.md#railway)) **não foi revalidada** e não é a que está no ar para testes.
 
 > Não registre neste repositório o link do terminal web da Hostinger, o IP da VPS, tokens ou variáveis de ambiente do serviço. O link do terminal dá acesso de shell enquanto a sessão estiver aberta.
 
@@ -153,18 +153,19 @@ O backup das regras de antes do firewall está em `/root/kabemjunto-iptables-ant
 
 ## 6. Outros jogos hospedados nesta VPS
 
-Desde 2026-11-21 a VPS serve mais três jogos, além do Kabemjunto. Os três usam a mesma infraestrutura (usuário, nginx, rotas e firewall) descrita abaixo. Cada repositório tem um documento próprio, curto, com o que é específico do jogo.
+Desde 2026-11-21 a VPS serve mais três jogos, além do Kabemjunto, e a **vitrine** que reúne todos eles (item 6.6). Todos usam a mesma infraestrutura (usuário, nginx, rotas e firewall) descrita abaixo. Cada repositório tem um documento próprio, curto, com o que é específico do jogo.
 
 ### 6.1 Mapa
 
-| Jogo             | Endereço                                 | Repositório                       | Código na VPS                        | Como é servido                                    | Atualização                                                |
-| ---------------- | ---------------------------------------- | --------------------------------- | ------------------------------------ | ------------------------------------------------- | ---------------------------------------------------------- |
-| Kabemjunto       | `https://kabemjunto.kabemmanager.online` | `Alexandremocmg/kabemjunto`       | `/root/kabemjunto`                   | Node (`kabemjunto.service`, porta 3001)           | manual, seção 3                                            |
-| Raízes Cruzadas  | `https://raizes.kabemmanager.online`     | `Alexandremocmg/raizes-cruzadas`  | `/srv/jogos/raizes`                  | nginx dos jogos                                   | `git pull`                                                 |
-| Corrida Sem Fim  | `https://corrida.kabemmanager.online`    | `Alexandremocmg/game`             | `/srv/jogos/corrida` (serve `dist/`) | nginx dos jogos                                   | `git pull` e build                                         |
-| Esconde ou Morre | `https://esconde.kabemmanager.online`    | `Alexandremocmg/esconde-ou-morre` | `/srv/jogos/esconde-ou-morre`        | nginx dos jogos e servidor WebSocket (porta 8787) | `git pull`; reinício só se `server/` ou `src/net/` mudarem |
+| Jogo                  | Endereço                                 | Repositório                       | Código na VPS                        | Como é servido                                    | Atualização                                                |
+| --------------------- | ---------------------------------------- | --------------------------------- | ------------------------------------ | ------------------------------------------------- | ---------------------------------------------------------- |
+| Kabemjunto            | `https://kabemjunto.kabemmanager.online` | `Alexandremocmg/kabemjunto`       | `/root/kabemjunto`                   | Node (`kabemjunto.service`, porta 3001)           | manual, seção 3                                            |
+| Raízes Cruzadas       | `https://raizes.kabemmanager.online`     | `Alexandremocmg/raizes-cruzadas`  | `/srv/jogos/raizes`                  | nginx dos jogos                                   | `git pull`                                                 |
+| Corrida Sem Fim       | `https://corrida.kabemmanager.online`    | `Alexandremocmg/game`             | `/srv/jogos/corrida` (serve `dist/`) | nginx dos jogos                                   | `git pull` e build                                         |
+| Esconde ou Morre      | `https://esconde.kabemmanager.online`    | `Alexandremocmg/esconde-ou-morre` | `/srv/jogos/esconde-ou-morre`        | nginx dos jogos e servidor WebSocket (porta 8787) | `git pull`; reinício só se `server/` ou `src/net/` mudarem |
+| Vitrine (Kabem Jogos) | `https://jogos.kabemmanager.online`      | `Alexandremocmg/kabem-jogos`      | `/srv/jogos/vitrine`                 | nginx dos jogos                                   | `git pull`, sem build                                      |
 
-Documentos de cada jogo: [Raízes Cruzadas](https://github.com/Alexandremocmg/raizes-cruzadas/blob/main/docs/hospedagem-vps.md), [Corrida Sem Fim](https://github.com/Alexandremocmg/game/blob/main/docs/hospedagem-vps.md) e [Esconde ou Morre](https://github.com/Alexandremocmg/esconde-ou-morre/blob/main/docs/HOSPEDAGEM_VPS.md).
+Documentos de cada jogo: [Raízes Cruzadas](https://github.com/Alexandremocmg/raizes-cruzadas/blob/main/docs/hospedagem-vps.md), [Corrida Sem Fim](https://github.com/Alexandremocmg/game/blob/main/docs/hospedagem-vps.md) e [Esconde ou Morre](https://github.com/Alexandremocmg/esconde-ou-morre/blob/main/docs/HOSPEDAGEM_VPS.md) e [Vitrine](https://github.com/Alexandremocmg/kabem-jogos/blob/main/README.md).
 
 O **Circuito das Fendas** (`jogo.kabemmanager.online`) já existia antes e fica fora deste documento: roda como o usuário `fendas`, na porta 3200, e tem rota própria em `/etc/easypanel/traefik/config/fendas.yaml`.
 
@@ -176,10 +177,12 @@ Portas em uso pelos jogos: `3001` (Kabemjunto), `8081` (nginx dos jogos), `8787`
 - **nginx próprio dos jogos:** usa o binário do nginx já instalado (1.24), mas com configuração só nossa. O nginx do sistema segue **inativo e desabilitado**, e o vhost antigo do `ollama` não foi tocado.
   - Unit `jogos-static.service`: `User=jogos`, `ExecStart=/usr/sbin/nginx -g "daemon off;" -c /etc/jogos-static/nginx.conf -e /var/log/jogos-static/error.log`, `After=docker.service network-online.target`, `Restart=on-failure` (`RestartSec=5`). Endurecimento: `NoNewPrivileges`, `PrivateTmp`, `ProtectSystem=strict`, `ProtectHome`, `ReadOnlyPaths=/srv/jogos /etc/jogos-static`, `ProtectKernelTunables` e `ProtectControlGroups`.
   - Escuta só em **`172.18.0.1:8081`** (a ponte Docker por onde o Traefik entra), nunca em `0.0.0.0`. Um `default_server` devolve `444` (fecha a conexão) para qualquer host desconhecido ou acesso direto por IP.
-  - Um `server` por jogo, escolhido pelo cabeçalho `Host` (o Traefik repassa o original): `raizes.` serve `/srv/jogos/raizes`, `corrida.` serve `/srv/jogos/corrida/dist` e `esconde.` serve `/srv/jogos/esconde-ou-morre`.
+  - Um `server` por jogo, escolhido pelo cabeçalho `Host` (o Traefik repassa o original): `raizes.` serve `/srv/jogos/raizes`, `corrida.` serve `/srv/jogos/corrida/dist` `esconde.` serve `/srv/jogos/esconde-ou-morre` e `jogos.` (a vitrine) serve `/srv/jogos/vitrine`.
   - **Cache:** em `raizes.` e `esconde.`, `no-cache` (revalida por ETag) para html, htm, js, mjs, css, json e webmanifest e para URLs terminadas em `/`; os demais tipos ficam sem `Cache-Control`. Em `corrida.`, `no-cache` em tudo, exceto `/assets/` (arquivos com hash do Vite), que recebe `public, max-age=31536000, immutable`.
   - **Negados (404):** qualquer caminho com `/.` nos três jogos (`.git` e afins) e, no Esconde ou Morre, também `/server`, `/node_modules`, `/scripts` e `/.claude`. Só `GET` e `HEAD` passam; os outros métodos recebem `403`. Há gzip, ETag e `X-Content-Type-Options: nosniff`, e os tipos MIME de `glb`, `gltf`, `wasm` e `mjs` estão corretos.
   - Consumo medido: cerca de 12 MB de memória somando os processos (o cgroup marca perto de 3 MB).
+  - **Vitrine (`jogos.`):** `no-cache` para html, xml, txt e json, e `Cache-Control: public, max-age=86400` em `/img/`. Nega também `/tools`, `/build.mjs` e `/package.json`. O `README.md` é servido (como download, `application/octet-stream`); o repositório é público, então não há nada novo exposto.
+  - **Log de acesso da vitrine:** `/var/log/jogos-static/access.log`, formato `combined`, com rotação semanal em `/etc/logrotate.d/jogos-static` (8 rotações, `compress`, `copytruncate`, `su jogos jogos`). O endereço de origem que aparece é o do **Traefik** (`172.18.0.x`), não o do visitante: use o `Referer`, o `User-Agent` e a contagem por caminho para medir visitas e de onde elas vêm. Para registrar o IP real seria preciso ligar o módulo `realip` neste host, o que não foi feito.
 - **Traefik:** uma rota por jogo, em **arquivo novo** `/etc/easypanel/traefik/config/jogos-<jogo>.yaml`, no padrão do `fendas.yaml`. Nomes de router e service com o prefixo `jogos-`. O Traefik recarrega esses arquivos sozinho, sem reinício, e emite o certificado Let's Encrypt na primeira requisição (cerca de 10 segundos). Exemplo, o da Corrida Sem Fim:
 
   ```yaml
@@ -212,7 +215,7 @@ Portas em uso pelos jogos: `3001` (Kabemjunto), `8081` (nginx dos jogos), `8787`
   - `tcp/8787` (IPv4, `jogos-8787`): aceita `127.0.0.0/8` e `172.16.0.0/12`, descarta o resto.
   - `tcp/8787` (IPv6, `jogos-8787`): aceita `::1/128`, descarta o resto. Não há regra IPv6 para a 3001.
   - Ao todo são 8 regras na `INPUT`. O ufw continua inativo, a política padrão segue `ACCEPT` e as cadeias do Docker não são tocadas. A descrição da unit ainda diz só "tcp/3001", embora o script cubra a 8787 também.
-- **DNS:** um registro `A` por jogo no editor de zona do hPanel (`kabemmanager.online`), apontando para o IP da VPS, com TTL 300: `kabemjunto`, `raizes`, `corrida` e `esconde`.
+- **DNS:** um registro `A` por jogo no editor de zona do hPanel (`kabemmanager.online`), apontando para o IP da VPS, com TTL 300: `kabemjunto`, `raizes`, `corrida`, `esconde` e `jogos`.
 - **Versões:** Node 22.22.0, npm 10.9.4, nginx 1.24.0, git 2.43.0 e Traefik 3.6.7 (no container do Easypanel).
 
 ### 6.3 Atualizar cada jogo
@@ -231,6 +234,9 @@ cd /srv/jogos/corrida
 $J npm_config_cache=/srv/jogos/.npm npm ci
 $J npm_config_cache=/srv/jogos/.npm npm run build
 
+# Vitrine: só arquivos estáticos (o index.html já vem pronto no repositório)
+$J git -C /srv/jogos/vitrine pull --ff-only
+
 # Esconde ou Morre: cliente estático e servidor WebSocket
 $J git -C /srv/jogos/esconde-ou-morre pull --ff-only
 # só se server/package-lock.json mudou:
@@ -246,7 +252,7 @@ git -C /srv/jogos/esconde-ou-morre diff --name-only ORIG_HEAD HEAD | grep -E '^(
 - Validação rápida, de qualquer máquina:
 
   ```bash
-  for h in raizes corrida esconde; do
+  for h in raizes corrida esconde jogos; do
     curl -s -o /dev/null -w "$h %{http_code} %{content_type}\n" https://$h.kabemmanager.online/
   done
   curl -s -o /dev/null -w "esconde .git %{http_code}\n" https://esconde.kabemmanager.online/.git/config   # esperado 404
@@ -282,16 +288,34 @@ systemctl disable --now esconde-ou-morre-server.service
 rm -f /etc/systemd/system/esconde-ou-morre-server.service && systemctl daemon-reload
 /usr/local/sbin/kabemjunto-fw.sh remove 8787              # só depois de parar o servidor
 
+# tirar só a vitrine
+rm -f /etc/easypanel/traefik/config/jogos-vitrine.yaml
+cp /root/jogos-static-nginx.conf.antes-vitrine /etc/jogos-static/nginx.conf       # só se nada mais foi alterado no nginx depois
+runuser -u jogos -- /usr/sbin/nginx -t -c /etc/jogos-static/nginx.conf -e /var/log/jogos-static/error.log && systemctl reload jogos-static
+rm -f /etc/logrotate.d/jogos-static
+rm -rf /srv/jogos/vitrine
+
 # desfazer toda a infraestrutura dos jogos estáticos
 systemctl disable --now jogos-static.service
 rm -f /etc/systemd/system/jogos-static.service && systemctl daemon-reload
 rm -rf /etc/jogos-static /srv/jogos /var/log/jogos-static
 userdel jogos        # se reclamar do grupo: groupdel jogos
 rm -f /etc/easypanel/traefik/config/jogos-*.yaml
+rm -f /etc/logrotate.d/jogos-static
 ```
 
 Para remover o registro DNS de um jogo, apague o `A` correspondente no editor de zona do hPanel.
 
-Cópias de segurança feitas em 2026-11-21, fora de qualquer repositório: `/root/kabemjunto-iptables-antes-20261121.rules`, as de `/root/*antes-20261121-8787.rules`, `/root/jogos-static-nginx.conf.antes-esconde` e `/root/kabemjunto-fw.sh.antes-8787`. **Não** use `iptables-restore` com elas: restauraria também as cadeias do Docker e causaria problemas; use os comandos acima. A ordem importa: as regras da 8787 só saem depois de o servidor ser parado.
+Cópias de segurança feitas em 2026-11-21, fora de qualquer repositório: `/root/kabemjunto-iptables-antes-20261121.rules`, as de `/root/*antes-20261121-8787.rules`, `/root/jogos-static-nginx.conf.antes-esconde` `/root/kabemjunto-fw.sh.antes-8787` e `/root/jogos-static-nginx.conf.antes-vitrine` (antes de acrescentar a vitrine). **Não** use `iptables-restore` com elas: restauraria também as cadeias do Docker e causaria problemas; use os comandos acima. A ordem importa: as regras da 8787 só saem depois de o servidor ser parado.
+
+### 6.6 A vitrine (Kabem Jogos)
+
+**https://jogos.kabemmanager.online** é a porta de entrada dos jogos: uma página que mostra cada jogo com uma imagem de partida, uma descrição e um botão **Jogar** que leva direto ao jogo, pensada para ser encontrada em buscas e compartilhada no celular. O código está em [`Alexandremocmg/kabem-jogos`](https://github.com/Alexandremocmg/kabem-jogos) (público) e roda como um jogo estático qualquer da seção 6.2: clone em `/srv/jogos/vitrine`, um `server` no nginx dos jogos e a rota `jogos-vitrine.yaml` no Traefik (routers `jogos-vitrine-http` e `jogos-vitrine-https`).
+
+- **Como é feita:** o `index.html` é **gerado** por `build.mjs` a partir do `games.json` e vai commitado, então a VPS só precisa do `git pull`. Para adicionar ou mudar um jogo, edite o `games.json`, gere as imagens e rode `node build.mjs`; o passo a passo está no README do repositório.
+- **Para a busca e o compartilhamento:** título, descrição, `canonical`, Open Graph, Twitter Card, dados estruturados do schema.org (um `VideoGame` por jogo), `sitemap.xml` e `robots.txt`. **Ainda não foi feito:** cadastrar o endereço no Google Search Console e no Bing Webmaster Tools e enviar o `sitemap.xml`.
+- **Sem cookies e sem rastreadores.** A medição é pelo log de acesso do nginx (item 6.2).
+- **Verificado em 2026-11-21, de fora:** `/` (200, `text/html`), `/sitemap.xml`, `/robots.txt`, `/img/og.jpg` e `/img/*.webp` com os tipos e o cache certos; `/.git/config`, `/tools/` e `/build.mjs` devolvem 404; o HTTP redireciona para HTTPS; o HTML publicado é idêntico ao do repositório. Em Chromium, em formato de desktop e de celular, a página carrega sem erro de console e sem rolagem horizontal, e o botão **Jogar** de cada um dos cinco jogos abre o jogo certo. **Não** foi testado: a prévia ao compartilhar no WhatsApp e nas redes, o Safari e o Firefox.
+- **Atenção ao nome:** existem `jogo.` (o Circuito das Fendas) e `jogos.` (a vitrine), que são fáceis de confundir.
 
 Ver também: [README, Docker e operação](../README.md#docker-e-operação), a regra de publicação no Railway no [STATUS](../STATUS.md) e a seção 13 do [GDD](../GDD-Kabemjunto.md).
