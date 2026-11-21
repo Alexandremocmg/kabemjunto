@@ -122,6 +122,8 @@ jobs:
       # 6. Upload da cobertura pro Codecov (opcional, configurável depois)
       - name: Upload coverage artifact
         if: always()
+        # Relatório é só consulta: cota de artefatos cheia não deve reprovar o job.
+        continue-on-error: true
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: coverage-report
@@ -158,6 +160,8 @@ jobs:
 
       - name: Upload Playwright report
         if: always()
+        # Relatório é só consulta: cota de artefatos cheia não deve reprovar o job.
+        continue-on-error: true
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: playwright-report

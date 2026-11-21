@@ -48,7 +48,7 @@ Cada agente só toca em arquivos do escopo da issue que pegou.
 - TS strict mode (zero `as any` em produção)
 - ESLint 0 erros
 - Prettier 100% conforme
-- Testes verdes (atualmente 171/171)
+- Testes verdes (`npm run validate` + `npm run e2e`)
 
 ## Onde achar o briefing atual
 

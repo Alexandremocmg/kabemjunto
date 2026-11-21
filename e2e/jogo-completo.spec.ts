@@ -1,63 +1,55 @@
-import { expect, test, type APIRequestContext, type Browser, type Page } from '@playwright/test';
-import type { Carta, EstadoPartida } from '@kabemjunto/shared';
+/**
+ * Fluxo completo do app: menu, salas online, partida e chat.
+ *
+ * A mesa de jogo (3D, com a 2D simples como alternativa sem WebGL) tem cenários
+ * de jogada próprios em e2e/mesa-3d.spec.ts e e2e/mesa-3d-online.spec.ts; aqui
+ * ficam o caminho até a mesa e o que gira em volta dela (sala, chat, falas,
+ * saída, layout).
+ */
+import {
+  expect,
+  test,
+  type APIRequestContext,
+  type Browser,
+  type BrowserContext,
+  type BrowserContextOptions,
+  type Page,
+} from '@playwright/test';
 
-function criarEstadoLocalMobile(): EstadoPartida {
-  const carta = (id: string, cor: Carta['cor'], valor: number): Carta => ({
-    id,
-    tipo: 'NUMERADA',
-    cor,
-    valor,
-    raridade: 'COMUM',
-    colecao: 'base-v1',
-    efeito_texto_curto: `${valor}`,
-    efeito_texto_longo: `Carta ${valor}`,
-  });
-  const mao = [
-    carta('seis-azul-mobile', 'AZUL', 6),
-    carta('seis-verde-mobile', 'VERDE', 6),
-    carta('nove-azul-mobile', 'AZUL', 9),
-  ];
-  return {
-    partidaId: 'partida-mobile',
-    salaId: 'sala-mobile',
-    jogadores: [
-      {
-        id: 'jogador-mobile',
-        nome: 'Você Mobile',
-        mao,
-        isBot: false,
-        conectado: true,
-        disseUno: false,
-        avatar: '👤',
-        pontos: 0,
-      },
-      {
-        id: 'oponente-mobile',
-        nome: 'Oponente Mobile',
-        mao: [carta('dois-verde-mobile', 'VERDE', 2)],
-        isBot: false,
-        conectado: true,
-        disseUno: false,
-        avatar: '🤖',
-        pontos: 0,
-      },
-    ],
-    monteCompra: [carta('compra-mobile', 'LARANJA', 3)],
-    monteDescarte: [carta('topo-mobile', 'AZUL', 4)],
-    vezDe: 'jogador-mobile',
-    sentido: 1,
-    corAtiva: 'AZUL',
-    ataqueAcumulado: 0,
-    ataqueStack: [],
-    silencio: { ativo: false, jogadoresQuebraram: [] },
-    historico: [],
-    finalizada: false,
-  };
+const DICAS_VISTAS = JSON.stringify([
+  'silencio',
+  'ataque',
+  'arrastar',
+  'grupo',
+  'zero-mais',
+  'monte',
+]);
+
+/** Contextos WebGL são limitados no Chromium: cada cenário fecha os seus. */
+const contextosAbertos: BrowserContext[] = [];
+
+test.afterEach(async () => {
+  await Promise.all(contextosAbertos.splice(0).map((contexto) => contexto.close()));
+});
+
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript((dicas) => {
+    window.localStorage.setItem('kabemjunto.dicas-vistas', dicas);
+  }, DICAS_VISTAS);
+});
+
+async function novaPagina(browser: Browser, opcoes: BrowserContextOptions = {}): Promise<Page> {
+  const contexto = await browser.newContext(opcoes);
+  contextosAbertos.push(contexto);
+  await contexto.addInitScript((dicas) => {
+    window.localStorage.setItem('kabemjunto.dicas-vistas', dicas);
+  }, DICAS_VISTAS);
+  return contexto.newPage();
 }
 
 async function criarSala(page: Page, nome: string): Promise<string> {
   await page.goto('/');
-  await page.getByLabel('Seu nome').fill(nome);
+  await page.getByLabel('Seu apelido').fill(nome);
   await page.getByRole('button', { name: 'Criar sala' }).click();
   const dialog = page.getByRole('dialog', { name: 'Criar sala' });
   await dialog.getByRole('button', { name: 'Criar sala privada' }).click();
@@ -67,7 +59,7 @@ async function criarSala(page: Page, nome: string): Promise<string> {
 
 async function entrarNaSala(page: Page, nome: string, salaId: string): Promise<void> {
   await page.goto('/');
-  await page.getByLabel('Seu nome').fill(nome);
+  await page.getByLabel('Seu apelido').fill(nome);
   await page.getByLabel('Código da sala').fill(salaId);
   await page.getByRole('button', { name: 'Entrar em sala' }).click();
   await expect(page.locator('.room-code')).toHaveText(salaId);
@@ -79,10 +71,6 @@ interface OnlineVictoryFixture {
   vencedorCardId: string;
   vencedorCardLabel: string;
   oponenteCardLabels: [string, string];
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function rectsIntersect(
@@ -106,69 +94,46 @@ async function aplicarFixtureVitoriaDeterministica(
   return (await response.json()) as OnlineVictoryFixture;
 }
 
-interface OnlineInterceptacaoFixture {
-  salaId: string;
-  origemId: string;
-  interceptadorId: string;
-  cartaOrigemId: string;
-  cartaOrigemLabel: string;
-  cartaInterceptadoraId: string;
-}
-
-async function aplicarFixtureCortaFrenteDeterministica(
-  request: APIRequestContext,
-  salaId: string,
-): Promise<OnlineInterceptacaoFixture> {
-  const response = await request.post(
-    'http://127.0.0.1:3101/__e2e/fixture/online-corta-frente-deterministica',
-    { data: { salaId } },
-  );
-  expect(response.ok()).toBeTruthy();
-  return (await response.json()) as OnlineInterceptacaoFixture;
-}
-
 async function abrirPartida(
   browser: Browser,
+  opcoes: BrowserContextOptions = {},
 ): Promise<{ host: Page; convidado: Page; salaId: string }> {
-  const hostContext = await browser.newContext();
-  const guestContext = await browser.newContext();
-  const host = await hostContext.newPage();
-  const convidado = await guestContext.newPage();
+  const host = await novaPagina(browser, opcoes);
+  const convidado = await novaPagina(browser, opcoes);
   const salaId = await criarSala(host, 'Host E2E');
   await entrarNaSala(convidado, 'Convidado E2E', salaId);
   await expect(host.getByRole('button', { name: 'Iniciar partida' })).toBeEnabled();
   await host.getByRole('button', { name: 'Iniciar partida' }).click();
-  await expect(host.getByText('SUA MÃO')).toBeVisible();
-  await expect(convidado.getByText('SUA MÃO')).toBeVisible();
+  await expect(host.locator('.mesa3d canvas')).toBeVisible();
+  await expect(convidado.locator('.mesa3d canvas')).toBeVisible();
   return { host, convidado, salaId };
 }
+
+const jogadores = (page: Page) => page.getByRole('list', { name: 'Jogadores' });
 
 test('dois clientes entram na mesma sala e iniciam uma partida', async ({ browser }) => {
   const { host, convidado } = await abrirPartida(browser);
 
-  await expect(host.locator('.online-table-area').getByText('Host E2E')).toBeVisible();
-  await expect(convidado.locator('.online-table-area').getByText('Convidado E2E')).toBeVisible();
-
-  await host.context().close();
-  await convidado.context().close();
+  for (const pagina of [host, convidado]) {
+    await expect(jogadores(pagina)).toContainText('Host E2E');
+    await expect(jogadores(pagina)).toContainText('Convidado E2E');
+    await expect(pagina.locator('.mesa3d')).toHaveAttribute('data-mao', '7');
+  }
 });
 
 test('sair da partida ativa pede confirmação antes de abandonar', async ({ browser }) => {
-  const { host, convidado } = await abrirPartida(browser);
+  const { host } = await abrirPartida(browser);
 
-  await host.getByRole('button', { name: 'Sair' }).click();
-  const confirmation = host.getByRole('dialog', { name: 'Abandonar partida?' });
-  await expect(confirmation).toBeVisible();
-  await confirmation.getByRole('button', { name: 'Continuar' }).click();
-  await expect(confirmation).toHaveCount(0);
-  await expect(host.getByText('SUA MÃO')).toBeVisible();
+  await host.getByRole('button', { name: 'Sair da partida' }).click();
+  const confirmacao = host.getByRole('dialog', { name: 'Sair da partida?' });
+  await expect(confirmacao).toBeVisible();
+  await confirmacao.getByRole('button', { name: 'Continuar jogando' }).click();
+  await expect(confirmacao).toHaveCount(0);
+  await expect(host.locator('.mesa3d')).toBeVisible();
 
-  await host.getByRole('button', { name: 'Sair' }).click();
-  await confirmation.getByRole('button', { name: 'Abandonar' }).click();
-  await expect(host.getByRole('heading', { name: 'Entre na mesa' })).toBeVisible();
-
-  await host.context().close();
-  await convidado.context().close();
+  await host.getByRole('button', { name: 'Sair da partida' }).click();
+  await confirmacao.getByRole('button', { name: 'Sair' }).click();
+  await expect(host.getByRole('heading', { name: 'Como você quer jogar?' })).toBeVisible();
 });
 
 test('chat online entrega mensagem com o nome humano do remetente e preserva o histórico no Menu', async ({
@@ -176,8 +141,8 @@ test('chat online entrega mensagem com o nome humano do remetente e preserva o h
 }) => {
   const { host, convidado } = await abrirPartida(browser);
 
-  const hostMenu = host.getByRole('button', { name: /Menu/ });
-  const convidadoMenu = convidado.getByRole('button', { name: /Menu/ });
+  const hostMenu = host.getByRole('button', { name: /Menu da partida/ });
+  const convidadoMenu = convidado.getByRole('button', { name: /Menu da partida/ });
   await Promise.all([hostMenu.click(), convidadoMenu.click()]);
 
   const hostDrawer = host.getByRole('dialog', { name: 'Partida' });
@@ -193,9 +158,6 @@ test('chat online entrega mensagem com o nome humano do remetente e preserva o h
   await hostDrawer.getByRole('button', { name: 'Fechar utilidades' }).click();
   await hostMenu.click();
   await expect(hostDrawer.locator('.chat-messages')).toContainText(`Host E2E: ${mensagem}`);
-
-  await host.context().close();
-  await convidado.context().close();
 });
 
 test('falas rápidas enviam pelo chat, fecham a bandeja e aparecem como balão no assento do remetente', async ({
@@ -220,7 +182,7 @@ test('falas rápidas enviam pelo chat, fecham a bandeja e aparecem como balão n
   await tray.getByRole('button', { name: 'Boa jogada!' }).click();
   await expect(tray).toHaveCount(0);
 
-  const bubble = convidado.locator('.player-seat', { hasText: 'Host E2E' }).getByRole('status');
+  const bubble = convidado.locator('.mesa3d-balao');
   await expect(bubble).toHaveText('Host E2E disse: Boa jogada!');
 
   await trigger.click();
@@ -228,254 +190,127 @@ test('falas rápidas enviam pelo chat, fecham a bandeja e aparecem como balão n
   await expect(bubble).toHaveText('Host E2E disse: GG!');
   await expect(bubble).toHaveCount(0, { timeout: 6500 });
 
-  await convidado.getByRole('button', { name: /Menu/ }).click();
+  await convidado.getByRole('button', { name: /Menu da partida/ }).click();
   await expect(convidado.locator('.chat-messages')).toContainText('Host E2E: Boa jogada!');
-
-  await host.context().close();
-  await convidado.context().close();
 });
 
-test('partida online termina deterministicamente com mesmo vencedor e sem vazamento de mão privada', async ({
-  browser,
-  request,
-}) => {
-  const { host, convidado, salaId } = await abrirPartida(browser);
-
-  const fixture = await aplicarFixtureVitoriaDeterministica(request, salaId);
-  await expect(host.locator('.online-hand-container .hand-status span')).toContainText('1 cartas');
-  await expect(convidado.locator('.online-hand-container .hand-status span')).toContainText(
-    '2 cartas',
-  );
-
-  for (const oponenteCardLabel of fixture.oponenteCardLabels) {
-    await expect(host.getByRole('button', { name: oponenteCardLabel, exact: true })).toHaveCount(0);
-  }
-
-  const cartaVencedora = host.getByRole('button', {
-    name: fixture.vencedorCardLabel,
-    exact: true,
-  });
-  await expect(cartaVencedora).toBeVisible();
-  await cartaVencedora.click();
-  await cartaVencedora.click();
-
-  await expect(host.getByRole('heading', { name: 'Você Venceu!' })).toBeVisible();
-  await expect(
-    convidado.getByRole('heading', { name: new RegExp(`^${escapeRegExp('Host E2E')} Venceu!$`) }),
-  ).toBeVisible();
-
-  await expect(
-    convidado.getByRole('button', { name: fixture.vencedorCardLabel, exact: true }),
-  ).toHaveCount(0);
-
-  await host.context().close();
-  await convidado.context().close();
-});
-
-test('mesa local distribui dez jogadores em ordem circular sem overflow', async ({ page }) => {
+test('mesa local distribui dez jogadores em ordem de turno sem overflow', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
-  await page.getByRole('button', { name: '🏠 Local' }).click();
-  await page.getByRole('slider', { name: 'Quantidade de jogadores' }).fill('10');
-  await page.getByRole('button', { name: 'INICIAR PARTIDA CONFIGURADA' }).click();
+  await page.getByLabel('Seu apelido').fill('Ana');
+  await page.getByRole('button', { name: 'Mais jogadores, de 7 a 10' }).click();
+  await page.getByLabel('10', { exact: true }).check();
+  await page.getByRole('button', { name: 'Jogar agora' }).click();
 
-  const assentos = page.locator('.player-table-ring .player-seat');
-  await expect(assentos).toHaveCount(10);
-  await expect(page.locator('.player-seat-you')).toBeVisible();
-  await expect(page.locator('.hand-container')).toBeVisible();
+  await expect(page.locator('.mesa3d canvas')).toBeVisible();
+  const itens = jogadores(page).getByRole('listitem');
+  await expect(itens).toHaveCount(10);
+  await expect(itens.first()).toContainText('Você (Ana)');
+  for (let i = 1; i < 10; i += 1) await expect(itens.nth(i)).toContainText(`Bot ${i}`);
   await expect
     .poll(async () => page.evaluate(() => document.documentElement.scrollWidth))
     .toBe(390);
-
-  const indices = await assentos.evaluateAll((elements) =>
-    elements.map((element) => element.getAttribute('data-seat-index')),
-  );
-  expect(indices).toEqual(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']);
 });
 
-test('mobile 390x844 confirma jogada única e monta pilha tocável com geometria visível', async ({
-  browser,
-}) => {
-  const context = await browser.newContext({
-    viewport: { width: 390, height: 844 },
-    hasTouch: true,
-    isMobile: true,
-  });
-  const page = await context.newPage();
-  const estado = criarEstadoLocalMobile();
-  await page.addInitScript((fixture) => {
-    window.sessionStorage.setItem('kabemjunto.modo', 'local');
-    window.sessionStorage.setItem('kabemjunto.estado', JSON.stringify(fixture));
-  }, estado);
-
-  await page.goto('/');
-  const primeiraCarta = page.locator('[data-card-id="seis-azul-mobile"] .card-wrapper');
-  await primeiraCarta.tap();
-  await expect(primeiraCarta).toHaveAttribute('aria-pressed', 'true');
-  await primeiraCarta.tap();
-  await expect(page.locator('.discard-slot .card-wrapper')).toHaveAttribute(
-    'aria-label',
-    'Carta 6 AZUL',
-  );
-  await expect(page.locator('[data-card-id="seis-azul-mobile"]')).toHaveCount(0);
-
-  await page.reload();
-  const primeiraDaPilha = page.locator('[data-card-id="seis-azul-mobile"] .card-wrapper');
-  const segundaDaPilha = page.locator('[data-card-id="seis-verde-mobile"]');
-  await primeiraDaPilha.tap();
-  await segundaDaPilha.tap({ force: true });
-
-  const stack = page.getByRole('group', { name: /2 cartas\. Ordem:/ });
-  await expect(stack).toBeVisible();
-
-  // aria-label should include card count
-  const ariaLabel = await stack.getAttribute('aria-label');
-  expect(ariaLabel).toContain('2 cartas');
-
-  const stackCards = stack.locator('.multiple-discard-inline-stack-card');
-  await expect(stackCards).toHaveCount(2);
-  const playButton = stack.locator('.stack-play-button');
-  const playButtonBox = await playButton.boundingBox();
-  expect(playButtonBox).not.toBeNull();
-  expect(playButtonBox!.width).toBeGreaterThanOrEqual(44);
-  expect(playButtonBox!.height).toBeGreaterThanOrEqual(44);
-  const cartaSoltaBox = await page
-    .locator('[data-card-id="nove-azul-mobile"] .card-wrapper')
-    .boundingBox();
-  expect(cartaSoltaBox).not.toBeNull();
-  expect(
-    rectsIntersect(playButtonBox!, cartaSoltaBox!),
-    `botão=${JSON.stringify(playButtonBox)} cartaSolta=${JSON.stringify(cartaSoltaBox)}`,
-  ).toBe(false);
-  const geometry = await stackCards.evaluateAll((cards) =>
-    cards.map((card) => {
-      const rect = card.getBoundingClientRect();
-      return { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right };
-    }),
-  );
-  expect(geometry[0]!.top).toBeLessThan(geometry[1]!.top);
-  for (const rect of geometry) {
-    expect(rect.left).toBeGreaterThanOrEqual(0);
-    expect(rect.right).toBeLessThanOrEqual(390);
-    expect(rect.top).toBeGreaterThanOrEqual(0);
-    expect(rect.bottom).toBeLessThanOrEqual(844);
-  }
-
-  // Verify strip clip-path CSS: non-last stack cards should use 22px clipping,
-  // but the LAST card in the stack (the visible face) must NOT be clipped —
-  // regressão: botões-irmãos após os <span> não podem contar como :last-child.
-  const stripClipPath = await stackCards.first().evaluate((card) => {
-    const wrapper = card.querySelector<HTMLElement>('.card-wrapper');
-    return wrapper ? getComputedStyle(wrapper).clipPath : '';
-  });
-  // clip-path should be set (not 'none') for the first card in a multi-card stack
-  expect(stripClipPath).not.toBe('');
-  const lastCardClipPath = await stackCards.last().evaluate((card) => {
-    const wrapper = card.querySelector<HTMLElement>('.card-wrapper');
-    return wrapper ? getComputedStyle(wrapper).clipPath : '';
-  });
-  expect(lastCardClipPath).toBe('none');
-
-  // Executa por drag touch real e solta dentro da zona de descarte.
-  const stackBox = await stack.boundingBox();
-  expect(stackBox, 'stack bounding box not found').not.toBeNull();
-  const centerX = stackBox!.x + stackBox!.width / 2;
-  const startY = stackBox!.y + stackBox!.height / 2;
-  const stackSlot = page.locator('[data-card-id="seis-azul-mobile"]');
-  const pointerId = 13;
-  await stackSlot.dispatchEvent('pointerdown', {
-    pointerId,
-    pointerType: 'touch',
-    isPrimary: true,
-    buttons: 1,
-    clientX: centerX,
-    clientY: startY,
-  });
-  await stackSlot.dispatchEvent('pointermove', {
-    pointerId,
-    pointerType: 'touch',
-    isPrimary: true,
-    buttons: 1,
-    clientX: centerX,
-    clientY: startY - 90,
-  });
-  const dropZone = page.locator('.discard-drop-zone');
-  await expect(dropZone).toBeVisible();
-  const dropBox = await dropZone.boundingBox();
-  expect(dropBox).not.toBeNull();
-  await stackSlot.dispatchEvent('pointerup', {
-    pointerId,
-    pointerType: 'touch',
-    isPrimary: true,
-    buttons: 0,
-    clientX: dropBox!.x + dropBox!.width / 2,
-    clientY: dropBox!.y + dropBox!.height / 2,
-  });
-  await expect(page.getByRole('list', { name: 'Sua mão: 1 cartas' })).toBeVisible();
-  await expect(page.getByText('fez um descarte múltiplo.')).toBeVisible();
-  await context.close();
-});
 test('mobile 390x844 online — carta única via toque duplo e geometria sem overflow', async ({
   browser,
   request,
 }) => {
-  const hostContext = await browser.newContext({
-    viewport: { width: 390, height: 844 },
-    hasTouch: true,
-    isMobile: true,
-  });
-  const guestContext = await browser.newContext({
-    viewport: { width: 390, height: 844 },
-    hasTouch: true,
-    isMobile: true,
-  });
-  const host = await hostContext.newPage();
-  const convidado = await guestContext.newPage();
-
-  const salaId = await criarSala(host, 'Host Mobile');
-  await entrarNaSala(convidado, 'Convidado Mobile', salaId);
-  await expect(host.getByRole('button', { name: 'Iniciar partida' })).toBeEnabled();
-  await host.getByRole('button', { name: 'Iniciar partida' }).click();
-  await expect(host.getByText('SUA MÃO')).toBeVisible();
-  await expect(convidado.getByText('SUA MÃO')).toBeVisible();
-
+  const opcoes = { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true };
+  const { host, salaId } = await abrirPartida(browser, opcoes);
   const fixture = await aplicarFixtureVitoriaDeterministica(request, salaId);
 
-  // No horizontal scroll in 390px viewport
   await expect.poll(() => host.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+  const carta = host.locator(`.mesa3d-mao [data-card-id="${fixture.vencedorCardId}"]`);
+  await expect(carta).toBeAttached();
+  await expect
+    .poll(
+      () =>
+        host.evaluate(() => {
+          const mesa = (window as unknown as Record<string, unknown>)['__kabemjuntoMesa'] as
+            { estatisticas: () => { cartasAnimando: boolean } } | undefined;
+          return mesa ? mesa.estatisticas().cartasAnimando : true;
+        }),
+      { timeout: 15_000 },
+    )
+    .toBe(false);
+  const caixa = await carta.boundingBox();
+  expect(caixa, 'carta da mão sem posição projetada').not.toBeNull();
+  expect(caixa!.x).toBeGreaterThanOrEqual(0);
+  expect(caixa!.x + caixa!.width).toBeLessThanOrEqual(390);
 
-  // Online hand container fits without overflow
-  const handBox = await host.locator('.online-hand-container').boundingBox();
-  expect(handBox, 'online-hand-container not found').not.toBeNull();
-  expect(handBox!.width).toBeLessThanOrEqual(390);
-
-  // Single-card play via double touch tap (host has 1 card via fixture)
-  const cartaVencedora = host.locator(`[data-card-id="${fixture.vencedorCardId}"] .card-wrapper`);
-  await expect(cartaVencedora).toBeVisible();
-  await cartaVencedora.tap();
-  await cartaVencedora.tap();
+  // Primeiro toque seleciona; o segundo, na mesma carta, joga.
+  const ponto = { x: caixa!.x + caixa!.width / 2, y: caixa!.y + caixa!.height * 0.3 };
+  await host.touchscreen.tap(ponto.x, ponto.y);
+  await expect(carta).toHaveAttribute('aria-pressed', 'true');
+  await host.touchscreen.tap(ponto.x, ponto.y);
 
   await expect(host.getByRole('heading', { name: 'Você Venceu!' })).toBeVisible();
-
-  await hostContext.close();
-  await guestContext.close();
 });
 
-test('cliente recarrega e recupera a sessao da partida', async ({ browser }) => {
-  const { host, convidado } = await abrirPartida(browser);
+test('layout online: menu da partida prende o foco e a mesa não tem overflow nem colisões', async ({
+  browser,
+}) => {
+  const { host } = await abrirPartida(browser);
 
-  await convidado.reload();
-  await expect(convidado.locator('.connection')).toContainText('Online');
-  await expect(convidado.getByText('SUA MÃO')).toBeVisible();
-  await expect(host.locator('.online-table-area').getByText('Convidado E2E')).toBeVisible();
+  const menuTrigger = host.getByRole('button', { name: /Menu da partida/ });
+  await menuTrigger.click();
+  const drawer = host.getByRole('dialog', { name: 'Partida' });
+  const closeButton = drawer.getByRole('button', { name: 'Fechar utilidades' });
+  await expect(drawer).toBeVisible();
+  await expect(closeButton).toBeFocused();
+  await host.keyboard.press('Shift+Tab');
+  await expect(drawer.getByRole('button', { name: 'Enviar' })).toBeFocused();
+  await host.keyboard.press('Tab');
+  await expect(closeButton).toBeFocused();
+  await host.keyboard.press('Escape');
+  await expect(drawer).toHaveCount(0);
+  await expect(menuTrigger).toBeFocused();
 
-  await host.context().close();
-  await convidado.context().close();
+  for (const { width, height } of [
+    { width: 390, height: 844 },
+    { width: 1280, height: 800 },
+  ]) {
+    await host.setViewportSize({ width, height });
+    await expect.poll(() => host.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
+    await expect
+      .poll(() => host.evaluate(() => document.documentElement.scrollHeight))
+      .toBeLessThanOrEqual(height + 1);
+
+    const hud = await host.locator('.mesa3d-hud').boundingBox();
+    const descarte = await host.locator('.mesa3d-marcador-descarte').boundingBox();
+    expect(hud, `${width}x${height}: HUD`).not.toBeNull();
+    expect(descarte, `${width}x${height}: descarte`).not.toBeNull();
+    const cartas = await host.locator('.mesa3d-mao button').evaluateAll((botoes) =>
+      botoes.map((botao) => {
+        const r = botao.getBoundingClientRect();
+        return { x: r.x, y: r.y, width: r.width, height: r.height };
+      }),
+    );
+    expect(cartas.length).toBe(7);
+    for (const [indice, carta] of cartas.entries()) {
+      expect(
+        carta.x,
+        `${width}x${height}: carta ${indice} sai pela esquerda`,
+      ).toBeGreaterThanOrEqual(0);
+      expect(
+        carta.x + carta.width,
+        `${width}x${height}: carta ${indice} sai pela direita`,
+      ).toBeLessThanOrEqual(width);
+      expect(rectsIntersect(carta, hud!), `${width}x${height}: carta ${indice} sob o HUD`).toBe(
+        false,
+      );
+      expect(
+        rectsIntersect(carta, descarte!),
+        `${width}x${height}: carta ${indice} sobre o descarte`,
+      ).toBe(false);
+    }
+  }
 });
 
 test('entrada em sala inexistente mostra estado de sala não encontrada', async ({ page }) => {
   await page.goto('/');
-  await page.getByLabel('Seu nome').fill('Jogador inválido');
+  await page.getByLabel('Seu apelido').fill('Jogador inválido');
   await page.getByLabel('Código da sala').fill('NAOEXI');
   await page.getByRole('button', { name: 'Entrar em sala' }).click();
 
@@ -486,13 +321,11 @@ test('entrada em sala inexistente mostra estado de sala não encontrada', async 
 test('lobby lista a projeção pública compartilhada e permite entrar pela sala descoberta', async ({
   browser,
 }) => {
-  const hostContext = await browser.newContext();
-  const guestContext = await browser.newContext();
-  const host = await hostContext.newPage();
-  const guest = await guestContext.newPage();
+  const host = await novaPagina(browser);
+  const guest = await novaPagina(browser);
 
   await host.goto('/');
-  await host.getByLabel('Seu nome').fill('Host público');
+  await host.getByLabel('Seu apelido').fill('Host público');
   await host.getByRole('button', { name: 'Criar sala' }).click();
   const dialog = host.getByRole('dialog', { name: 'Criar sala' });
   await dialog.getByLabel('Nome da sala').fill('Mesa pública E2E');
@@ -501,16 +334,13 @@ test('lobby lista a projeção pública compartilhada e permite entrar pela sala
   await expect(host.getByText('Aguardando o grupo')).toBeVisible();
 
   await guest.goto('/');
-  await guest.getByLabel('Seu nome').fill('Convidado público');
+  await guest.getByLabel('Seu apelido').fill('Convidado público');
   const room = guest.locator('.public-room-card', { hasText: 'Mesa pública E2E' });
   await expect(room).toContainText('Criada por Host público');
   await expect(room).toContainText('1/10 jogadores');
   await room.getByRole('button', { name: 'Entrar' }).click();
   await expect(guest.getByText('Aguardando o grupo')).toBeVisible();
   await expect(host.getByText('Convidado público')).toBeVisible();
-
-  await hostContext.close();
-  await guestContext.close();
 });
 
 test('lobby pede nome antes de exibir salas públicas e cria uma sala privada nomeada por padrão', async ({
@@ -522,7 +352,7 @@ test('lobby pede nome antes de exibir salas públicas e cria uma sala privada no
   await page.getByRole('button', { name: 'Criar sala' }).click();
   await expect(page.getByText('Informe seu nome antes de continuar.')).toBeVisible();
 
-  await page.getByLabel('Seu nome').fill('Criador E2E');
+  await page.getByLabel('Seu apelido').fill('Criador E2E');
   await expect(page.getByRole('heading', { name: 'Salas públicas' })).toBeVisible();
   await page.getByRole('button', { name: 'Criar sala' }).click();
 
@@ -542,7 +372,7 @@ test('cliente usa o mesmo host da aplicação para o transporte Socket.IO', asyn
   });
 
   await page.goto('/');
-  await page.getByLabel('Seu nome').fill('Proxy E2E');
+  await page.getByLabel('Seu apelido').fill('Proxy E2E');
   await page.getByRole('button', { name: 'Criar sala' }).click();
   const dialog = page.getByRole('dialog', { name: 'Criar sala' });
   await dialog.getByRole('button', { name: 'Criar sala privada' }).click();
@@ -551,369 +381,4 @@ test('cliente usa o mesmo host da aplicação para o transporte Socket.IO', asyn
   expect(socketRequests.length).toBeGreaterThan(0);
   const socketOrigin = new URL(socketRequests[0]).origin;
   expect([new URL(page.url()).origin, 'http://127.0.0.1:3101']).toContain(socketOrigin);
-});
-
-test('mão online mobile rola como leque tocável e balões adversários ficam acima da mesa', async ({
-  browser,
-}) => {
-  const { host, convidado } = await abrirPartida(browser);
-
-  await host.setViewportSize({ width: 390, height: 844 });
-  const hand = host.locator('.online-hand-container .hand-cards');
-  const cards = hand.locator('.hand-card-slot .card-wrapper');
-  await expect(cards).toHaveCount(7);
-
-  const mobileHandGeometry = await hand.evaluate((handElement) => {
-    const cards = Array.from(
-      handElement.querySelectorAll<HTMLElement>('.hand-card-slot .card-wrapper'),
-    );
-    const viewport = { width: window.innerWidth, height: window.innerHeight };
-    const visibleClickablePoint = (card: HTMLElement): { x: number; y: number } | null => {
-      const rect = card.getBoundingClientRect();
-      for (let y = Math.ceil(rect.top + 8); y < Math.floor(rect.bottom - 8); y += 8) {
-        for (let x = Math.ceil(rect.left + 8); x < Math.floor(rect.right - 8); x += 8) {
-          if (x < 0 || y < 0 || x >= viewport.width || y >= viewport.height) continue;
-          if (
-            document.elementFromPoint(x, y) === card ||
-            card.contains(document.elementFromPoint(x, y))
-          ) {
-            return { x, y };
-          }
-        }
-      }
-      return null;
-    };
-
-    const sampledCards = [cards[0], cards[Math.floor(cards.length / 2)], cards[cards.length - 1]];
-    const slots = cards.map((card) => card.parentElement as HTMLElement);
-    const sampled = sampledCards.map((card) => {
-      const slot = card.parentElement as HTMLElement;
-      handElement.scrollLeft = slot.offsetLeft - (handElement.clientWidth - card.offsetWidth) / 2;
-      return { point: visibleClickablePoint(card), scrollLeft: handElement.scrollLeft };
-    });
-    const firstTransform = getComputedStyle(slots[0]).transform;
-    const lastTransform = getComputedStyle(slots[slots.length - 1]).transform;
-    const firstRect = slots[0].getBoundingClientRect();
-    const secondRect = slots[1].getBoundingClientRect();
-    return {
-      clientWidth: handElement.clientWidth,
-      scrollWidth: handElement.scrollWidth,
-      sampled,
-      firstTransform,
-      lastTransform,
-      adjacentOverlap: firstRect.right - secondRect.left,
-    };
-  });
-  expect(
-    mobileHandGeometry.scrollWidth,
-    'mobile hand must be horizontally scrollable',
-  ).toBeGreaterThan(mobileHandGeometry.clientWidth);
-  expect(
-    [mobileHandGeometry.firstTransform, mobileHandGeometry.lastTransform],
-    'mobile fan keeps its cards rotated rather than flattening into a straight strip',
-  ).not.toEqual(['none', 'none']);
-  expect(
-    mobileHandGeometry.adjacentOverlap,
-    'mobile fan has controlled negative overlap between adjacent cards',
-  ).toBeGreaterThan(0);
-  expect(
-    mobileHandGeometry.sampled.map(({ point }) => point),
-    'first, middle, and last card need their own touch target after horizontal scrolling',
-  ).toEqual([expect.anything(), expect.anything(), expect.anything()]);
-  expect(
-    mobileHandGeometry.sampled.at(-1)?.scrollLeft,
-    'last card must be reachable by scrolling',
-  ).toBeGreaterThan(0);
-
-  await host.getByRole('button', { name: 'Falas rápidas' }).click();
-  await host.getByRole('button', { name: 'Boa jogada!' }).click();
-  const localBubble = host.locator('.local-speech-lane .chat-speech-bubble');
-  const remoteBubble = convidado.locator('.player-seat .chat-speech-bubble');
-  await expect(localBubble).toBeVisible();
-  await expect(remoteBubble).toBeVisible();
-
-  for (const page of [host, convidado]) {
-    for (const { width, height } of [
-      { width: 390, height: 844 },
-      { width: 1280, height: 800 },
-    ]) {
-      await page.setViewportSize({ width, height });
-      const bubble = page === host ? localBubble : remoteBubble;
-      const bubbleBox = await bubble.boundingBox();
-      const turnBox = await page.locator('.turn-summary').boundingBox();
-      const handStatusBox = await page.locator('.online-hand-container .hand-status').boundingBox();
-      const centerBox = await page.locator('.table-center').boundingBox();
-      expect(bubbleBox, `${width}x${height}: speech bubble not found`).not.toBeNull();
-      expect(turnBox, `${width}x${height}: turn summary not found`).not.toBeNull();
-      expect(handStatusBox, `${width}x${height}: hand status not found`).not.toBeNull();
-      expect(centerBox, `${width}x${height}: table center not found`).not.toBeNull();
-      expect(
-        rectsIntersect(bubbleBox!, turnBox!),
-        `${width}x${height}: speech bubble intersects turn summary`,
-      ).toBe(false);
-      expect(
-        rectsIntersect(bubbleBox!, handStatusBox!),
-        `${width}x${height}: speech bubble intersects hand status`,
-      ).toBe(false);
-      if (page === convidado) {
-        const remoteBubbleIsTopmost = await bubble.evaluate((bubbleElement) => {
-          const bubble = bubbleElement as HTMLElement;
-          const rect = bubble.getBoundingClientRect();
-          for (let y = Math.ceil(rect.top + 4); y < Math.floor(rect.bottom - 4); y += 6) {
-            for (let x = Math.ceil(rect.left + 4); x < Math.floor(rect.right - 4); x += 6) {
-              const target = document.elementFromPoint(x, y);
-              if (target !== null && bubble.contains(target)) return true;
-            }
-          }
-          return false;
-        });
-        expect(
-          remoteBubbleIsTopmost,
-          `${width}x${height}: adversary speech bubble is painted beneath the table or dock`,
-        ).toBe(true);
-        expect(
-          rectsIntersect(bubbleBox!, centerBox!),
-          `${width}x${height}: remote speech bubble intersects table center`,
-        ).toBe(false);
-      }
-    }
-  }
-
-  await host.context().close();
-  await convidado.context().close();
-});
-
-test('layout online fullscreen nao tem overflow nem colisoes entre assentos, barra de status, resumo de turno e mao online', async ({
-  browser,
-}) => {
-  const { host, convidado } = await abrirPartida(browser);
-
-  const menuTrigger = host.getByRole('button', { name: /Menu/ });
-  await menuTrigger.click();
-  const drawer = host.getByRole('dialog', { name: 'Partida' });
-  const closeButton = drawer.getByRole('button', { name: 'Fechar utilidades' });
-  await expect(drawer).toBeVisible();
-  await expect(closeButton).toBeFocused();
-  await host.keyboard.press('Shift+Tab');
-  await expect(drawer.getByRole('button', { name: 'Enviar' })).toBeFocused();
-  await host.keyboard.press('Tab');
-  await expect(closeButton).toBeFocused();
-  await host.keyboard.press('Escape');
-  await expect(drawer).toHaveCount(0);
-  await expect(menuTrigger).toBeFocused();
-
-  for (const { width, height } of [
-    { width: 390, height: 844 },
-    { width: 1280, height: 800 },
-  ]) {
-    await host.setViewportSize({ width, height });
-
-    // No horizontal scroll
-    await expect.poll(() => host.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
-    await expect
-      .poll(() => host.evaluate(() => document.documentElement.scrollHeight))
-      .toBeLessThanOrEqual(height + 1);
-
-    // Game area visible and fills the viewport (no persistent sidebar stealing width)
-    const gameArea = host.locator('.online-table-area');
-    await expect(gameArea).toBeVisible();
-    const gameBox = await gameArea.boundingBox();
-    expect(gameBox, `${width}x${height}: .online-table-area not in DOM`).not.toBeNull();
-    expect(
-      gameBox!.width,
-      `${width}x${height}: sidebar visible — game area too narrow`,
-    ).toBeGreaterThan(width * 0.85);
-
-    const statusBox = await host.locator('.table-status-bar').boundingBox();
-    const handBox = await host.locator('.online-hand-container').boundingBox();
-    const turnBox = await host.locator('.turn-summary').boundingBox();
-    const centerBox = await host.locator('.table-center').boundingBox();
-
-    expect(statusBox, `${width}x${height}: .table-status-bar not found`).not.toBeNull();
-    expect(handBox, `${width}x${height}: .online-hand-container not found`).not.toBeNull();
-    expect(centerBox, `${width}x${height}: .table-center not found`).not.toBeNull();
-
-    expect(
-      rectsIntersect(statusBox!, handBox!),
-      `${width}x${height}: .table-status-bar intersects .online-hand-container`,
-    ).toBe(false);
-
-    if (turnBox !== null) {
-      expect(
-        rectsIntersect(turnBox, handBox!),
-        `${width}x${height}: .turn-summary intersects .online-hand-container`,
-      ).toBe(false);
-      expect(
-        rectsIntersect(turnBox, statusBox!),
-        `${width}x${height}: .turn-summary intersects .table-status-bar`,
-      ).toBe(false);
-      const pileLabels = host.locator('.online-table-area .pile-label');
-      for (let i = 0; i < (await pileLabels.count()); i++) {
-        const labelBox = await pileLabels.nth(i).boundingBox();
-        if (labelBox === null) continue;
-        expect(
-          rectsIntersect(labelBox, turnBox),
-          `${width}x${height}: .pile-label[${i}] intersects .turn-summary`,
-        ).toBe(false);
-      }
-    }
-
-    const seats = host.locator('.online-table-area .player-seat');
-    const seatCount = await seats.count();
-    for (let i = 0; i < seatCount; i++) {
-      const seatBox = await seats.nth(i).boundingBox();
-      if (seatBox === null) continue;
-      expect(
-        rectsIntersect(seatBox, handBox!),
-        `${width}x${height}: .player-seat[${i}] intersects .online-hand-container`,
-      ).toBe(false);
-      expect(
-        rectsIntersect(seatBox, statusBox!),
-        `${width}x${height}: .player-seat[${i}] intersects .table-status-bar`,
-      ).toBe(false);
-      expect(
-        rectsIntersect(seatBox, centerBox!),
-        `${width}x${height}: .player-seat[${i}] intersects .table-center`,
-      ).toBe(false);
-    }
-  }
-
-  await host.context().close();
-  await convidado.context().close();
-});
-
-test('mobile 390x844 local — Corta-Frente: humano intercepta descarte elegível do bot', async ({
-  browser,
-}) => {
-  const context = await browser.newContext({
-    viewport: { width: 390, height: 844 },
-    hasTouch: true,
-    isMobile: true,
-  });
-  const page = await context.newPage();
-  const carta = (id: string, cor: Carta['cor'], valor: number): Carta => ({
-    id,
-    tipo: 'NUMERADA',
-    cor,
-    valor,
-    raridade: 'COMUM',
-    colecao: 'base-v1',
-    efeito_texto_curto: `${valor}`,
-    efeito_texto_longo: `Carta ${valor}`,
-  });
-  const cartaIdentica = carta('sete-azul-humano', 'AZUL', 7);
-  const topo = carta('sete-azul-bot', 'AZUL', 7);
-  const estado: EstadoPartida = {
-    partidaId: 'partida-corta-frente',
-    salaId: 'sala-corta-frente',
-    jogadores: [
-      {
-        id: 'humano',
-        nome: 'Você',
-        mao: [cartaIdentica, carta('dois-verde', 'VERDE', 2)],
-        isBot: false,
-        conectado: true,
-        disseUno: false,
-        avatar: '\ud83d\udc64',
-        pontos: 0,
-      },
-      {
-        id: 'bot',
-        nome: 'Bot',
-        mao: [carta('tres-preto', 'PRETO', 3)],
-        isBot: true,
-        conectado: true,
-        disseUno: false,
-        avatar: '\ud83e\udd16',
-        pontos: 0,
-      },
-    ],
-    monteCompra: [carta('reserva', 'AZUL', 1)],
-    monteDescarte: [topo],
-    vezDe: 'humano',
-    sentido: 1,
-    corAtiva: 'AZUL',
-    ataqueAcumulado: 0,
-    ataqueStack: [],
-    silencio: { ativo: false, jogadoresQuebraram: [] },
-    // Histórico já registra que o BOT acabou de descartar `topo` — dispara a
-    // janela de Corta-Frente para o humano interceptar, mesmo não sendo a
-    // vez dele (vezDe permanece 'humano' propositalmente: a interceptação é
-    // uma ação fora-de-vez independente de quem está marcado como vezDe).
-    historico: [
-      { tipo: 'CARTA_JOGADA', timestamp: Date.now(), jogadorId: 'bot', cartaId: topo.id },
-    ],
-    finalizada: false,
-  };
-
-  await page.addInitScript((fixture) => {
-    window.sessionStorage.setItem('kabemjunto.modo', 'local');
-    window.sessionStorage.setItem('kabemjunto.estado', JSON.stringify(fixture));
-  }, estado);
-
-  await page.goto('/');
-
-  const banner = page.locator('.interceptacao-banner');
-  await expect(banner).toBeVisible();
-  await expect(banner).toContainText('Corta-Frente');
-
-  const botaoInterceptar = page.locator('.interceptacao-carta-botao');
-  await expect(botaoInterceptar).toBeVisible();
-  await botaoInterceptar.click();
-
-  // Após interceptar, a janela deve fechar e a carta idêntica deve sair da
-  // mão do humano e ir para o topo do descarte.
-  await expect(banner).toHaveCount(0);
-  await expect(page.locator('.discard-slot .card-wrapper')).toHaveAttribute(
-    'aria-label',
-    'Carta 7 AZUL',
-  );
-  await expect(page.locator('[data-card-id="sete-azul-humano"]')).toHaveCount(0);
-
-  await context.close();
-});
-
-test('online — Corta-Frente: convidado intercepta a carta do host e os dois convergem para o mesmo estado', async ({
-  browser,
-  request,
-}) => {
-  const { host, convidado, salaId } = await abrirPartida(browser);
-  const fixture = await aplicarFixtureCortaFrenteDeterministica(request, salaId);
-
-  // O host (origem da fixture) descarta a carta elegível pelo fluxo normal
-  // de UI online — dois toques (seleciona, confirma), igual à jogada única.
-  const cartaDoHost = host.locator(`[data-card-id="${fixture.cartaOrigemId}"] .card-wrapper`);
-  await expect(cartaDoHost).toBeVisible();
-  await cartaDoHost.click();
-  await cartaDoHost.click();
-
-  // Só quem NÃO descartou vê o banner (regra #6 do plano): o convidado vê,
-  // o host (jogadorOrigemId) não.
-  const bannerConvidado = convidado.locator('.interceptacao-banner');
-  await expect(bannerConvidado).toBeVisible();
-  await expect(bannerConvidado).toContainText('Corta-Frente');
-  await expect(host.locator('.interceptacao-banner')).toHaveCount(0);
-
-  // O convidado intercepta com a carta real idêntica (mesma cor e número)
-  // dada pela fixture — o servidor é quem decide, o cliente só envia o pedido.
-  const botaoInterceptar = bannerConvidado.locator('.interceptacao-carta-botao');
-  await expect(botaoInterceptar).toBeVisible();
-  await botaoInterceptar.click();
-
-  await expect(bannerConvidado).toHaveCount(0);
-  await expect(convidado.locator(`[data-card-id="${fixture.cartaInterceptadoraId}"]`)).toHaveCount(
-    0,
-  );
-
-  // Convergência: os dois clientes veem o mesmo topo de descarte resolvido
-  // pelo servidor (a carta do convidado é idêntica à do host — mesma face).
-  for (const page of [host, convidado]) {
-    await expect(page.locator('.discard-slot .card-wrapper')).toHaveAttribute(
-      'aria-label',
-      fixture.cartaOrigemLabel,
-    );
-  }
-
-  await host.context().close();
-  await convidado.context().close();
 });

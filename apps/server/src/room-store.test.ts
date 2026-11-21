@@ -378,13 +378,16 @@ describe('RoomStore — Corta-Frente (interceptação)', () => {
         carta.cor === 'AZUL' &&
         carta.id !== cartaJogavel.id,
     )!;
+    // A mão sorteada pode já conter essas duas cartas; sem isso haveria cópias duplicadas.
+    const semAsDuas = (mao: typeof jogadorOrigem.mao) =>
+      mao.filter((carta) => carta.id !== cartaJogavel.id && carta.id !== cartaIdentica.id);
     session.estado = {
       ...estado,
       jogadores: estado.jogadores.map((jogador) => {
         if (jogador.id === jogadorOrigem.id)
-          return { ...jogador, mao: [cartaJogavel, ...jogador.mao.slice(0, 1)] };
+          return { ...jogador, mao: [cartaJogavel, ...semAsDuas(jogador.mao).slice(0, 1)] };
         if (jogador.id === jogadorInterceptador.id)
-          return { ...jogador, mao: [cartaIdentica, ...jogador.mao] };
+          return { ...jogador, mao: [cartaIdentica, ...semAsDuas(jogador.mao)] };
         return jogador;
       }),
       monteDescarte: [{ ...cartaJogavel, id: 'topo-atual', cor: 'AZUL' as const }],

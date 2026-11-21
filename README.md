@@ -2,11 +2,11 @@
 
 > **O jogo de cartas que te denuncia.** · 2 a 10 jogadores · 8 a 15 minutos por partida.
 
-Kabemjunto é um jogo de cartas digital inspirado no UNO, mas com três camadas estratégicas próprias: a **regra do 7** (silêncio social), o **acúmulo assimétrico de ataques** (+2 sobre +4 é proibido) e a carta **0+ (Zero Mais)** que reflete ataques para o último atacante. Tematização brasileira, party game com 108 cartas, hot-seat local e multiplayer online.
+Kabemjunto é um jogo de cartas digital inspirado no UNO, mas com três camadas estratégicas próprias: a **regra do 7** (silêncio social), o **acúmulo assimétrico de ataques** (+2 sobre +4 é proibido) e a carta **0+ (Zero Mais)** que reflete ataques para o último atacante. Tematização brasileira, party game com 109 cartas (ADR-013), mesa 3D, partida contra bots e multiplayer online.
 
 [![CI](https://github.com/Alexandremocmg/kabemjunto/actions/workflows/ci.yml/badge.svg)](https://github.com/Alexandremocmg/kabemjunto/actions/workflows/ci.yml)
 [![Release v0.3.1](https://img.shields.io/badge/release-v0.3.1-success)](https://github.com/Alexandremocmg/kabemjunto/releases/tag/v0.3.1)
-![Tests: 170/170](https://img.shields.io/badge/tests-170%2F170-success)
+![Tests: 437 unit + 44 E2E](https://img.shields.io/badge/tests-437%20unit%20%2B%2044%20E2E-success)
 ![TS: strict](https://img.shields.io/badge/TypeScript-strict-blue)
 ![Lint: clean](https://img.shields.io/badge/lint-clean-success)
 ![Coverage: ≥80%](https://img.shields.io/badge/coverage-%E2%89%A580%25-success)
@@ -33,6 +33,17 @@ Kabemjunto é um jogo de cartas digital inspirado no UNO, mas com três camadas 
 - Ações coloridas: **Pula** (próximo perde a vez), **Inverte**, **+2**.
 - Coringas: **Coringa** (muda cor), **+4** (compra 4 e muda cor), **0+** (reflete o ataque!), **Troca Mão**, **Gira Mão**.
 - Regra do **7**: jogou 7 = silêncio até a próxima carta. Quem falar paga +2.
+- **Corta-Frente**: com uma carta idêntica ao descarte, você pode jogá-la fora da vez antes do tempo acabar.
+
+### Na mesa
+
+- **Arraste uma carta que brilha até o centro** para jogar. Também vale tocar na carta e tocar de novo.
+- Cartas de mesma face: toque nelas para juntar e jogue o grupo de uma vez (descarte múltiplo).
+- Nenhuma carta serve? Toque no monte.
+- Coringas abrem um anel de cores; a Troca Mão pede o adversário e depois a cor.
+- Teclado: `Tab` chega à mão, setas trocam de carta, `Enter` joga, `Espaço` seleciona.
+- Na primeira partida, dicas curtas explicam cada regra quando ela aparece.
+- Sem WebGL (ou com `?mesa=2d`), a mesma mesa aparece em 2D simples, com as mesmas regras.
 
 Detalhes completos em [`GDD-Kabemjunto.md §7`](./GDD-Kabemjunto.md#7-regras-oficiais-canônicas-resumo).
 
@@ -55,7 +66,7 @@ cd kabemjunto
 # 2. Instale as dependências
 npm install
 
-# 3. Rode os testes (opcional, mas recomendado — deve passar 41/41)
+# 3. Rode os testes (opcional, mas recomendado — todos devem passar)
 npm test
 
 # 4. Inicie o dev server
@@ -174,20 +185,21 @@ Por fim, faça smoke real no navegador público: criar sala com um cliente, entr
 
 ## 🛠️ Scripts disponíveis
 
-| Script                 | O que faz                                                           |
-| ---------------------- | ------------------------------------------------------------------- |
-| `npm run dev`          | Inicia o Vite dev server (http://localhost:5173)                    |
-| `npm run build`        | Build de produção (Vite + TypeScript check)                         |
-| `npm run preview`      | Serve o build de produção localmente                                |
-| `npm run typecheck`    | TypeScript sem emitir (checa tipos)                                 |
-| `npm test`             | Roda os testes do motor (Vitest)                                    |
-| `npm run test:watch`   | Modo watch (TDD)                                                    |
-| `npm run test:cov`     | Testes com cobertura                                                |
-| `npm run lint`         | ESLint em todo o projeto                                            |
-| `npm run lint:fix`     | ESLint com auto-fix                                                 |
-| `npm run format`       | Prettier write (formata tudo)                                       |
-| `npm run format:check` | Prettier check (CI)                                                 |
-| `npm run validate`     | Roda typecheck + lint + format:check + test + build (gate local/CI) |
+| Script                 | O que faz                                                               |
+| ---------------------- | ----------------------------------------------------------------------- |
+| `npm run dev`          | Sobe backend (http://localhost:3001) e frontend (http://localhost:5173) |
+| `npm run build`        | Build de produção (shared + server + web)                               |
+| `npm run preview`      | Serve o build de produção do frontend                                   |
+| `npm run typecheck`    | TypeScript sem emitir (shared, server e web)                            |
+| `npm test`             | Testes unitários e de componente (Vitest)                               |
+| `npm run test:watch`   | Modo watch (TDD)                                                        |
+| `npm run test:cov`     | Testes com cobertura                                                    |
+| `npm run e2e`          | Testes E2E no navegador (Playwright: sobe server e web de teste)        |
+| `npm run lint`         | ESLint em todo o projeto                                                |
+| `npm run lint:fix`     | ESLint com auto-fix                                                     |
+| `npm run format`       | Prettier write (formata tudo)                                           |
+| `npm run format:check` | Prettier check (CI)                                                     |
+| `npm run validate`     | Roda typecheck + lint + format:check + test + build (gate local/CI)     |
 
 ---
 
@@ -195,43 +207,42 @@ Por fim, faça smoke real no navegador público: criar sala com um cliente, entr
 
 ### Stack
 
-| Camada         | Stack                                             |
-| -------------- | ------------------------------------------------- |
-| Frontend       | TypeScript + React 18 + Vite                      |
-| UI             | Tailwind (CSS puro), Framer Motion (animações)    |
-| Estado         | Zustand + React Query                             |
-| Áudio          | Web Audio API (síntese em tempo real, sem assets) |
-| Backend (Beta) | Node + Fastify + Socket.IO                        |
-| DB (Beta)      | PostgreSQL + Redis                                |
-| Testes         | Vitest                                            |
-| Lint/Format    | ESLint 9 + Prettier 3                             |
-| CI             | GitHub Actions                                    |
+| Camada       | Stack                                                                      |
+| ------------ | -------------------------------------------------------------------------- |
+| Frontend     | TypeScript (strict) + React 18 + Vite 5                                    |
+| Mesa         | Three.js puro (3D, carregado sob demanda) + camada em DOM (acessível e 2D) |
+| Estado       | Hooks do React; partida local na `sessionStorage`                          |
+| Áudio        | Web Audio API (síntese em tempo real, sem assets)                          |
+| Backend      | Node + Fastify 5 + Socket.IO (servidor autoritativo)                       |
+| Persistência | Snapshot JSON atômico em volume, instância única (ADR-011)                 |
+| Testes       | Vitest + fast-check (propriedades) + Playwright (E2E)                      |
+| Lint/Format  | ESLint 9 + Prettier 3                                                      |
+| CI / Deploy  | GitHub Actions; Docker + Railway (deploy manual)                           |
 
 ### Estrutura de pastas
 
 ```
 .
-├── src/                          # Frontend React
-│   ├── components/               # Componentes UI (CartaView, Lobby, MesaDeJogo, ...)
-│   ├── services/                 # Wrappers de I/O (gameEngine, audioService)
-│   ├── styles/                   # CSS
-│   ├── App.tsx                   # Componente raiz
-│   └── main.tsx                  # Entry point
+├── apps/
+│   ├── web/                      # Frontend React (Vite)
+│   │   └── src/
+│   │       ├── mesa/             # Mesa de jogo: 3D, 2D, interação, dicas, controladores
+│   │       │   └── cena/         # Cena Three.js (texturas, geometria, animação)
+│   │       ├── components/       # Lobby/menu, coleção, vitória, status de conexão
+│   │       ├── services/         # Socket.IO, wrapper do motor, áudio, telemetria
+│   │       └── App.tsx           # Menu → partida local ou sala online
+│   └── server/                   # Fastify + Socket.IO (salas, retomada, persistência)
 ├── packages/
 │   └── shared/                   # Fonte única de verdade
 │       └── src/
-│           ├── types/            # Tipos canônicos (Carta, EstadoPartida, Jogador)
+│           ├── types/            # Tipos canônicos (Carta, EstadoPartida, Jogador, eventos)
 │           ├── rules/            # Motor de regras PURO (sem I/O)
-│           ├── constants/        # Baralho 108, paleta de cores
-│           └── fixtures/         # deck108.json
-├── apps/
-│   └── server/                   # Backend (em construção — Beta)
-├── assets/                       # SVGs, SFX (gerados por Antigravity)
+│           ├── constants/        # Baralho de 109 cartas, paleta de cores
+│           └── fixtures/         # deck108.json (nome histórico)
+├── e2e/                          # Playwright: menu, salas, mesa 3D local e online
+├── assets/                       # SVGs, SFX
 ├── .github/                      # CI, templates de issue/PR
-├── eslint.config.js              # ESLint 9 flat config
-├── tsconfig.json                 # TS strict
-├── DECISIONS.md                  # ADRs
-├── PLANO-EQUIPE-3DEVS.md         # Plano multi-agente
+├── DECISIONS.md                  # ADRs (a mesa 3D é a ADR-014)
 └── STATUS.md                     # Caderno do time
 ```
 
@@ -265,22 +276,19 @@ Este projeto é mantido por **3 agentes de IA** sob coordenação de um humano:
 
 ## 🗺️ Roadmap
 
-| Fase                           | Status         | Marco                                                   |
-| ------------------------------ | -------------- | ------------------------------------------------------- |
-| **Sprint 0** — Bootstrap       | ✅ **Fechado** | Monorepo, motor puro, 41 testes, CI, lint, README       |
-| **Sprint 1** — Motor detalhado | 🔜 Próximo     | State machine explícita, validação completa, edge cases |
-| **Sprint 2** — Polimento MVP   | 📋 Planejado   | Cartas neutras, troca de mão, gira mão, UX              |
-| **Sprint 3** — Fechamento MVP  | 📋 Planejado   | Playtest interno, telemetria, snapshot/restore          |
-| **Beta** — Multiplayer         | 📋 Planejado   | Fastify + Socket.IO, salas, auth, reconnect             |
-| **Release v1.0**               | 📋 Planejado   | PWA, mobile wrapper, loja de baralhos                   |
+O andamento detalhado, sprint a sprint, está em [`STATUS.md`](./STATUS.md). Hoje:
 
-Detalhes em [`PLANO-EQUIPE-3DEVS.md §4`](./PLANO-EQUIPE-3DEVS.md#4-backlog-por-sprint-com-atribuição-de-dono) e [`GDD-Kabemjunto.md §03.6`](./GDD-Kabemjunto.md).
+- ✅ Motor puro completo (109 cartas, Silêncio, 0+, Corta-Frente, descarte múltiplo, Troca/Gira Mão, +2 Para Todos).
+- ✅ Multiplayer online com servidor autoritativo, salas públicas/privadas, retomada após recarregar e persistência em volume.
+- ✅ Mesa 3D (local e online) com alternativa 2D, menu de dois caminhos e dicas contextuais (ADR-014).
+- 🔜 Performance: 60 fps de média em celular intermediário (hoje 49–56 no perfil de teste; ver ADR-014).
+- 📋 PWA instalável, loja de baralhos.
 
 ---
 
 ## 📸 Screenshots (preview)
 
-_(Screenshots de mockup no GDD — implementação real virá com a Sprint 2)_
+_(Mockups do GDD, anteriores à mesa 3D atual.)_
 
 | Tela            | Mockup                       |
 | --------------- | ---------------------------- |
@@ -295,12 +303,9 @@ _(Screenshots de mockup no GDD — implementação real virá com a Sprint 2)_
 
 ## 📊 Status atual
 
-- ✅ **Sprint 0 fechada** (2026-07-26)
-- ✅ **41/41 testes passando** (23ms)
-- ✅ **TypeScript strict 100%** verde
-- ✅ **ESLint + Prettier** 0 erros
-- ✅ **CI no GitHub Actions** configurado
-- 🔜 **Sprint 1** começando
+- ✅ `npm run validate` verde: TypeScript strict, ESLint, Prettier, 437 testes unitários/de componente e build.
+- ✅ 44 testes E2E (Playwright) cobrindo menu, salas, mesa 3D local e online, mesa 2D e acessibilidade.
+- ✅ CI no GitHub Actions (com cobertura ≥ 80% nas regras).
 
 ---
 
