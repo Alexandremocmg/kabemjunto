@@ -9,9 +9,9 @@
 
 ### 2026-11-21 — Vitrine dos jogos publicada
 
-- **https://jogos.kabemmanager.online** reúne os cinco jogos no ar (Kabemjunto, Circuito das Fendas, Corrida Sem Fim, Raízes Cruzadas e Esconde ou Morre) numa página com imagem de partida, descrição e botão **Jogar**, para trazer jogadores de forma orgânica. Código em `Alexandremocmg/kabem-jogos` (público).
+- **https://jogos.kabemmanager.online** reúne os seis jogos no ar (Kabemjunto, Turbo Maré, Corrida Sem Fim, Circuito das Fendas, Esconde ou Morre e Raízes Cruzadas) numa página com imagem de partida, descrição e botão **Jogar**, para trazer jogadores de forma orgânica. Código em `Alexandremocmg/kabem-jogos` (público). O Turbo Maré foi adicionado em seguida e **continua no GitHub Pages**; a sala online dele usa o serviço público `itty.ws`.
 - Mesma infraestrutura dos jogos estáticos: clone em `/srv/jogos/vitrine`, `server` no nginx dos jogos, rota `jogos-vitrine.yaml` no Traefik e registro `A` `jogos` no hPanel. Log de acesso em `/var/log/jogos-static/access.log`, com rotação semanal; mostra o IP do Traefik, não o do visitante.
-- Validado de fora, em Chromium (desktop e celular): sem erro de console, sem rolagem horizontal, imagens carregando e o botão **Jogar** dos cinco jogos abrindo o jogo certo. Os PRs de documentação dos quatro jogos (#33 e os três dos repositórios dos jogos) foram mergeados.
+- Validado de fora, em Chromium (desktop e celular): sem erro de console, sem rolagem horizontal, imagens carregando e o botão **Jogar** dos seis jogos abrindo o jogo certo. Os PRs de documentação dos quatro jogos (#33 e os três dos repositórios dos jogos) foram mergeados.
 - Pendências: cadastrar o endereço no Google Search Console e no Bing Webmaster e enviar o `sitemap.xml`; conferir a prévia ao compartilhar no WhatsApp; os jogos Circuito das Fendas (Beta) e Esconde ou Morre (Protótipo) aparecem com esses selos e podem ser tirados do `games.json` se ainda não devem ser divulgados.
 
 ### 2026-11-21 — Outros jogos na mesma VPS e documentação
