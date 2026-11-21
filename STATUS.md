@@ -7,6 +7,13 @@
 **Base da revisão:** `main` em `54c4601`, com a mesa 3D (`feat/mesa-3d`, PR #29) como base do PWA em `docs/revisao-documentacao` (PR #30)
 **Último briefing:** [Sprint 7](./briefings/sprint-7.md) — beta fechado e onboarding; conclusão das issues não revalidada nesta revisão
 
+### 2026-11-21 — Outros jogos na mesma VPS e documentação
+
+- A VPS passou a servir também **Raízes Cruzadas** (`raizes.`), **Corrida Sem Fim** (`corrida.`) e **Esconde ou Morre** (`esconde.`, cliente e servidor WebSocket), todos em `kabemmanager.online` com HTTPS. Infraestrutura comum: usuário `jogos` sem privilégios, nginx próprio escutando só em `172.18.0.1:8081`, uma rota do Traefik por jogo e firewall da 8787. Validado de fora no navegador, incluindo uma partida online do Esconde ou Morre.
+- Documentado em [`docs/OPERACAO-VPS.md`](./docs/OPERACAO-VPS.md) (seção 6: mapa, infraestrutura, atualização, como adicionar um jogo e como desfazer) e em um documento curto em cada repositório de jogo.
+- Leitura da unit do Kabemjunto: o `CORS_ORIGINS` não inclui o domínio estável (sem efeito hoje, mesma origem) e as salas são gravadas em `/var/lib/kabemjunto/rooms.json`; que sobrevivem a um reinício continua não verificado.
+- Abertos e não alterados: `/root` com permissão 755, clone do Kabemjunto ainda na branch `feat/mesa-3d`, `https://` no domínio do painel do Easypanel, Postgres e Redis expostos.
+
 ### 2026-11-21 — URL estável e firewall da porta 3001 (VPS Hostinger)
 
 - O jogo de teste agora responde em **https://kabemjunto.kabemmanager.online**, endereço fixo com HTTPS. Registro `A` criado no hPanel (DNS da Hostinger) e rota nova no Traefik do Easypanel, por um arquivo novo (`kabemjunto.yaml`) que não altera nada existente. Certificado Let's Encrypt automático.
