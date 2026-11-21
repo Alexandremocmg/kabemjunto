@@ -19,6 +19,8 @@ export interface LobbyOnlineProps {
   onJogarContraBots?: (nome: string, totalJogadores: number) => void;
   erro?: string | undefined;
   desabilitado?: boolean;
+  /** Navegador sem rede: salas online esperam a conexão; contra bots segue funcionando. */
+  semInternet?: boolean;
   salasPublicas?: ReadonlyArray<ServerSalaDisponivel>;
   onListarSalas?: () => void;
 }
@@ -32,6 +34,7 @@ export const LobbyOnline: React.FC<LobbyOnlineProps> = ({
   onJogarContraBots,
   erro,
   desabilitado,
+  semInternet = false,
   salasPublicas = [],
   onListarSalas = () => undefined,
 }) => {
@@ -54,6 +57,7 @@ export const LobbyOnline: React.FC<LobbyOnlineProps> = ({
   const errorId = useId();
   const errorMessage = validationError ?? erro;
   const temNome = Boolean(nomeInput.trim());
+  const salasIndisponiveis = Boolean(desabilitado) || semInternet;
 
   useEffect(() => {
     // No celular, focar o campo abriria o teclado e esconderia as duas escolhas do menu.
@@ -225,12 +229,16 @@ export const LobbyOnline: React.FC<LobbyOnlineProps> = ({
         </p>
         <section className="menu-escolha" aria-labelledby="amigos-title">
           <h3 id="amigos-title">Jogar com amigos</h3>
-          <p className="muted">Online: crie uma sala e mande o código.</p>
+          <p className="muted" role={semInternet ? 'status' : undefined}>
+            {semInternet
+              ? 'Sem internet: só dá para jogar contra bots. As salas voltam quando a conexão voltar.'
+              : 'Online: crie uma sala e mande o código.'}
+          </p>
           <button
             type="button"
             className="button button-secondary"
             onClick={abrirCriacao}
-            disabled={desabilitado}
+            disabled={salasIndisponiveis}
           >
             Criar sala
           </button>
@@ -247,14 +255,14 @@ export const LobbyOnline: React.FC<LobbyOnlineProps> = ({
               onChange={(event) => setSalaInput(event.target.value.toUpperCase())}
               maxLength={6}
               placeholder="Código: MOHPSR"
-              disabled={desabilitado}
+              disabled={salasIndisponiveis}
               aria-describedby={errorMessage ? errorId : undefined}
               aria-invalid={Boolean(errorMessage)}
             />
             <button
               type="submit"
               className="button button-secondary"
-              disabled={desabilitado}
+              disabled={salasIndisponiveis}
               aria-label="Entrar em sala"
             >
               Entrar

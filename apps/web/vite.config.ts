@@ -1,11 +1,12 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
+import { pwaBuild } from './pwa-build';
 
 const tunnelHost = process.env['VITE_TUNNEL_HOST'];
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), pwaBuild()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

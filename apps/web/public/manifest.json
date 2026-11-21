@@ -3,29 +3,31 @@
   "short_name": "Kabemjunto",
   "description": "O jogo de cartas dinâmico com o lendário 0+ Reflexo e a icônica Regra do Silêncio 7!",
   "start_url": "/",
+  "id": "/",
+  "scope": "/",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#0F172A",
-  "theme_color": "#1F2937",
+  "theme_color": "#0F172A",
   "lang": "pt-BR",
   "categories": ["games", "entertainment"],
   "icons": [
     {
-      "src": "/icon-192.svg",
+      "src": "/icon-192.png",
       "sizes": "192x192",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icon-512.svg",
+      "src": "/icon-512.png",
       "sizes": "512x512",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icon-maskable.svg",
+      "src": "/icon-maskable.png",
       "sizes": "512x512",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "maskable"
     }
   ]
