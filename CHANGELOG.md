@@ -17,6 +17,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 - Novo [`docs/OPERACAO-VPS.md`](./docs/OPERACAO-VPS.md): onde o jogo roda hoje (VPS da Hostinger, systemd, túnel rápido da Cloudflare), como atualizar, validar e voltar atrás, e os pontos de atenção.
 - README, STATUS e GDD apontam para esse documento; o GDD deixa de tratar o Railway como o único destino de deploy.
 - O mesmo documento passou a registrar a URL estável (`kabemjunto.kabemmanager.online`, via Traefik) e o firewall da porta 3001, com os passos para desfazer. O túnel rápido virou legado.
+- O runbook ganhou a seção 6, com os outros três jogos hospedados na mesma VPS (Raízes Cruzadas, Corrida Sem Fim e Esconde ou Morre), a infraestrutura compartilhada, como atualizar cada um, como adicionar um jogo e como desfazer. Também registra a configuração real da unit do Kabemjunto (variáveis, `CORS_ORIGINS` sem o domínio estável e o arquivo de salas).
 
 ### Documentação — 2026-11-18
 
