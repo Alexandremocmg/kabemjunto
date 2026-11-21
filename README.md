@@ -141,6 +141,10 @@ Não há workflow de deploy Railway em `.github/workflows/`. O histórico regist
 
 Quando houver solicitação de deploy, confirme serviço, ambiente e volume; publique o SHA pretendido e confira assets, `/live`, `/ready`, `/health`, `/socket.io/?EIO=4&transport=polling` e uma partida com dois clientes, incluindo reconexão.
 
+### VPS da Hostinger (ambiente de teste atual)
+
+Hoje o jogo é servido por uma VPS da Hostinger: `kabemjunto.service` (systemd, `/root/kabemjunto`, porta 3001) e `kabemjunto-tunnel.service` (túnel rápido da Cloudflare). A URL `trycloudflare.com` é aleatória e muda se o túnel reiniciar. **Um `git push` ou o merge de um PR não atualiza a VPS**: a atualização é manual (backup do `dist`, `git merge --ff-only origin/main`, `npm ci`, `npm run build`, reinício **só** do `kabemjunto.service`). O passo a passo, a validação, o rollback e os pontos de atenção estão em [`docs/OPERACAO-VPS.md`](./docs/OPERACAO-VPS.md).
+
 ## Estado e próximos passos
 
 **Implementado no código:** partida contra bots e Online na mesma mesa 3D, salas públicas e privadas, chat e falas rápidas, retomada por token, persistência de salas, descarte múltiplo, Corta-Frente, +2 Para Todos, dicas contextuais e personalização local de avatar/tema.
@@ -151,6 +155,7 @@ Quando houver solicitação de deploy, confirme serviço, ambiente e volume; pub
 
 - [GDD mestre e regras canônicas](./GDD-Kabemjunto.md).
 - [Revisão do código e da documentação — 2026-11-18](./docs/REVISAO-2026-11-18.md).
+- [Operação na VPS: onde o jogo roda e como atualizá-lo](./docs/OPERACAO-VPS.md).
 - [Como contribuir](./CONTRIBUTING.md) e [convenções dos agentes](./AGENTS.md).
 - [Status e histórico do time](./STATUS.md) e [changelog](./CHANGELOG.md).
 - [Decisões arquiteturais](./DECISIONS.md), incluindo ADR-011, ADR-012 e ADR-013.

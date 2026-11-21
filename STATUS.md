@@ -7,6 +7,15 @@
 **Base da revisão:** `main` em `54c4601`, com a mesa 3D (`feat/mesa-3d`, PR #29) como base do PWA em `docs/revisao-documentacao` (PR #30)
 **Último briefing:** [Sprint 7](./briefings/sprint-7.md) — beta fechado e onboarding; conclusão das issues não revalidada nesta revisão
 
+### 2026-11-21 — Onde o jogo roda e como atualizar (VPS Hostinger)
+
+- Descoberto pelo terminal web da Hostinger: o link de teste (`trycloudflare.com`) é servido por uma **VPS da Hostinger**, não pela máquina de desenvolvimento nem pelo Railway. `kabemjunto.service` (Node, `/root/kabemjunto`, porta 3001 em `0.0.0.0`) e `kabemjunto-tunnel.service` (cloudflared em túnel rápido) rodam sob systemd, como root, numa VPS compartilhada com outros serviços. Sem pm2.
+- A VPS servia um build de 2026-11-18, sem PWA, menu novo nem mesa 3D (`/manifest.json` e `/sw.js` devolviam o HTML). Foi atualizada para a `main` (`ee4efe1`) por `git merge --ff-only`, `npm ci`, `npm run build` e reinício só do `kabemjunto.service`; o túnel não foi tocado e a URL não mudou. Backup do build antigo em `/root/kabemjunto-backup-pre-pwa/` (código anterior: `9a6dccd`).
+- Validado pelo link público em Chromium: manifest (3 ícones), service worker, aviso "Sem internet", menu e mesa 3D contra bots offline, e uma jogada online por WebSocket. Não testado: celular físico, Safari, Firefox e a atualização do service worker entre duas versões reais.
+- **Regra operacional:** atualizar a VPS é manual. Um push ou merge não a atualiza; confirme pelo nome do bundle e por `/manifest.json`/`/sw.js`. Procedimento completo em [`docs/OPERACAO-VPS.md`](./docs/OPERACAO-VPS.md). Nunca reiniciar o túnel (a URL muda) nem outros serviços da VPS.
+- Pendências: porta 3001 aberta em todas as interfaces (firewall não verificado), serviços como root, origem do WebSocket não conferida, URL instável do túnel rápido. O aviso de 9 vulnerabilidades do `npm ci` é só de ferramentas de desenvolvimento; `npm audit --omit=dev` retorna 0.
+- Os PRs #29 e #30 foram mergeados na `main` (`e814a4e` e `ee4efe1`).
+
 ### 2026-11-18 — Reconciliação documental com `54c4601`
 
 - Revisão solicitada pelo proprietário: escopo de documentação; sem alteração de regras, aplicação ou infraestrutura.
