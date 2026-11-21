@@ -12,6 +12,11 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 - PWA instalável com ícones PNG e cache dos arquivos do build. Sem rede, o menu abre e a partida contra bots na mesa 3D (com o Three.js em cache) começa e é retomada ao recarregar na mesma janela; criar ou entrar em sala fica desabilitado com um aviso até a conexão voltar.
 - Atualizações do service worker aguardam o fechamento das janelas da versão anterior. A suíte de navegador verifica o manifest, os ícones, a retomada da partida contra bots e as rotas que dependem de rede.
 
+### Documentação — 2026-11-21
+
+- Novo [`docs/OPERACAO-VPS.md`](./docs/OPERACAO-VPS.md): onde o jogo roda hoje (VPS da Hostinger, systemd, túnel rápido da Cloudflare), como atualizar, validar e voltar atrás, e os pontos de atenção.
+- README, STATUS e GDD apontam para esse documento; o GDD deixa de tratar o Railway como o único destino de deploy.
+
 ### Documentação — 2026-11-18
 
 - README, contribuição e GDD reconciliados com `54c4601`; removidos badges fixos e afirmações de Sprint 0, backend futuro e PostgreSQL/Redis implementados.
