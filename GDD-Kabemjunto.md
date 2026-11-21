@@ -60,20 +60,20 @@ Hoje o jogo roda no navegador e oferece dois caminhos a partir do menu: **jogar 
 
 ## 2. Estado atual do produto
 
-| Área                                             | Situação | Observação                                                                                                                                                                              |
-| ------------------------------------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Motor de regras (109 cartas)                     | ✅       | Silêncio, 0+, +2 Para Todos, Corta-Frente, descarte múltiplo, Troca/Gira Mão                                                                                                            |
-| Online: salas públicas/privadas, retomada        | ✅       | Salas por código; persistência de snapshot em instância única; chat e falas rápidas                                                                                                     |
-| Mesa 3D (bots e online)                          | ✅ em PR | PR #29: um componente para os dois modos; 2D simples sem WebGL ou com `?mesa=2d`                                                                                                        |
-| Menu de dois caminhos, logo e leque de cartas    | ✅ em PR | PR #29: "Jogar contra bots" em destaque e "Jogar com amigos"                                                                                                                            |
-| Dicas contextuais                                | ✅ em PR | Seis dicas, cada uma aparece uma vez, quando importa                                                                                                                                    |
-| PWA instalável e partida offline                 | ✅ em PR | PR #30, sobre o #29: manifest, ícones, service worker; menu avisa "Sem internet"                                                                                                        |
-| Hot-seat (vários humanos no mesmo aparelho)      | ❌       | Existia na mesa antiga; saiu com a mesa 3D                                                                                                                                              |
-| Escolha de dificuldade dos bots                  | 🔜       | O motor tem Fácil, Médio e Difícil; a interface usa Fácil sem oferecer escolha                                                                                                          |
-| Meta de 60 fps de média em celular intermediário | 🔜       | Hoje: mediana 60 fps, média 49 a 56 no perfil de teste (CPU 4× mais lenta, 6 jogadores)                                                                                                 |
-| Produção publicada                               | 🔜       | Ambiente de teste na VPS da Hostinger, atualizado para a `main` em 2026-11-21 (URL de túnel rápido, instável); o deploy no Railway estava fora do ar em 2026-11-18 e não foi revalidado |
-| Playtest fechado, onboarding visual              | 📋       | Issues #16 e #17                                                                                                                                                                        |
-| Testes automatizados                             | ✅       | 440 testes unitários e 46 cenários E2E (Chromium) na branch integrada                                                                                                                   |
+| Área                                             | Situação | Observação                                                                                                                                                                                                        |
+| ------------------------------------------------ | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Motor de regras (109 cartas)                     | ✅       | Silêncio, 0+, +2 Para Todos, Corta-Frente, descarte múltiplo, Troca/Gira Mão                                                                                                                                      |
+| Online: salas públicas/privadas, retomada        | ✅       | Salas por código; persistência de snapshot em instância única; chat e falas rápidas                                                                                                                               |
+| Mesa 3D (bots e online)                          | ✅ em PR | PR #29: um componente para os dois modos; 2D simples sem WebGL ou com `?mesa=2d`                                                                                                                                  |
+| Menu de dois caminhos, logo e leque de cartas    | ✅ em PR | PR #29: "Jogar contra bots" em destaque e "Jogar com amigos"                                                                                                                                                      |
+| Dicas contextuais                                | ✅ em PR | Seis dicas, cada uma aparece uma vez, quando importa                                                                                                                                                              |
+| PWA instalável e partida offline                 | ✅ em PR | PR #30, sobre o #29: manifest, ícones, service worker; menu avisa "Sem internet"                                                                                                                                  |
+| Hot-seat (vários humanos no mesmo aparelho)      | ❌       | Existia na mesa antiga; saiu com a mesa 3D                                                                                                                                                                        |
+| Escolha de dificuldade dos bots                  | 🔜       | O motor tem Fácil, Médio e Difícil; a interface usa Fácil sem oferecer escolha                                                                                                                                    |
+| Meta de 60 fps de média em celular intermediário | 🔜       | Hoje: mediana 60 fps, média 49 a 56 no perfil de teste (CPU 4× mais lenta, 6 jogadores)                                                                                                                           |
+| Produção publicada                               | 🔜       | Ambiente de teste na VPS da Hostinger, atualizado para a `main` em 2026-11-21, com URL estável `https://kabemjunto.kabemmanager.online`; o deploy no Railway estava fora do ar em 2026-11-18 e não foi revalidado |
+| Playtest fechado, onboarding visual              | 📋       | Issues #16 e #17                                                                                                                                                                                                  |
+| Testes automatizados                             | ✅       | 440 testes unitários e 46 cenários E2E (Chromium) na branch integrada                                                                                                                                             |
 
 A última release marcada é `v0.5.1` e não inclui a mesa 3D nem o PWA.
 
@@ -387,15 +387,15 @@ Limites conhecidos: o servidor não confere a origem das conexões WebSocket (ba
 
 ### Riscos
 
-| Risco                                                         | Prob. | Impacto | Mitigação                                                                |
-| ------------------------------------------------------------- | ----- | ------- | ------------------------------------------------------------------------ |
-| 0+ desequilibrado (reflexo decide partidas)                   | Média | Alto    | Playtest fechado antes de balancear; métricas de uso do 0+               |
-| Desempenho da mesa 3D em celulares fracos                     | Média | Alto    | Fallback 2D, resolução adaptativa, atlas de faces                        |
-| Jogador não descobre o modo contra bots / o que fazer na mesa | Baixa | Médio   | Menu de dois caminhos, dicas contextuais, onboarding visual              |
-| Instância única do servidor limita escala e disponibilidade   | Média | Médio   | Documentado (ADR-011); coordenação antes de aumentar réplicas            |
-| Produção indisponível por custo ou plano da hospedagem        | Alta  | Alto    | Regularizar a hospedagem; alternativas gratuitas já levantadas           |
-| URL do túnel rápido muda e a atualização da VPS é manual      | Alta  | Médio   | Túnel nomeado ou domínio próprio; procedimento em `docs/OPERACAO-VPS.md` |
-| Silêncio sem graça contra bots (sem chat)                     | Alta  | Baixo   | Posicionar o Silêncio como razão para jogar online                       |
+| Risco                                                              | Prob. | Impacto | Mitigação                                                                                                                  |
+| ------------------------------------------------------------------ | ----- | ------- | -------------------------------------------------------------------------------------------------------------------------- |
+| 0+ desequilibrado (reflexo decide partidas)                        | Média | Alto    | Playtest fechado antes de balancear; métricas de uso do 0+                                                                 |
+| Desempenho da mesa 3D em celulares fracos                          | Média | Alto    | Fallback 2D, resolução adaptativa, atlas de faces                                                                          |
+| Jogador não descobre o modo contra bots / o que fazer na mesa      | Baixa | Médio   | Menu de dois caminhos, dicas contextuais, onboarding visual                                                                |
+| Instância única do servidor limita escala e disponibilidade        | Média | Médio   | Documentado (ADR-011); coordenação antes de aumentar réplicas                                                              |
+| Produção indisponível por custo ou plano da hospedagem             | Alta  | Alto    | Regularizar a hospedagem; alternativas gratuitas já levantadas                                                             |
+| A atualização da VPS é manual e o túnel rápido legado ainda existe | Alta  | Médio   | URL estável já configurada (subdomínio + Traefik); resta automatizar a atualização; procedimento em `docs/OPERACAO-VPS.md` |
+| Silêncio sem graça contra bots (sem chat)                          | Alta  | Baixo   | Posicionar o Silêncio como razão para jogar online                                                                         |
 
 ---
 

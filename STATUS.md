@@ -7,6 +7,14 @@
 **Base da revisão:** `main` em `54c4601`, com a mesa 3D (`feat/mesa-3d`, PR #29) como base do PWA em `docs/revisao-documentacao` (PR #30)
 **Último briefing:** [Sprint 7](./briefings/sprint-7.md) — beta fechado e onboarding; conclusão das issues não revalidada nesta revisão
 
+### 2026-11-21 — URL estável e firewall da porta 3001 (VPS Hostinger)
+
+- O jogo de teste agora responde em **https://kabemjunto.kabemmanager.online**, endereço fixo com HTTPS. Registro `A` criado no hPanel (DNS da Hostinger) e rota nova no Traefik do Easypanel, por um arquivo novo (`kabemjunto.yaml`) que não altera nada existente. Certificado Let's Encrypt automático.
+- Validado de fora: `/health`, `/manifest.json` e `/sw.js` corretos, WebSocket, PWA offline e uma partida de dois jogadores. `kabemshop.com.br` e `jogo.kabemmanager.online` seguiram em 200.
+- A porta 3001 deixou de ser acessível pela internet: três regras de iptables só para ela (loopback e redes Docker liberados), reaplicadas a cada boot por uma unit própria. O ufw continua inativo, nada além da 3001 foi bloqueado, e um teste de fora deu timeout.
+- O túnel rápido antigo continua ativo e funcionando (acessa pelo loopback), mas deixou de ser necessário. Desligá-lo é decisão do dono, porque a URL antiga deixa de valer. Quem instalou o PWA pelo endereço do túnel precisa reinstalar.
+- Pendências: origem do WebSocket não conferida; serviços do jogo como root; `StartLimitIntervalSec=0` na seção errada das units; atualização da VPS segue manual; ver `docs/OPERACAO-VPS.md` (seções 4 e 5). Fora do escopo do jogo e não tocado: Postgres (5432) e Redis expostos em `0.0.0.0`, e `panel.kabemmanager.online` com certificado autoassinado.
+
 ### 2026-11-21 — Onde o jogo roda e como atualizar (VPS Hostinger)
 
 - Descoberto pelo terminal web da Hostinger: o link de teste (`trycloudflare.com`) é servido por uma **VPS da Hostinger**, não pela máquina de desenvolvimento nem pelo Railway. `kabemjunto.service` (Node, `/root/kabemjunto`, porta 3001 em `0.0.0.0`) e `kabemjunto-tunnel.service` (cloudflared em túnel rápido) rodam sob systemd, como root, numa VPS compartilhada com outros serviços. Sem pm2.

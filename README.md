@@ -143,7 +143,7 @@ Quando houver solicitação de deploy, confirme serviço, ambiente e volume; pub
 
 ### VPS da Hostinger (ambiente de teste atual)
 
-Hoje o jogo é servido por uma VPS da Hostinger: `kabemjunto.service` (systemd, `/root/kabemjunto`, porta 3001) e `kabemjunto-tunnel.service` (túnel rápido da Cloudflare). A URL `trycloudflare.com` é aleatória e muda se o túnel reiniciar. **Um `git push` ou o merge de um PR não atualiza a VPS**: a atualização é manual (backup do `dist`, `git merge --ff-only origin/main`, `npm ci`, `npm run build`, reinício **só** do `kabemjunto.service`). O passo a passo, a validação, o rollback e os pontos de atenção estão em [`docs/OPERACAO-VPS.md`](./docs/OPERACAO-VPS.md).
+Hoje o jogo é servido por uma VPS da Hostinger, em **https://kabemjunto.kabemmanager.online** (endereço estável, HTTPS pelo Traefik do Easypanel). O processo é o `kabemjunto.service` (systemd, `/root/kabemjunto`, porta 3001, bloqueada para acesso externo por firewall). O túnel rápido antigo (`kabemjunto-tunnel.service`) ainda existe, mas não é mais necessário. **Um `git push` ou o merge de um PR não atualiza a VPS**: a atualização é manual (backup do `dist`, `git merge --ff-only origin/main`, `npm ci`, `npm run build`, reinício **só** do `kabemjunto.service`). O passo a passo, a configuração do endereço e do firewall, o rollback e os pontos de atenção estão em [`docs/OPERACAO-VPS.md`](./docs/OPERACAO-VPS.md).
 
 ## Estado e próximos passos
 
