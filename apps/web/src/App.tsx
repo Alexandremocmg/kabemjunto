@@ -5,6 +5,7 @@ import { AvatarComStatus } from './components/AvatarComStatus';
 import { WifiStatus } from './components/WifiStatus';
 import { Reconectando } from './components/Reconectando';
 import { LobbyOnline } from './components/LobbyOnline';
+import { SalaRapidaEspera } from './components/SalaRapidaEspera';
 import { NotFound } from './components/NotFound';
 import { PainelColecao, type TemaColecao } from './components/PainelColecao';
 import { iniciarPartidaLocal, temPartidaLocal } from './mesa/partidaLocal';
@@ -16,6 +17,11 @@ const MesaLocal3D = lazy(() => import('./mesa/MesaLocal3D'));
 const MesaOnline3D = lazy(() => import('./mesa/MesaOnline3D'));
 
 type Modo = 'local' | 'online';
+
+/** Sem sala depois disso (servidor fora do ar, rede ruim), "Jogar agora" vira partida local. */
+const TEMPO_MAXIMO_PROCURANDO_MS = 8000;
+/** Se a conexão já falhou (ou o servidor recusou o pedido), não vale esperar tanto. */
+const TEMPO_APOS_FALHA_MS = 1200;
 
 function lerModo(): Modo {
   // Sem partida local salva, o menu (que mora na tela online) é o ponto de partida.
@@ -119,7 +125,26 @@ function OnlineApp({
   const utilityDrawerRef = useRef<HTMLElement>(null);
   const entrouNaSala = Boolean(online.salaId);
   const partidaIniciada = Boolean(online.state.estado);
+  const procurandoMesa = online.pedidoRapido !== undefined;
+  const salaRapida = Boolean(online.state.rapida) || procurandoMesa;
   const wifiOn = online.state.status === 'connected';
+
+  // Servidor fora do ar ou sem resposta: em vez de deixar a pessoa esperando, joga contra
+  // bots no aparelho (o que "completar com bots" já prometia).
+  const pedidoRapido = online.pedidoRapido;
+  const buscaFalhou = Boolean(online.state.erro);
+  const { sair: sairDaBusca } = online;
+  useEffect(() => {
+    if (!pedidoRapido) return undefined;
+    const timer = window.setTimeout(
+      () => {
+        sairDaBusca();
+        onJogarContraBots(pedidoRapido.nome, pedidoRapido.tamanho);
+      },
+      buscaFalhou ? TEMPO_APOS_FALHA_MS : TEMPO_MAXIMO_PROCURANDO_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [buscaFalhou, onJogarContraBots, pedidoRapido, sairDaBusca]);
 
   useEffect(() => {
     if (!utilityOpen) return undefined;
@@ -325,15 +350,24 @@ function OnlineApp({
           onVoltar={online.sair}
           {...(online.state.erro ? { mensagem: online.state.erro } : {})}
         />
-      ) : !entrouNaSala ? (
+      ) : !entrouNaSala && !procurandoMesa ? (
         <LobbyOnline
           onEntrar={(credentials) => online.entrarSala(credentials)}
+          onJogarAgora={online.jogarRapido}
           erro={online.state.erro}
           desabilitado={online.state.status === 'connecting'}
           semInternet={semInternet}
           salasPublicas={online.state.salasPublicas}
           onListarSalas={online.listarSalas}
           onJogarContraBots={onJogarContraBots}
+        />
+      ) : !partidaIniciada && salaRapida ? (
+        <SalaRapidaEspera
+          jogadores={online.state.jogadores}
+          rapida={online.state.rapida}
+          souAnfitriao={online.isHost}
+          onComecar={online.iniciarPartida}
+          onCancelar={online.sair}
         />
       ) : !partidaIniciada ? (
         <section className="room-layout">

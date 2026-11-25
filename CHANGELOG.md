@@ -9,6 +9,8 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ### Adicionado
 
+- **"Jogar agora" entra numa sala pública e completa com bots.** O botão principal do menu leva a uma tela "Mesa pública" com contagem de 10 s; se ninguém mais chegar, o servidor completa a mesa com bots e começa. Quem pede o mesmo tamanho de mesa ao mesmo tempo cai na mesma sala. "Só contra bots, neste aparelho" mantém a partida local, que também é o plano B sem internet ou sem resposta do servidor em 8 s. Detalhes e a regra do Corta-Frente em salas com bots: ADR-015.
+- Servidor: evento `client:jogar:rapido`, `Sala.rapida`, variável `QUICKPLAY_WAIT_MS` (padrão 10000) e persistência validada das salas rápidas.
 - PWA instalável com ícones PNG e cache dos arquivos do build. Sem rede, o menu abre e a partida contra bots na mesa 3D (com o Three.js em cache) começa e é retomada ao recarregar na mesma janela; criar ou entrar em sala fica desabilitado com um aviso até a conexão voltar.
 - Atualizações do service worker aguardam o fechamento das janelas da versão anterior. A suíte de navegador verifica o manifest, os ícones, a retomada da partida contra bots e as rotas que dependem de rede.
 

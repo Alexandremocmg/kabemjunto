@@ -1074,3 +1074,67 @@ h5 {
   font-size: 12px;
   cursor: pointer;
 }
+
+/* "Jogar agora": sala de espera da mesa pública. */
+.menu-so-bots {
+  min-height: 40px;
+  font-size: 13px;
+}
+
+.rapida {
+  display: grid;
+  gap: 12px;
+  width: min(100%, 420px);
+  margin: 24px auto;
+  padding: 20px 16px;
+  border: 2px solid #f5a30f;
+  border-radius: 15px;
+  background: #102a1e;
+  text-align: center;
+}
+
+.rapida h2,
+.rapida p {
+  margin: 0;
+}
+
+.rapida-contagem {
+  color: #f5a30f;
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.rapida-lugares {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  margin: 4px 0;
+  list-style: none;
+}
+
+.rapida-lugares li {
+  padding: 10px 12px;
+  border: 1px solid #2c4a3a;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.rapida-lugares .ocupado {
+  background: #17402d;
+  font-weight: 700;
+}
+
+.rapida-lugares .vago {
+  color: #9db3a7;
+  border-style: dashed;
+}
+
+.rapida-acoes {
+  display: grid;
+  gap: 8px;
+}
+
+.rapida-acoes .button {
+  width: 100%;
+  min-height: 46px;
+}

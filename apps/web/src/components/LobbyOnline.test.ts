@@ -55,6 +55,37 @@ describe('LobbyOnline', () => {
     expect(html).toContain('Jogar com amigos');
   });
 
+  it('com servidor, "Jogar agora" entra numa mesa pública e o modo local fica como opção', () => {
+    const html = renderToStaticMarkup(
+      createElement(LobbyOnline, {
+        onEntrar: () => {},
+        onJogarAgora: () => {},
+        onJogarContraBots: () => {},
+      }),
+    );
+
+    expect(html).toContain('Entrar numa mesa');
+    expect(html).toContain('Se faltar gente, os bots completam.');
+    expect(html).toMatch(/<button[^>]*>Jogar agora<\/button>/);
+    expect(html).toContain('Só contra bots, neste aparelho');
+    expect(html).not.toContain('Jogar contra bots');
+  });
+
+  it('com servidor mas sem internet, volta ao caminho local e esconde a opção extra', () => {
+    const html = renderToStaticMarkup(
+      createElement(LobbyOnline, {
+        onEntrar: () => {},
+        onJogarAgora: () => {},
+        onJogarContraBots: () => {},
+        semInternet: true,
+      }),
+    );
+
+    expect(html).toContain('Jogar contra bots');
+    expect(html).not.toContain('Entrar numa mesa');
+    expect(html).not.toContain('Só contra bots, neste aparelho');
+  });
+
   it('sem internet, avisa e deixa só o caminho contra bots utilizável', () => {
     const html = renderToStaticMarkup(
       createElement(LobbyOnline, {

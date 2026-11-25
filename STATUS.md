@@ -7,6 +7,12 @@
 **Base da revisão:** `main` em `54c4601`, com a mesa 3D (`feat/mesa-3d`, PR #29) como base do PWA em `docs/revisao-documentacao` (PR #30)
 **Último briefing:** [Sprint 7](./briefings/sprint-7.md) — beta fechado e onboarding; conclusão das issues não revalidada nesta revisão
 
+### 2026-11-25 — "Jogar agora" em sala pública com bots (branch `feat/jogar-agora-sala-publica`)
+
+- O botão principal do menu entra numa sala pública do servidor e, passados 10 s sem mais gente, completa a mesa com bots (ADR-015). "Só contra bots, neste aparelho" mantém o modo local, que também é o plano B sem internet ou sem resposta em 8 s.
+- Verificado em ambiente local: testes unitários e de integração com Socket.IO real (servidor, compartilhado e web) e cenários Playwright (sozinho, dois jogadores, "Começar agora com bots", cancelar, servidor fora do ar).
+- **Não verificado:** jogadores reais; o tempo de espera de 10 s é um palpite. A VPS ainda não recebeu essa versão: exige build e reinício de `kabemjunto.service`.
+
 ### 2026-11-21 — Outros jogos na mesma VPS e documentação
 
 - A VPS passou a servir também **Raízes Cruzadas** (`raizes.`), **Corrida Sem Fim** (`corrida.`) e **Esconde ou Morre** (`esconde.`, cliente e servidor WebSocket), todos em `kabemmanager.online` com HTTPS. Infraestrutura comum: usuário `jogos` sem privilégios, nginx próprio escutando só em `172.18.0.1:8081`, uma rota do Traefik por jogo e firewall da 8787. Validado de fora no navegador, incluindo uma partida online do Esconde ou Morre.

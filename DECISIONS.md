@@ -18,6 +18,7 @@ Este arquivo registra as Decisões de Arquitetura (ADRs) do projeto Kabemjunto.
 - [ADR-012: Remover a API de State Machine sem Consumidor](#adr-012-remover-a-api-de-state-machine-sem-consumidor)
 - [ADR-013: Carta "+2 Para Todos" (MAIS_DOIS_TODOS) e Expansão do Baralho para 109](#adr-013-carta-2-para-todos-mais_dois_todos-e-expansão-do-baralho-para-109)
 - [ADR-014: Mesa 3D com Three.js, Camada Acessível em DOM e Fallback 2D](#adr-014-mesa-3d-com-threejs-camada-acessível-em-dom-e-fallback-2d)
+- [ADR-015: "Jogar agora": sala pública rápida completada com bots](#adr-015-jogar-agora-sala-pública-rápida-completada-com-bots)
 
 ---
 
@@ -544,3 +545,47 @@ Este arquivo registra as Decisões de Arquitetura (ADRs) do projeto Kabemjunto.
     por carta. Próximo passo: atlas de faces (um material para todas).
   - ❌ Hot-seat (vários humanos no mesmo aparelho) saiu do menu; só a mesa
     2D (fallback) ainda o oferece, pela tela de fim de partida.
+
+---
+
+### ADR-015: "Jogar agora": sala pública rápida completada com bots
+
+**Status:** Aceito · **Data:** 2026-11-25
+
+**Contexto.** O menu mandava o botão principal para uma partida **local** (bots no navegador). Quem chegava
+pela vitrine nunca encontrava outra pessoa, e salas online exigiam combinar um código. O pedido do dono do
+produto: ao clicar em jogar, entrar numa sala pública e, se faltar gente, completar com bots.
+
+**Decisão.**
+
+1. **Evento novo `client:jogar:rapido`** (`jogadorId`, `nome`, `tamanho` de 2 a 10). O servidor procura uma sala
+   rápida com o mesmo tamanho, vaga e mais de 2 s de espera restante; se não houver, cria uma sala pública
+   (`Sala.rapida = { tamanhoAlvo, iniciaEm }`). O código da sala volta em `server:sessao:emitida`, como na
+   entrada comum. Salas rápidas **não** aparecem na listagem de salas públicas (existem por poucos segundos
+   e ninguém entra nelas por código).
+2. **Espera de 10 s** (`QUICKPLAY_WAIT_MS`, 0 a 120000). Com a mesa cheia de pessoas a partida começa na hora;
+   no fim do prazo o servidor completa as vagas com bots e começa. O anfitrião pode antecipar com "Começar agora
+   com bots" (`client:iniciar:partida`, que numa sala rápida completa com bots em vez de exigir 2 pessoas).
+3. **Bots no servidor**, pelo mesmo motor que já jogava no cliente (`executarTurnoBot`, nível médio). Um
+   `QuickPlayDirector` observa cada estado gravado pelo `RoomStore` (`setCommitHandler`) e agenda a vez do bot
+   com uma pausa de 0,9 a 1,7 s. Observar o `commit` evita lógica duplicada: jogada, compra, janela de
+   Corta-Frente que expira e reconexão já passam por ali.
+4. **Corta-Frente em sala com bots:** a janela de 5 s só abre se algum **humano** puder interceptar. Abrir a
+   janela sempre travaria a mesa 5 s a cada jogada; abri-la só quando alguém tem carta idêntica vazaria a mão.
+   Por isso a regra olha só as cartas dos humanos (`shouldOpenInterception`), e os bots não interceptam.
+5. **Limpeza:** sala rápida terminada, ou sem nenhum humano conectado por 60 s, sai da memória. Reconexões
+   rápidas mantêm a vaga (token de retomada, como nas salas comuns).
+6. **Persistência:** o snapshot de salas guarda `rapida` e a validação rejeita valores malformados.
+7. **Cliente:** "Jogar agora" vira o caminho principal e abre a tela "Mesa pública" (contagem, lugares, bots
+   que vão completar). "Só contra bots, neste aparelho" mantém a partida local. Sem internet o botão principal já
+   joga localmente; com internet mas sem resposta do servidor em 8 s, a busca vira partida local em vez de deixar
+   a pessoa esperando.
+
+**Consequências.**
+
+- Quem jogar sozinho sempre começa em até 10 s, e as pessoas que chegarem juntas se encontram na mesma mesa.
+- Bots passam a rodar no servidor, que antes só mediava humanos: mais CPU por sala, mas o custo por jogada é
+  pequeno (uma decisão por 1 s).
+- ⚠ Atualizar a VPS exige reiniciar `kabemjunto.service` (ver `docs/OPERACAO-VPS.md`). Salas antigas sem `rapida`
+  continuam válidas.
+- ❌ Ainda não medido com jogadores reais; o tempo de espera (10 s) é um palpite a revisar com dados.

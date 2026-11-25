@@ -10,8 +10,10 @@ import {
   type ClientIniciarPartidaEvent,
   type ClientInterceptarEvent,
   type ClientJogarEvent,
+  type ClientJogarRapidoEvent,
   type EstadoPartidaPublico,
   type JogadorPublico,
+  type SalaRapida,
   type ServerChatEvent,
   type ServerDescarteMultiploAceitoEvent,
   type ServerErroEvent,
@@ -32,6 +34,7 @@ type RoomCreationOptions = {
 
 type ClientEvents = {
   'client:entrar:sala': (payload: ClientEntrarSalaEvent) => void;
+  'client:jogar:rapido': (payload: ClientJogarRapidoEvent) => void;
   'client:iniciar:partida': (payload: ClientIniciarPartidaEvent) => void;
   'client:jogar': (payload: ClientJogarEvent) => void;
   'client:descarte:multiplo': (payload: ClientDescarteMultiploEvent) => void;
@@ -73,6 +76,8 @@ export interface SocketGameState {
   cartaRejeitada: string | undefined;
   mao: ReadonlyArray<Carta>;
   salasPublicas: ReadonlyArray<ServerSalaDisponivel>;
+  /** "Jogar agora": tamanho da mesa e quando o servidor completa com bots (só em sala rápida). */
+  rapida: SalaRapida | undefined;
   /** Incrementado cada vez que server:erro dispara enquanto há um batch pendente. */
   descarteMultiploErro: number;
 }
@@ -92,11 +97,17 @@ export interface SessionCredentials extends RoomCreationOptions {
   criar?: boolean;
   /** Token opaco rotativo emitido pelo servidor. Nunca é enviado à telemetria/logs. */
   resumeToken?: string;
+  /**
+   * "Jogar agora": tamanho da mesa pedida. Enquanto `salaId` está vazio, a pessoa ainda
+   * está sendo encaixada numa sala pública pelo servidor (que devolve o código da sala).
+   */
+  rapido?: number;
 }
 
 /** Converte as opções internas (lowercase) da UI para o contrato Socket.IO canônico. */
 export function toEntrarSalaEvent({
   visibilidade,
+  rapido: _rapido,
   ...credentials
 }: SessionCredentials): ClientEntrarSalaEvent {
   return {
@@ -149,6 +160,11 @@ export function readSession(): SessionCredentials | undefined {
           ? { visibilidade: parsed.visibilidade }
           : {}),
         ...('criar' in parsed && typeof parsed.criar === 'boolean' ? { criar: parsed.criar } : {}),
+        ...('rapido' in parsed &&
+        typeof parsed.rapido === 'number' &&
+        Number.isInteger(parsed.rapido)
+          ? { rapido: parsed.rapido }
+          : {}),
         ...('resumeToken' in parsed && typeof parsed.resumeToken === 'string'
           ? { resumeToken: parsed.resumeToken }
           : {}),
@@ -173,7 +189,12 @@ export function applyIssuedSession(
   baseCredentials: SessionCredentials,
   issued: ServerSessaoEmitidaEvent,
 ): SessionCredentials {
-  const updated: SessionCredentials = { ...baseCredentials, resumeToken: issued.resumeToken };
+  const updated: SessionCredentials = {
+    ...baseCredentials,
+    // Na entrada "Jogar agora" o código da sala só chega aqui, junto com o token.
+    salaId: baseCredentials.salaId || issued.salaId,
+    resumeToken: issued.resumeToken,
+  };
   saveSession(updated);
   return updated;
 }
@@ -194,6 +215,10 @@ export function useGameSocket(): {
   entrarSala: (
     credentials: Omit<SessionCredentials, 'jogadorId'> & { jogadorId?: string; criar?: boolean },
   ) => void;
+  /** "Jogar agora": o servidor escolhe uma sala pública e completa a mesa com bots se faltar gente. */
+  jogarRapido: (nome: string, tamanho: number) => void;
+  /** Pedido de "Jogar agora" que o servidor ainda não respondeu com uma sala. */
+  pedidoRapido: { nome: string; tamanho: number } | undefined;
   iniciarPartida: () => void;
   jogarCarta: (
     cartaId: string,
@@ -226,6 +251,7 @@ export function useGameSocket(): {
     cartaRejeitada: undefined,
     mao: [],
     salasPublicas: [],
+    rapida: undefined,
     descarteMultiploErro: 0,
   });
   const [credentials, setCredentials] = useState<SessionCredentials | undefined>(readSession);
@@ -260,7 +286,14 @@ export function useGameSocket(): {
       }
 
       const saved = credentials ?? readSession();
-      if (saved) {
+      if (saved && !saved.salaId && saved.rapido !== undefined) {
+        // Ainda sem sala: repete o pedido de "Jogar agora" (a conexão caiu antes da resposta).
+        socket.emit('client:jogar:rapido', {
+          jogadorId: saved.jogadorId,
+          nome: saved.nome,
+          tamanho: saved.rapido,
+        });
+      } else if (saved) {
         socket.emit(
           'client:entrar:sala',
           toEntrarSalaEvent({ ...saved, criar: saved.criar ?? false }),
@@ -298,10 +331,10 @@ export function useGameSocket(): {
       if (saindoRef.current) return;
       setState((current) => ({ ...current, estado, erro: undefined, erroCodigo: undefined }));
     };
-    const onRoom = ({ hostId: nextHostId, jogadores }: ServerSalaAtualizadaEvent) => {
+    const onRoom = ({ hostId: nextHostId, jogadores, rapida }: ServerSalaAtualizadaEvent) => {
       if (saindoRef.current) return;
       setHostId(nextHostId);
-      setState((current) => ({ ...current, jogadores }));
+      setState((current) => ({ ...current, jogadores, rapida }));
     };
     const onChat = (message: ServerChatEvent) =>
       !saindoRef.current &&
@@ -355,6 +388,7 @@ export function useGameSocket(): {
       setState((current) => ({ ...current, mao }));
     };
     const onSessionIssued = (issued: ServerSessaoEmitidaEvent) => {
+      if (saindoRef.current) return;
       setCredentials((current) => (current ? applyIssuedSession(current, issued) : current));
     };
     const onAvailableRooms = (payload: ServerSalasDisponiveisEvent) =>
@@ -431,6 +465,32 @@ export function useGameSocket(): {
         socket.connect();
       } else {
         socket.emit('client:entrar:sala', toEntrarSalaEvent(normalized));
+      }
+    },
+    [socket],
+  );
+
+  const jogarRapido = useCallback(
+    (nome: string, tamanho: number) => {
+      saindoRef.current = false;
+      cancelarDesconexaoPendenteRef.current?.();
+      const pedido: SessionCredentials = {
+        jogadorId: gerarJogadorId(),
+        salaId: '',
+        nome: nome.trim(),
+        rapido: tamanho,
+      };
+      setCredentials(pedido);
+      saveSession(pedido);
+      if (!socket.connected) {
+        setState((current) => ({ ...current, status: 'connecting', erro: undefined }));
+        socket.connect();
+      } else {
+        socket.emit('client:jogar:rapido', {
+          jogadorId: pedido.jogadorId,
+          nome: pedido.nome,
+          tamanho,
+        });
       }
     },
     [socket],
@@ -519,6 +579,7 @@ export function useGameSocket(): {
       cartaRejeitada: undefined,
       mao: [],
       salasPublicas: [],
+      rapida: undefined,
       descarteMultiploErro: 0,
     });
   }, [socket]);
@@ -539,6 +600,16 @@ export function useGameSocket(): {
     socket.connect();
   }, [socket]);
 
+  const pedidoNome = credentials && !credentials.salaId ? credentials.nome : undefined;
+  const pedidoTamanho = credentials && !credentials.salaId ? credentials.rapido : undefined;
+  const pedidoRapido = useMemo(
+    () =>
+      pedidoNome !== undefined && pedidoTamanho !== undefined
+        ? { nome: pedidoNome, tamanho: pedidoTamanho }
+        : undefined,
+    [pedidoNome, pedidoTamanho],
+  );
+
   return useMemo(
     () => ({
       socket,
@@ -549,6 +620,8 @@ export function useGameSocket(): {
       isHost: Boolean(hostId && credentials?.jogadorId === hostId),
       tentativaReconexao,
       entrarSala,
+      jogarRapido,
+      pedidoRapido,
       iniciarPartida,
       jogarCarta,
       jogarMultiplasCartas,
@@ -564,7 +637,9 @@ export function useGameSocket(): {
       comprarCarta,
       credentials?.jogadorId,
       credentials?.salaId,
+      credentials?.rapido,
       entrarSala,
+      jogarRapido,
       enviarChat,
       hostId,
       interceptar,
@@ -572,6 +647,7 @@ export function useGameSocket(): {
       jogarCarta,
       jogarMultiplasCartas,
       listarSalas,
+      pedidoRapido,
       sair,
       socket,
       state,

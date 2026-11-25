@@ -200,7 +200,7 @@ test('mesa local distribui dez jogadores em ordem de turno sem overflow', async 
   await page.getByLabel('Seu apelido').fill('Ana');
   await page.getByRole('button', { name: 'Mais jogadores, de 7 a 10' }).click();
   await page.getByLabel('10', { exact: true }).check();
-  await page.getByRole('button', { name: 'Jogar agora' }).click();
+  await page.getByRole('button', { name: 'Só contra bots, neste aparelho' }).click();
 
   await expect(page.locator('.mesa3d canvas')).toBeVisible();
   const itens = jogadores(page).getByRole('listitem');

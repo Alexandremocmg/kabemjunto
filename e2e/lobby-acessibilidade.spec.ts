@@ -6,13 +6,15 @@ test('lobby apresenta foco inicial, ordem de tab e erro anunciado', async ({ pag
   const nome = page.getByLabel('Seu apelido');
   await expect(nome).toBeFocused();
 
-  // Ordem: apelido → fichas de jogadores → Jogar agora → Criar sala → código → Entrar.
+  // Ordem: apelido → fichas → Jogar agora → só contra bots → Criar sala → código → Entrar.
   await page.keyboard.press('Tab');
   await expect(page.getByRole('radio', { name: '4', exact: true })).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(page.getByRole('button', { name: 'Mais jogadores, de 7 a 10' })).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(page.getByRole('button', { name: 'Jogar agora' })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: 'Só contra bots, neste aparelho' })).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(page.getByRole('button', { name: 'Criar sala' })).toBeFocused();
   await page.keyboard.press('Tab');
@@ -66,7 +68,7 @@ test.describe('celular', () => {
     expect(amigos).not.toBeNull();
     expect(jogarAgora!.y + jogarAgora!.height).toBeLessThanOrEqual(altura);
     expect(amigos!.y).toBeLessThan(altura);
-    // "Jogar contra bots" vem antes de "Jogar com amigos".
+    // "Entrar numa mesa" (Jogar agora) vem antes de "Jogar com amigos".
     expect(jogarAgora!.y).toBeLessThan(amigos!.y);
 
     await page.screenshot({ path: 'tmp/lobby-mobile-390x844.png', fullPage: false });

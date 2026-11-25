@@ -10,7 +10,8 @@ Documentação reconciliada em **2026-11-18**, a partir de `54c4601`. A tag mais
 
 ## Jogar
 
-- **Contra bots:** no menu, escolha de 2 a 10 jogadores (fichas de 2 a 6; "7+" abre 7 a 10) e toque em **Jogar agora**. A partida roda no navegador e fica no `sessionStorage` da aba; avatar e tema ficam no `localStorage`. Isso não equivale a uma conta ou backup entre dispositivos. Mesa compartilhada (hot-seat) não existe mais.
+- **Jogar agora (online):** no menu, escolha o tamanho da mesa (2 a 10) e toque em **Jogar agora**. Você entra numa mesa pública; se ninguém mais chegar em 10 s, o servidor completa com bots. O anfitrião pode tocar em **Começar agora com bots**. Sem internet, ou se o servidor não responder em 8 s, a partida vira local.
+- **Só contra bots (no aparelho):** no menu, escolha de 2 a 10 jogadores (fichas de 2 a 6; "7+" abre 7 a 10) e toque em **Só contra bots, neste aparelho**. A partida roda no navegador e fica no `sessionStorage` da aba; avatar e tema ficam no `localStorage`. Isso não equivale a uma conta ou backup entre dispositivos. Mesa compartilhada (hot-seat) não existe mais.
 - **Na mesa:** arraste a carta que brilha até o centro (ou toque duas vezes). Cartas de mesma face: toque nelas para montar o grupo do descarte múltiplo. Sem jogada, toque no monte. Coringas abrem um anel de cores e a Troca Mão pede o adversário. Teclado: `Tab` chega à mão, setas trocam de carta, `Enter` joga, `Espaço` seleciona. Sem WebGL (ou com `?mesa=2d`), a mesma mesa aparece em 2D.
 - **Online:** informe seu apelido, crie uma sala ou entre por código/listagem pública. Salas são privadas por padrão; somente o host inicia. As mãos são enviadas privadamente, e o servidor decide as jogadas. A retomada usa um token de sessão, sem cadastro por e-mail.
 - **Objetivo:** descartar todas as cartas. Cada participante começa com 7. Jogue por cor, número ou ação; neutras permitem escolher cor, respeitando as restrições de ataque.
@@ -124,6 +125,7 @@ Substitua o token ilustrativo antes de executar; mínimo de 16 caracteres. Em um
 | `ROOM_STORAGE_FILE`                          | Snapshot persistente; opcional fora do Docker, cujo padrão é `/data/rooms.json`. Sem arquivo configurado, salas ficam em memória. |
 | `CORS_ORIGINS`                               | Obrigatória em produção; origens separadas por vírgula.                                                                           |
 | `METRICS_TOKEN`                              | Obrigatório em produção, mínimo 16 caracteres; bearer de `/metrics`.                                                              |
+| `QUICKPLAY_WAIT_MS`                          | Espera do "Jogar agora" antes de completar com bots (0 a 120000 ms); padrão 10000.                                                |
 | `KABEMJUNTO_E2E_FIXTURE`                     | `1` habilita fixtures somente fora de produção.                                                                                   |
 | `VITE_SOCKET_URL`                            | Endpoint público alternativo do Socket.IO, embutido no build web.                                                                 |
 | `VITE_TUNNEL_HOST`                           | Host adicional aceito pelo servidor de desenvolvimento Vite.                                                                      |
