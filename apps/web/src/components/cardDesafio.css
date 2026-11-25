@@ -1,0 +1,51 @@
+.card-desafio {
+  width: min(460px, calc(100% - 24px));
+  max-height: calc(100dvh - 24px);
+  margin: auto;
+  padding: 16px;
+  border: 1px solid #38594a;
+  border-radius: 16px;
+  background: #102119;
+  color: #f0f6fc;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.card-desafio::backdrop {
+  background: rgb(0 0 0 / 72%);
+}
+
+.card-desafio-conteudo {
+  display: grid;
+  gap: 12px;
+}
+
+.card-desafio header,
+.card-desafio-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.card-desafio img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: clamp(180px, 48dvh, 440px);
+  margin-inline: auto;
+  border-radius: 10px;
+  object-fit: contain;
+}
+
+.card-desafio-acoes .button {
+  flex: 1 1 auto;
+  text-align: center;
+  text-decoration: none;
+}
+
+.card-desafio input {
+  width: 100%;
+  padding: 8px;
+}

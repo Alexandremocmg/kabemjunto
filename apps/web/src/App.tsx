@@ -4,6 +4,7 @@ import { situacaoDoBot } from './mesa/controleBot';
 import { useForaDaMesa } from './services/useForaDaMesa';
 import { useGameSocket } from './services/socketClient';
 import { ConvidarSala } from './components/ConvidarSala';
+import { CardDesafio } from './components/CardDesafio';
 import { AvatarComStatus } from './components/AvatarComStatus';
 import { WifiStatus } from './components/WifiStatus';
 import { Reconectando } from './components/Reconectando';
@@ -133,6 +134,10 @@ function OnlineApp({
   const procurandoMesa = online.pedidoRapido !== undefined;
   const salaRapida = Boolean(online.state.rapida) || procurandoMesa;
   const wifiOn = online.state.status === 'connected';
+  const cardDesafio =
+    online.state.visibilidadeSala === 'PUBLICA' && online.salaId ? (
+      <CardDesafio key={online.salaId} salaId={online.salaId} />
+    ) : undefined;
 
   // Servidor fora do ar ou sem resposta: em vez de deixar a pessoa esperando, joga contra
   // bots no aparelho (o que "completar com bots" já prometia).
@@ -382,6 +387,7 @@ function OnlineApp({
           jogadores={online.state.jogadores}
           rapida={online.state.rapida}
           souAnfitriao={online.isHost}
+          convite={cardDesafio}
           onComecar={online.iniciarPartida}
           onCancelar={() => {
             buscaRapidaCancelada();
@@ -408,6 +414,7 @@ function OnlineApp({
                     {textoCopiar}
                   </button>
                   {online.salaId && <ConvidarSala salaId={online.salaId} />}
+                  {cardDesafio}
                 </div>
               </div>
               <button className="button button-secondary" onClick={online.sair}>

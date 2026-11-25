@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { JogadorPublico, SalaRapida } from '@kabemjunto/shared';
 
 export interface SalaRapidaEsperaProps {
@@ -9,6 +9,7 @@ export interface SalaRapidaEsperaProps {
   souAnfitriao: boolean;
   onComecar: () => void;
   onCancelar: () => void;
+  convite?: ReactNode;
   /** Relógio injetável para testes. */
   agora?: () => number;
 }
@@ -28,6 +29,7 @@ export function SalaRapidaEspera({
   souAnfitriao,
   onComecar,
   onCancelar,
+  convite,
   agora = Date.now,
 }: SalaRapidaEsperaProps) {
   const [relogio, setRelogio] = useState(() => agora());
@@ -82,6 +84,7 @@ export function SalaRapidaEspera({
         ))}
       </ul>
       <div className="rapida-acoes">
+        {vagas > 0 && convite}
         {souAnfitriao && vagas > 0 && (
           <button type="button" className="button button-primary" onClick={onComecar}>
             Começar agora com bots

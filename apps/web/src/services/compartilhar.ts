@@ -5,6 +5,8 @@ export interface Compartilhavel {
   titulo: string;
   texto: string;
   link: string;
+  imagem?: Blob;
+  somenteImagem?: boolean;
   /** Desenhada no aparelho; `undefined` se não deu. */
   gerarImagem?: () => Promise<Blob | undefined>;
 }
@@ -12,7 +14,7 @@ export interface Compartilhavel {
 const cancelou = (erro: unknown): boolean =>
   typeof erro === 'object' && erro !== null && 'name' in erro && erro.name === 'AbortError';
 
-async function copiar(texto: string): Promise<void> {
+export async function copiarTexto(texto: string): Promise<void> {
   try {
     await navigator.clipboard.writeText(texto);
     return;
@@ -25,12 +27,14 @@ async function copiar(texto: string): Promise<void> {
   campo.readOnly = true;
   campo.style.position = 'fixed';
   campo.style.opacity = '0';
-  document.body.appendChild(campo);
-  campo.select();
-  const copiou = document.execCommand?.('copy');
-  campo.remove();
-  if (focoAnterior instanceof HTMLElement) focoAnterior.focus();
-  if (!copiou) throw new Error('não foi possível copiar');
+  (focoAnterior?.closest('dialog[open]') ?? document.body).appendChild(campo);
+  try {
+    campo.select();
+    if (!document.execCommand?.('copy')) throw new Error('não foi possível copiar');
+  } finally {
+    campo.remove();
+    if (focoAnterior instanceof HTMLElement) focoAnterior.focus();
+  }
 }
 
 export async function compartilhar(item: Compartilhavel): Promise<ResultadoDeCompartilhar> {
@@ -38,7 +42,7 @@ export async function compartilhar(item: Compartilhavel): Promise<ResultadoDeCom
   const textoComLink = `${texto}\n${link}`;
   if (typeof navigator.share === 'function') {
     try {
-      const imagem = await gerarImagem?.().catch(() => undefined);
+      const imagem = item.imagem ?? (await gerarImagem?.().catch(() => undefined));
       const files = imagem ? [new File([imagem], 'kabemjunto.png', { type: 'image/png' })] : [];
       if (files.length > 0 && navigator.canShare?.({ files })) {
         // O link vai no texto: vários aplicativos ignoram `url` junto de arquivos.
@@ -48,6 +52,7 @@ export async function compartilhar(item: Compartilhavel): Promise<ResultadoDeCom
     } catch (erro) {
       if (cancelou(erro)) return 'cancelado';
     }
+    if (item.somenteImagem) return 'erro';
     try {
       await navigator.share({ title: titulo, text: texto, url: link });
       return 'compartilhado';
@@ -55,8 +60,9 @@ export async function compartilhar(item: Compartilhavel): Promise<ResultadoDeCom
       if (cancelou(erro)) return 'cancelado';
     }
   }
+  if (item.somenteImagem) return 'erro';
   try {
-    await copiar(textoComLink);
+    await copiarTexto(textoComLink);
     return 'copiado';
   } catch {
     return 'erro';
