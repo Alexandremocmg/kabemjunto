@@ -34,6 +34,7 @@ import {
   PlaneGeometry,
   Quaternion,
   Raycaster,
+  RingGeometry,
   Scene,
   Sprite,
   SpriteMaterial,
@@ -70,6 +71,12 @@ import {
   curvaDaAssentada,
   sombraDeVoo,
 } from './assentada';
+import {
+  curvaDoAnelDeSilencio,
+  curvaDoImpacto,
+  DURACAO_ANEL_SILENCIO,
+  DURACAO_IMPACTO,
+} from './impacto';
 import { BancoDeTexturas, desenharPlaqueta, type TemaMesa } from './texturas';
 
 // ─── Contratos ──────────────────────────────────────────────────────────────
@@ -149,6 +156,16 @@ export interface EstatisticasCena {
   cartasAnimando: boolean;
   /** Sombras de voo em uso; volta a 0 quando as cartas param. */
   sombrasDeVoo: number;
+  /** Plaquetas pulsando agora; volta a 0 quando o efeito termina. */
+  plaquetasEmImpacto: number;
+  /** Maior desvio (posição ou escala) de uma plaqueta em relação ao repouso; 0 parada. */
+  desvioDasPlaquetas: number;
+  /** Quantos impactos já animaram uma plaqueta. */
+  impactosAnimados: number;
+  /** O anel do Silêncio está visível. */
+  anelDoSilencio: boolean;
+  /** Quantas vezes o anel do Silêncio já apareceu. */
+  aneisDoSilencio: number;
   /** Diagnóstico: quais cartas se movem e quanto falta (posição, ângulo, escala). */
   movimentos: string[];
 }
@@ -220,6 +237,11 @@ interface AssentoCena {
   posicao: Vector3;
   guinada: number;
   plaqueta: Sprite;
+  /** Repouso da plaqueta (definido pelo layout); o impacto só soma por cima. */
+  repousoPos: Vector3;
+  repousoEscala: Vector3;
+  /** Segundos que faltam do impacto (0 = parada). */
+  impacto: number;
   material: SpriteMaterial;
   textura: CanvasTexture;
   canvas: HTMLCanvasElement;
@@ -284,6 +306,14 @@ export class CenaMesa {
   private readonly materialSombra: MeshBasicMaterial;
   private readonly reservaDeSombras: SombraDeCarta[] = [];
   private sombrasEmUso = 0;
+  private readonly anelSilencio: Mesh;
+  private readonly materialAnelSilencio: MeshBasicMaterial;
+  /** Carta de Silêncio voando para o descarte; o anel abre quando ela pousa. */
+  private silencioEmVooId: string | undefined;
+  /** Segundos que faltam do anel do Silêncio (0 = apagado). */
+  private tempoAnelSilencio = 0;
+  private aneisDoSilencio = 0;
+  private impactosAnimados = 0;
 
   private instantaneo: InstantaneoCena | undefined;
   private largura = 1;
@@ -448,6 +478,21 @@ export class CenaMesa {
     this.cena.add(this.anelContagem);
     this.descartaveis.push(this.materialContagem);
 
+    // Anel que se abre quando a carta de Silêncio pousa no descarte.
+    const geometriaAnelSilencio = new RingGeometry(0.9, 1, 64);
+    this.materialAnelSilencio = new MeshBasicMaterial({
+      color: new Color(opcoes.tema.destaque),
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+    });
+    this.anelSilencio = new Mesh(geometriaAnelSilencio, this.materialAnelSilencio);
+    this.anelSilencio.rotation.x = -Math.PI / 2;
+    this.anelSilencio.position.set(POS_DESCARTE.x, 0.2, POS_DESCARTE.z);
+    this.anelSilencio.visible = false;
+    this.cena.add(this.anelSilencio);
+    this.descartaveis.push(geometriaAnelSilencio, this.materialAnelSilencio);
+
     // Monte de compra.
     this.monte = new Mesh(this.geometriaCarta, [this.materialVerso, this.materialVerso]);
     this.monte.rotation.set(Math.PI / 2, 0.06, 0, 'YXZ');
@@ -559,6 +604,19 @@ export class CenaMesa {
       pixelRatio: this.pixelRatio,
       cartasAnimando: this.cartasAnimando,
       sombrasDeVoo: this.sombrasEmUso,
+      plaquetasEmImpacto: [...this.assentos.values()].filter((a) => a.impacto > 0).length,
+      desvioDasPlaquetas: Math.max(
+        0,
+        ...[...this.assentos.values()].map((a) =>
+          Math.max(
+            a.plaqueta.position.distanceTo(a.repousoPos),
+            a.plaqueta.scale.distanceTo(a.repousoEscala),
+          ),
+        ),
+      ),
+      impactosAnimados: this.impactosAnimados,
+      anelDoSilencio: this.anelSilencio.visible,
+      aneisDoSilencio: this.aneisDoSilencio,
       movimentos: [...this.objetos.values()]
         .map((objeto) => {
           const distancia = objeto.base.distanceTo(objeto.alvoPos);
@@ -646,6 +704,10 @@ export class CenaMesa {
 
     // Topo do descarte.
     if (topoMudou) {
+      this.silencioEmVooId =
+        anterior !== undefined && inst.topo.acao === 'SILENCIO' && !this.opcoes.movimentoReduzido
+          ? inst.topo.id
+          : undefined;
       let objetoTopo = this.objetos.get(inst.topo.id);
       if (!objetoTopo) {
         objetoTopo = this.criarObjeto(inst.topo.id, inst.topo);
@@ -887,6 +949,9 @@ export class CenaMesa {
             posicao: new Vector3(),
             guinada: 0,
             plaqueta,
+            repousoPos: new Vector3(),
+            repousoEscala: new Vector3(1, 1, 1),
+            impacto: 0,
             material,
             textura,
             canvas,
@@ -900,12 +965,13 @@ export class CenaMesa {
         assento.guinada = Math.atan2(-assento.posicao.x, -assento.posicao.z);
         const doFundo = assento.posicao.z < -1;
         // Do fundo: rente à mesa e logo à frente das cartas, sem cobri-las.
-        assento.plaqueta.position.set(
+        assento.repousoPos.set(
           assento.posicao.x * 1.04,
           doFundo ? 0.3 : 0.95 * this.escalaPlaqueta + 0.25,
           assento.posicao.z + (doFundo ? 0.55 + ALTURA_CARTA * this.escalaAdversario * 0.6 : -0.35),
         );
-        assento.plaqueta.scale.set(2.4 * this.escalaPlaqueta, 0.8 * this.escalaPlaqueta, 1);
+        assento.repousoEscala.set(2.4 * this.escalaPlaqueta, 0.8 * this.escalaPlaqueta, 1);
+        this.aplicarImpacto(assento);
       });
       this.ordemAssentos = ids;
     }
@@ -1315,6 +1381,15 @@ export class CenaMesa {
     this.marcarSujo();
   }
 
+  /** Pulso e tremor curtos na plaqueta do adversário atingido. */
+  impactar(jogadorId: string): void {
+    const assento = this.assentos.get(jogadorId);
+    if (this.destruida || !assento || this.opcoes.movimentoReduzido) return;
+    assento.impacto = DURACAO_IMPACTO;
+    this.impactosAnimados += 1;
+    this.marcarSujo();
+  }
+
   // ─── Projeção para a camada DOM ───────────────────────────────────────────
 
   private retanguloDe(posicao: Vector3, orientacao: Quaternion, escala: number): Retangulo {
@@ -1353,7 +1428,7 @@ export class CenaMesa {
     }
     const assentos: Record<string, { x: number; y: number }> = {};
     for (const assento of this.assentos.values()) {
-      const ponto = assento.plaqueta.position.clone().project(this.camera);
+      const ponto = assento.repousoPos.clone().project(this.camera);
       assentos[assento.id] = {
         x: (ponto.x * 0.5 + 0.5) * this.largura,
         y: (-ponto.y * 0.5 + 0.5) * this.altura,
@@ -1391,6 +1466,7 @@ export class CenaMesa {
     if (!inst) return;
 
     let emMovimento = this.avancarCartas(dt);
+    emMovimento = this.avancarImpactos(dt) || emMovimento;
     const reduzido = this.opcoes.movimentoReduzido;
 
     // Efeitos contínuos: só mantêm o laço desenhando quando estão visíveis.
@@ -1451,6 +1527,49 @@ export class CenaMesa {
     }
     material.opacity += diferenca * (1 - Math.exp(-12 * dt));
     return true;
+  }
+
+  // ─── Impactos (plaqueta atingida e anel do Silêncio) ──────────────────────
+
+  /** Plaqueta = repouso do layout + curva do impacto (exatamente o repouso quando parada). */
+  private aplicarImpacto(assento: AssentoCena): void {
+    const curva = curvaDoImpacto(1 - assento.impacto / DURACAO_IMPACTO);
+    assento.plaqueta.position.copy(assento.repousoPos);
+    assento.plaqueta.position.x += curva.desvioX;
+    assento.plaqueta.scale.copy(assento.repousoEscala);
+    assento.plaqueta.scale.x *= curva.escala;
+    assento.plaqueta.scale.y *= curva.escala;
+  }
+
+  /** Avança os efeitos um quadro. Retorna se algo precisa ser redesenhado. */
+  private avancarImpactos(dt: number): boolean {
+    let emMovimento = false;
+    for (const assento of this.assentos.values()) {
+      if (assento.impacto <= 0) continue;
+      assento.impacto = Math.max(0, assento.impacto - dt);
+      this.aplicarImpacto(assento);
+      emMovimento = true;
+    }
+
+    if (this.silencioEmVooId !== undefined) {
+      const carta = this.objetos.get(this.silencioEmVooId);
+      if (!carta || carta.local !== 'descarte') {
+        this.silencioEmVooId = undefined;
+      } else if (carta.assentar > 0 || carta.base.distanceTo(carta.alvoPos) < 0.03) {
+        this.silencioEmVooId = undefined;
+        this.tempoAnelSilencio = DURACAO_ANEL_SILENCIO;
+        this.aneisDoSilencio += 1;
+      }
+    }
+    if (this.tempoAnelSilencio > 0) {
+      this.tempoAnelSilencio = Math.max(0, this.tempoAnelSilencio - dt);
+      const curva = curvaDoAnelDeSilencio(1 - this.tempoAnelSilencio / DURACAO_ANEL_SILENCIO);
+      this.anelSilencio.scale.setScalar(curva.escala);
+      this.materialAnelSilencio.opacity = curva.opacidade;
+      this.anelSilencio.visible = this.tempoAnelSilencio > 0;
+      emMovimento = true;
+    }
+    return emMovimento;
   }
 
   // ─── Peso das cartas (pop e sombra ao pousar) ─────────────────────────────

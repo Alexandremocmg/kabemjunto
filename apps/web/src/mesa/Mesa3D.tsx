@@ -55,6 +55,8 @@ import {
   type SituacaoCarta,
 } from './interacao';
 import { lerPreferenciaPeso, prefereMovimentoReduzido, suportaWebGL } from './preferencias';
+import { SeloDeImpacto, SelosDeImpacto } from './SelosDeImpacto';
+import { useSelosDeImpacto } from './useSelosDeImpacto';
 import { CORES_JOGAVEIS, type ControladorMesa, type CorJogavel } from './tipos';
 import './mesa3d.css';
 
@@ -438,6 +440,11 @@ export function Mesa3D({
     cenaRef.current?.atualizar(instantaneo);
   }, [instantaneo]);
 
+  // Impactos: selo sobre o jogador afetado e tremor da plaqueta dele.
+  const selos = useSelosDeImpacto(historico.anterior, historico.atual, jogadorId, (impacto) =>
+    cenaRef.current?.impactar(impacto.jogadorId),
+  );
+
   // ─── Reações ao estado ────────────────────────────────────────────────────
 
   // Anúncios: faixa central (destaques) e leitor de tela (todos).
@@ -710,6 +717,12 @@ export function Mesa3D({
           );
         })}
 
+      <SelosDeImpacto
+        selos={selos}
+        jogadorId={jogadorId}
+        assentos={modo2D ? undefined : layout?.assentos}
+      />
+
       {/* Avisos do topo empilhados (nunca um por cima do outro). */}
       <div className="mesa3d-topo">
         {falhaWebGL && (
@@ -833,6 +846,7 @@ export function Mesa3D({
                     {baloes.get(jogador.id)}
                   </span>
                 )}
+                <SeloDeImpacto selo={selos.get(jogador.id)} onde="ficha" />
               </li>
             ))}
           </ul>
