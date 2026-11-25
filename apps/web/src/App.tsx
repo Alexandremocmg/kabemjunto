@@ -10,6 +10,7 @@ import { NotFound } from './components/NotFound';
 import { PainelColecao, type TemaColecao } from './components/PainelColecao';
 import { iniciarPartidaLocal, temPartidaLocal } from './mesa/partidaLocal';
 import { lerPreferenciaMesa } from './mesa/preferencias';
+import { buscaRapidaCancelada, buscaRapidaVirouLocal } from './services/metricas';
 import { useSemInternet } from './services/useSemInternet';
 
 // A mesa (e o Three.js, carregado só na 3D) fica fora do bundle inicial do menu.
@@ -138,6 +139,7 @@ function OnlineApp({
     if (!pedidoRapido) return undefined;
     const timer = window.setTimeout(
       () => {
+        buscaRapidaVirouLocal(buscaFalhou ? 'falha' : 'tempo');
         sairDaBusca();
         onJogarContraBots(pedidoRapido.nome, pedidoRapido.tamanho);
       },
@@ -367,7 +369,10 @@ function OnlineApp({
           rapida={online.state.rapida}
           souAnfitriao={online.isHost}
           onComecar={online.iniciarPartida}
-          onCancelar={online.sair}
+          onCancelar={() => {
+            buscaRapidaCancelada();
+            online.sair();
+          }}
         />
       ) : !partidaIniciada ? (
         <section className="room-layout">

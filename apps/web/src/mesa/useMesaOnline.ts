@@ -6,6 +6,7 @@
  * aqui valida ou decide jogada, e o contrato de eventos não muda.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { observarPartida } from '../services/metricas';
 import type { useGameSocket } from '../services/socketClient';
 import type { AvisoMesa, ControladorMesa } from './tipos';
 
@@ -16,6 +17,11 @@ export function useMesaOnline(online: JogoOnline): ControladorMesa | undefined {
   const sequencia = useRef(0);
   const { cartaRejeitada, erro, erroCodigo, estado, mao } = online.state;
   const { comprarCarta, interceptar, jogadorId, jogarCarta, jogarMultiplasCartas } = online;
+
+  const modo = online.state.rapida ? 'rapida' : 'online';
+  useEffect(() => {
+    if (estado && jogadorId) observarPartida(estado, modo, jogadorId);
+  }, [estado, jogadorId, modo]);
 
   // Recusas do servidor viram aviso da mesa (e a carta volta para a mão).
   useEffect(() => {
