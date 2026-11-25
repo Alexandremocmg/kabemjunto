@@ -17,9 +17,16 @@ const grupo = z.string().regex(uuidV4);
 export const rankingDaSalaSchema = z.object({
   grupo,
   membros: z.record(z.string(), hash),
-  partidaComBot: z.string().optional(),
+  /** Quem teve alguma jogada feita por bot na partida corrente: só essas pessoas não pontuam. */
+  jogadasPorBot: z.object({ partidaId: z.string(), jogadores: z.array(z.string()) }).optional(),
   resultado: z
-    .object({ partidaId: z.string(), semana: data, contou: z.boolean(), tamanhoMesa: tamanho })
+    .object({
+      partidaId: z.string(),
+      semana: data,
+      /** Jogadores que pontuaram; vazio quando a partida não contou. */
+      pontuaram: z.array(z.string()),
+      tamanhoMesa: tamanho,
+    })
     .optional(),
 });
 export type RankingDaSala = z.infer<typeof rankingDaSalaSchema>;
@@ -65,6 +72,14 @@ function membro(ranking: RankingDaSala, jogadorId: string): string | undefined {
   return Object.hasOwn(ranking.membros, jogadorId) ? ranking.membros[jogadorId] : undefined;
 }
 
+/** Só a semana corrente e a anterior; o que é mais antigo é apagado na próxima gravação. */
+export function placaresVigentes(placares: PlacaresSemanais, agora: number): PlacaresSemanais {
+  const limite = segundaFeira(agora);
+  limite.setUTCDate(limite.getUTCDate() - 7);
+  const semanaAnterior = limite.toISOString().slice(0, 10);
+  return placares.filter((item) => item.semana >= semanaAnterior);
+}
+
 export function registrarRanking(
   placares: PlacaresSemanais,
   ranking: RankingDaSala,
@@ -73,24 +88,36 @@ export function registrarRanking(
 ): { ranking: RankingDaSala; placares: PlacaresSemanais } {
   const inicio = segundaFeira(agora);
   const semana = inicio.toISOString().slice(0, 10);
-  const tamanhoMesa = estado.jogadores.length;
+  const comBot = new Set(
+    ranking.jogadasPorBot?.partidaId === estado.partidaId ? ranking.jogadasPorBot.jogadores : [],
+  );
+  // Bots na mesa não impedem: cada pessoa pontua se jogou a partida inteira por conta própria.
+  const pessoas = estado.jogadores.filter(
+    (jogador) => !jogador.isBot && !comBot.has(jogador.id) && membro(ranking, jogador.id),
+  );
+  const distintas = new Set(pessoas.map((jogador) => membro(ranking, jogador.id))).size;
   const contou =
     estado.finalizada &&
     Boolean(estado.vencedor) &&
-    ranking.partidaComBot !== estado.partidaId &&
-    tamanhoMesa >= 2 &&
-    estado.jogadores.every((jogador) => !jogador.isBot && membro(ranking, jogador.id)) &&
-    new Set(estado.jogadores.map((jogador) => membro(ranking, jogador.id))).size === tamanhoMesa;
+    pessoas.length >= 2 &&
+    distintas === pessoas.length;
+  // A mesa do ranking é o número de pessoas que pontuam: vencer bots não vale como mesa maior.
+  const tamanhoMesa = contou ? pessoas.length : estado.jogadores.length;
   const atualizado = {
     ...ranking,
-    resultado: { partidaId: estado.partidaId, semana, tamanhoMesa, contou },
+    resultado: {
+      partidaId: estado.partidaId,
+      semana,
+      tamanhoMesa,
+      pontuaram: contou ? pessoas.map((jogador) => jogador.id) : [],
+    },
   };
   if (!contou) return { ranking: atualizado, placares };
 
   const alvo = placares.find((item) => item.grupo === ranking.grupo && item.semana === semana);
   const competidores = new Map(alvo?.competidores.map((item) => [item.chave, item]));
   const estatisticas = calcularEstatisticas(estado);
-  for (const jogador of estado.jogadores) {
+  for (const jogador of pessoas) {
     const chave = membro(ranking, jogador.id)!;
     const anterior = competidores.get(chave);
     const mesa = String(tamanhoMesa);
@@ -108,12 +135,10 @@ export function registrarRanking(
       vitoriasPorMesa,
     });
   }
-  inicio.setUTCDate(inicio.getUTCDate() - 7);
-  const semanaAnterior = inicio.toISOString().slice(0, 10);
   return {
     ranking: atualizado,
     placares: [
-      ...placares.filter((item) => item !== alvo && item.semana >= semanaAnterior),
+      ...placaresVigentes(placares, agora).filter((item) => item !== alvo),
       { grupo: ranking.grupo, semana, competidores: [...competidores.values()] },
     ],
   };
@@ -129,7 +154,8 @@ export function rankingDoJogador(
   const { resultado } = ranking;
   const chave = membro(ranking, jogadorId);
   if (!chave || resultado?.partidaId !== estado.partidaId) return undefined;
-  const { semana, tamanhoMesa, contou } = resultado;
+  const { semana, tamanhoMesa, pontuaram } = resultado;
+  const contou = pontuaram.includes(jogadorId);
   const competidores =
     placares.find((item) => item.grupo === ranking.grupo && item.semana === semana)?.competidores ??
     [];

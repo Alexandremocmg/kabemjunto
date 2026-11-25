@@ -459,7 +459,9 @@ export const LobbyOnline: React.FC<LobbyOnlineProps> = ({
                     )}
                   </div>
                   <small>
-                    Envie o convite da sala aos amigos. Só partidas completas entre pessoas contam.
+                    Entre pelo convite da sala: só o código não basta. Pontua quem joga até o fim
+                    sem bot na própria vez. O servidor guarda apelidos e resultados por até duas
+                    semanas, visíveis a quem tem o convite do grupo.
                   </small>
                 </fieldset>
               )}

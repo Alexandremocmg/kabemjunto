@@ -34,6 +34,7 @@ import type { PersistedRoomSession, PlacarGravado, RoomPersistence } from './per
 import {
   chaveMembro,
   codigoRankingValido,
+  placaresVigentes,
   rankingDoJogador,
   registrarRanking,
   type PlacaresSemanais,
@@ -1014,7 +1015,7 @@ export class RoomStore {
     }
     const { novoEstado, acao } = this.jogadaAutomatica(estado);
     return {
-      session: this.saveState(this.marcarJogadaAutomatica(session, estado), novoEstado),
+      session: this.saveState(this.marcarJogadaAutomatica(session, estado, bot.id), novoEstado),
       botId: bot.id,
       acao,
     };
@@ -1076,7 +1077,7 @@ export class RoomStore {
     const estouros = (this.estouros.get(session.sala.id)?.get(jogadorId) ?? 0) + 1;
     const inativo = estouros >= ESTOUROS_ATE_INATIVO && !novoEstado.finalizada;
     const gravada = this.saveState(
-      this.marcarJogadaAutomatica(session, estado),
+      this.marcarJogadaAutomatica(session, estado, jogadorId),
       inativo ? this.comControleDoBot(novoEstado, jogadorId, 'INATIVO') : novoEstado,
     );
     const daSala = this.estouros.get(session.sala.id) ?? new Map<JogadorId, number>();
@@ -1884,10 +1885,24 @@ export class RoomStore {
     return this.commit({ ...session, estado }, true);
   }
 
-  private marcarJogadaAutomatica(session: RoomSession, estado: EstadoPartida): RoomSession {
-    return session.ranking
-      ? { ...session, ranking: { ...session.ranking, partidaComBot: estado.partidaId } }
-      : session;
+  /** Guarda quem teve a vez jogada por bot: só essa pessoa fica fora do ranking da partida. */
+  private marcarJogadaAutomatica(
+    session: RoomSession,
+    estado: EstadoPartida,
+    jogadorId: JogadorId,
+  ): RoomSession {
+    if (!session.ranking) return session;
+    const { partidaId } = estado;
+    const atual = session.ranking.jogadasPorBot;
+    const jogadores = atual?.partidaId === partidaId ? atual.jogadores : [];
+    if (jogadores.includes(jogadorId)) return session;
+    return {
+      ...session,
+      ranking: {
+        ...session.ranking,
+        jogadasPorBot: { partidaId, jogadores: [...jogadores, jogadorId] },
+      },
+    };
   }
 
   private gravar(salas: PersistedRoomSession[], ranking: PlacaresSemanais): void {
@@ -1896,7 +1911,7 @@ export class RoomStore {
   }
 
   private commit(proposta: RoomSession, novaVez = false): RoomSession {
-    let placares = this.placaresSemanais;
+    let placares = placaresVigentes(this.placaresSemanais, Date.now());
     const { estado, ranking } = proposta;
     if (estado?.finalizada && ranking && ranking.resultado?.partidaId !== estado.partidaId) {
       const registro = registrarRanking(placares, ranking, estado, Date.now());

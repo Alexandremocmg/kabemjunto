@@ -39,10 +39,13 @@ export function RankingEntreAmigos({ ranking }: { ranking: RankingSemanal }) {
         Semana de {dia}/{mes}/{ano} · horário de Brasília
       </p>
       {!ranking.contou && (
-        <p>Sem pontos nesta partida. Só partidas concluídas entre pessoas entram no ranking.</p>
+        <p>
+          Você não pontuou nesta partida. É preciso jogar até o fim, sem bot na sua vez, com pelo
+          menos outra pessoa nas mesmas condições.
+        </p>
       )}
       <Categoria
-        titulo={`Mais vitórias · Mesa de ${ranking.tamanhoMesa}`}
+        titulo={`Mais vitórias · ${ranking.tamanhoMesa} pessoas`}
         categoria={ranking.vitorias}
       />
       <Categoria titulo="Mais joga" categoria={ranking.partidas} />
