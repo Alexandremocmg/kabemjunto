@@ -6,7 +6,7 @@ Jogo de cartas com temática brasileira, **109 cartas**, regra do 7 (Silêncio),
 
 [![CI](https://github.com/Alexandremocmg/kabemjunto/actions/workflows/ci.yml/badge.svg)](https://github.com/Alexandremocmg/kabemjunto/actions/workflows/ci.yml)
 
-Documentação reconciliada em **2026-11-18**, a partir de `54c4601`. A tag mais recente encontrada é `v0.5.1`; ela não inclui todas as mudanças posteriores da branch. A versão `1.0.0` no `package.json` também não comprova lançamento público v1.0. Contagens antigas de testes e relatos de deploy são evidências históricas, não resultados desta revisão.
+Documentação reconciliada em **2026-11-25**, a partir de `c46a269`. A tag mais recente encontrada é `v0.5.1`; ela não inclui todas as mudanças posteriores da branch. A versão `1.0.0` no `package.json` também não comprova lançamento público v1.0. Contagens antigas de testes e relatos de deploy são evidências históricas, não resultados desta revisão.
 
 ## Jogar
 
@@ -14,6 +14,8 @@ Documentação reconciliada em **2026-11-18**, a partir de `54c4601`. A tag mais
 - **Só contra bots (no aparelho):** no menu, escolha de 2 a 10 jogadores (fichas de 2 a 6; "7+" abre 7 a 10) e toque em **Só contra bots, neste aparelho**. A partida roda no navegador e fica no `sessionStorage` da aba; avatar e tema ficam no `localStorage`. Isso não equivale a uma conta ou backup entre dispositivos. Mesa compartilhada (hot-seat) não existe mais.
 - **Na mesa:** arraste a carta que brilha até o centro (ou toque duas vezes). Cartas de mesma face: toque nelas para montar o grupo do descarte múltiplo. Sem jogada, toque no monte. Coringas abrem um anel de cores e a Troca Mão pede o adversário. Teclado: `Tab` chega à mão, setas trocam de carta, `Enter` joga, `Espaço` seleciona. Sem WebGL (ou com `?mesa=2d`), a mesma mesa aparece em 2D.
 - **Online:** informe seu apelido, crie uma sala ou entre por código/listagem pública. Salas são privadas por padrão; somente o host inicia. As mãos são enviadas privadamente, e o servidor decide as jogadas. A retomada usa um token de sessão, sem cadastro por e-mail.
+- **Se alguém sai, cai ou fica parado (Online):** a partida continua. Há 30 s por vez; um bot joga por quem estoura o tempo e assume depois de dois estouros seguidos, ou 20 s depois de uma queda. Quem caiu volta ao lugar e quem ficou parado toca em **Voltei**. Quem sai de propósito não retoma.
+- **Fim da partida:** prêmios, **Compartilhar** e **Jogar de novo**. No Online há placar da sessão e revanche com a mesma mesa: começa quando todos aceitam, ou em 15 s com bots nas outras vagas. **Convidar**, na sala de espera, manda um link com o código.
 - **Objetivo:** descartar todas as cartas. Cada participante começa com 7. Jogue por cor, número ou ação; neutras permitem escolher cor, respeitando as restrições de ataque.
 - **Compra:** sem jogada que bloqueie a compra, compre uma carta. Se ela for jogável, o turno é mantido; caso contrário, passa. `TROCA_MAO` é a exceção: tê-la na mão não obriga usá-la antes de comprar. Pagar ataque sempre passa a vez.
 - **Ataques:** `+2` sobre `+2`, `+4` sobre `+2` e `+4` sobre `+4` acumulam. `+2` sobre `+4` é proibido. `0+` reflete a pilha ao último atacante, sem defesa do reflexo; sem ataque, funciona como coringa.
@@ -101,7 +103,7 @@ briefings/ e feedback/    Planejamento e revisões históricos
 
 `App.tsx` mostra o menu e leva à mesa contra bots (`mesa/MesaLocal3D.tsx`, motor no navegador) ou à sala Online (`mesa/MesaOnline3D.tsx`); as duas usam a mesma `Mesa3D`. Não há mais aplicação de runtime em `src/` na raiz. Os nomes `gerarBaralho108` e `BARALHO_COMPLETO_108` foram mantidos, mas geram **109** cartas (ADR-013). A fixture `deck108.json` continua com 108 e não representa o catálogo usado nas partidas.
 
-O motor não exporta uma segunda API de state machine. No Online, timers de Corta-Frente pertencem ao `RoomStore`. Persistência e coordenação atuais pressupõem **instância única**; aumentar réplicas exige coordenação distribuída por sala (ADR-011).
+O motor não exporta uma segunda API de state machine. No Online, timers de Corta-Frente pertencem ao `RoomStore`; a espera do "Jogar agora", os bots, o prazo da vez e a revanche ficam em diretores que observam cada gravação (ADR-015 e ADR-016). Persistência e coordenação atuais pressupõem **instância única**; aumentar réplicas exige coordenação distribuída por sala (ADR-011).
 
 ## Docker e operação
 
@@ -147,13 +149,13 @@ Quando houver solicitação de deploy, confirme serviço, ambiente e volume; pub
 
 ### VPS da Hostinger (ambiente de teste atual)
 
-Hoje o jogo é servido por uma VPS da Hostinger, em **https://kabemjunto.kabemmanager.online** (endereço estável, HTTPS pelo Traefik do Easypanel). O processo é o `kabemjunto.service` (systemd, `/root/kabemjunto`, porta 3001, bloqueada para acesso externo por firewall). O túnel rápido antigo (`kabemjunto-tunnel.service`) ainda existe, mas não é mais necessário. **Um `git push` ou o merge de um PR não atualiza a VPS**: a atualização é manual (backup do `dist`, `git merge --ff-only origin/main`, `npm ci`, `npm run build`, reinício **só** do `kabemjunto.service`). O passo a passo, a configuração do endereço e do firewall, o rollback e os pontos de atenção estão em [`docs/OPERACAO-VPS.md`](./docs/OPERACAO-VPS.md), que também descreve os outros jogos hospedados na mesma VPS (Raízes Cruzadas, Corrida Sem Fim e Esconde ou Morre).
+Hoje o jogo é servido por uma VPS da Hostinger, em **https://kabemjunto.kabemmanager.online** (endereço estável, HTTPS pelo Traefik do Easypanel). O processo é o `kabemjunto.service` (systemd, `/root/kabemjunto`, porta 3001, bloqueada para acesso externo por firewall). O túnel rápido antigo (`kabemjunto-tunnel.service`) ainda existe, mas não é mais necessário. **Um `git push` ou o merge de um PR não atualiza a VPS**: a atualização é manual (backup do `dist`, `git merge --ff-only origin/main`, `npm ci`, `npm run build`, reinício **só** do `kabemjunto.service`). O passo a passo, a configuração do endereço e do firewall, o rollback e os pontos de atenção estão em [`docs/OPERACAO-VPS.md`](./docs/OPERACAO-VPS.md), que também descreve os outros jogos hospedados na mesma VPS (Raízes Cruzadas, Corrida Sem Fim e Esconde ou Morre) e a vitrine https://jogos.kabemmanager.online, que reúne todos.
 
 ## Estado e próximos passos
 
-**Implementado no código:** partida contra bots e Online na mesma mesa 3D, salas públicas e privadas, chat e falas rápidas, retomada por token, persistência de salas, descarte múltiplo, Corta-Frente, +2 Para Todos, dicas contextuais e personalização local de avatar/tema.
+**Implementado no código:** partida contra bots e Online na mesma mesa 3D, salas públicas e privadas, chat e falas rápidas, retomada por token, persistência de salas, descarte múltiplo, Corta-Frente, +2 Para Todos, dicas contextuais, avatar visível no Online e tema local, "Jogar agora" com bots, partida resiliente, revanche, prêmios e placar. As métricas existem, mas estão desligadas ([`docs/METRICAS.md`](./docs/METRICAS.md)).
 
-**Pendências identificadas:** validação estrutural do estado local restaurado e a meta de 60 fps de média em celular intermediário (ADR-014). O briefing mais recente é o da [Sprint 7](./briefings/sprint-7.md).
+**Pendências identificadas:** validação estrutural do estado local restaurado a meta de 60 fps de média em celular intermediário (ADR-014), o [playtest fechado](./docs/PLAYTEST-FECHADO-v0.5.1.md) e a moderação de chat e apelidos antes de divulgar. O briefing mais recente é o da [Sprint 7](./briefings/sprint-7.md).
 
 ## Documentação
 
@@ -162,7 +164,8 @@ Hoje o jogo é servido por uma VPS da Hostinger, em **https://kabemjunto.kabemma
 - [Operação na VPS: onde o jogo roda e como atualizá-lo](./docs/OPERACAO-VPS.md).
 - [Como contribuir](./CONTRIBUTING.md) e [convenções dos agentes](./AGENTS.md).
 - [Status e histórico do time](./STATUS.md) e [changelog](./CHANGELOG.md).
-- [Decisões arquiteturais](./DECISIONS.md), incluindo ADR-011, ADR-012 e ADR-013.
+- [Decisões arquiteturais](./DECISIONS.md), incluindo ADR-011 a ADR-016.
+- [Métricas](./docs/METRICAS.md) e [roteiro do playtest](./docs/PLAYTEST-FECHADO-v0.5.1.md).
 - [Plano original de equipe](./PLANO-EQUIPE-3DEVS.md) e [briefings](./briefings/): contexto histórico.
 
 As seções originais `01` a `04` e a cópia em `kabemjunto-gdd/gdd/` preservam propostas e pesquisas antigas. Para regras vigentes, use o GDD mestre; para operação e estrutura implementadas, este README e o código. As imagens `tela-01-...png` a `tela-06-...png` são referências visuais históricas.
