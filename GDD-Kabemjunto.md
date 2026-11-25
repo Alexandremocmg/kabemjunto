@@ -1,11 +1,11 @@
 # 🎴 GDD — KABEMJUNTO
 
 **Documento de Game Design para o time de desenvolvimento**
-**Versão:** 1.3 · **Data:** 2026-11-25 · **Status:** regras aprovadas; versão publicada para testes (`main` em `c46a269`)
+**Versão:** 1.3 · **Data:** 2026-11-25 · **Status:** regras aprovadas; versão publicada para testes (`main` em `9f6f6cf`)
 **Autor:** Mavis Team · **Idioma:** PT-BR
 **Público-alvo:** Engenharia, Game Design, Produto, QA
 
-> **Como ler:** este é o GDD mestre e descreve o jogo **como ele é hoje no código** da `main` (`c46a269`), mais o que ainda é meta ou proposta. Cada afirmação sobre o produto vem marcada: ✅ entregue no código, 🔜 em andamento ou pendente, 📋 proposta/meta ainda não validada. A seção 7 concentra as regras vigentes. As quatro seções detalhadas na raiz (`01` a `04`) preservam o design original e são históricas. Para operação, veja o [README](./README.md); para decisões, o [DECISIONS.md](./DECISIONS.md).
+> **Como ler:** este é o GDD mestre e descreve o jogo **como ele é hoje no código** da `main` (`9f6f6cf`), mais o que ainda é meta ou proposta. Cada afirmação sobre o produto vem marcada: ✅ entregue no código, 🔜 em andamento ou pendente, 📋 proposta/meta ainda não validada. A seção 7 concentra as regras vigentes. As quatro seções detalhadas na raiz (`01` a `04`) preservam o design original e são históricas. Para operação, veja o [README](./README.md); para decisões, o [DECISIONS.md](./DECISIONS.md).
 
 ---
 
@@ -75,9 +75,9 @@ Hoje o jogo roda no navegador. O botão principal, **Jogar agora**, entra numa m
 | Hot-seat (vários humanos no mesmo aparelho)      | ❌       | Existia na mesa antiga; saiu com a mesa 3D                                                                                               |
 | Escolha de dificuldade dos bots                  | 🔜       | O motor tem Fácil, Médio e Difícil, sem escolha na interface: Fácil no aparelho, Médio no servidor                                       |
 | Meta de 60 fps de média em celular intermediário | 🔜       | Hoje: mediana 60 fps, média 49 a 56 no perfil de teste (CPU 4× mais lenta, 6 jogadores)                                                  |
-| Produção publicada                               | 🔜       | Ambiente de teste na VPS da Hostinger, em `https://kabemjunto.kabemmanager.online` (`c46a269`, 2026-11-25); o Railway não foi revalidado |
+| Produção publicada                               | 🔜       | Ambiente de teste na VPS da Hostinger, em `https://kabemjunto.kabemmanager.online` (`9f6f6cf`, 2026-11-25); o Railway não foi revalidado |
 | Playtest fechado, onboarding visual              | 🔜 / 📋  | Roteiro pronto (issue #16), teste por fazer; onboarding na issue #17                                                                     |
-| Testes automatizados                             | ✅       | 722 testes unitários e de integração e 75 cenários E2E (Chromium) em `c46a269`                                                           |
+| Testes automatizados                             | ✅       | 727 testes unitários e de integração e 79 cenários E2E (Chromium) em `9f6f6cf`                                                           |
 
 A última release marcada é `v0.5.1` e não inclui a mesa 3D nem o PWA.
 
@@ -342,6 +342,8 @@ Decisões de UX:
 - **Falas rápidas e balões:** comunicação leve, sem digitar, que também funciona durante o Silêncio.
 - **Compartilhamento:** **Convidar** na sala de espera (link que preenche o código) e imagem do resultado no fim, só com o endereço do jogo.
 - **Revanche, prêmios e placar da sessão:** mantêm a mesma turma na mesa.
+- **Ranking semanal entre amigos (✅):** em sala privada com convite; vitórias, partidas e reflexos com o 0+. Só fica fora quem teve a vez jogada por bot (ADR-017). É entre amigos: a identidade é por navegador.
+- **Card de desafio (✅):** imagem com QR; no menu leva ao jogo, em sala pública criada à mão leva à sala até a partida começar.
 - 📋 **Próximas etapas de retenção:** missões diárias, títulos e versos; depois desafios contra bots, presets e álbum. Só com números reais. Passe de temporada e ranking não estão desenhados nem entregues.
 
 ---

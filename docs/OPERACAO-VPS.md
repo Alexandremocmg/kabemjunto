@@ -1,6 +1,6 @@
 # Operação na VPS (ambiente de teste atual)
 
-**Verificado em 2026-11-25** (atualizações do Kabemjunto até `c46a269`) e em 2026-11-21 (o restante), pelo terminal web da Hostinger, com leitura do estado, uma atualização real para a `main` (`ee4efe1`) a configuração da URL estável e do firewall da porta 3001 (seção 5) a hospedagem de mais três jogos na mesma VPS e a vitrine que reúne todos eles (seção 6). Este documento descreve o que existe hoje e como atualizar. Não é uma decisão de arquitetura: a hospedagem "oficial" documentada antes (Railway, ver o [README](../README.md#railway)) **não foi revalidada** e não é a que está no ar para testes.
+**Verificado em 2026-11-25** (atualizações do Kabemjunto até `9f6f6cf`) e em 2026-11-21 (o restante), pelo terminal web da Hostinger, com leitura do estado, uma atualização real para a `main` (`ee4efe1`) a configuração da URL estável e do firewall da porta 3001 (seção 5) a hospedagem de mais três jogos na mesma VPS e a vitrine que reúne todos eles (seção 6). Este documento descreve o que existe hoje e como atualizar. Não é uma decisão de arquitetura: a hospedagem "oficial" documentada antes (Railway, ver o [README](../README.md#railway)) **não foi revalidada** e não é a que está no ar para testes.
 
 > Não registre neste repositório o link do terminal web da Hostinger, o IP da VPS, tokens ou variáveis de ambiente do serviço. O link do terminal dá acesso de shell enquanto a sessão estiver aberta.
 
@@ -91,9 +91,10 @@ Esperado: `/health` e `/manifest.json` em JSON, `/sw.js` em JavaScript (nos dois
 
 Observações das atualizações de 2026-11-25:
 
-- O clone agora está na branch `main`. Backups: `/root/kabemjunto-backup-20261125-1535` (build de antes do "Jogar agora"), `-1924` (antes do PR #38) e `-1955` (antes do confete); os dois últimos incluem `rooms.json`.
+- O clone agora está na branch `main`. Backups: `/root/kabemjunto-backup-20261125-1535` (build de antes do "Jogar agora"), `-1924` (antes do PR #38) `-1955` (antes do confete) e `-2250` (antes do ranking, PRs #42 e #43); os três últimos incluem `rooms.json`.
 - **Antes de reiniciar, veja se há partidas:** compare `stat -c %y /var/lib/kabemjunto/rooms.json` com `date`. O arquivo muda a cada jogada.
-- O reinício de 2026-11-25 deixou o link em **502 por 2 a 3 minutos**.
+- Os reinícios de 2026-11-25 deixaram o link em **502 por 1,5 a 3 minutos**.
+- **Rollback apaga o ranking:** uma versão anterior ao PR #42 ignora os totais semanais e os perde na primeira gravação. Copie o `rooms.json` antes; restaurá-lo também devolve as salas ao estado da cópia.
 - **Mudança só em `apps/web` entra no ar com o build, sem reiniciar** (confirmado). Durante o build os arquivos antigos são trocados; quem estiver abrindo o jogo nesses segundos pode precisar recarregar. Mudança em `apps/server` ou `packages/shared` exige reinício.
 - Quem já tem o jogo aberto ou instalado só vê a versão nova depois de fechar todas as janelas. Servidor e interface do PR #38 precisam ir juntos.
 - O terminal web abre em aba nova e expira; é preciso clicar nele antes de digitar.
