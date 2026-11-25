@@ -6,7 +6,7 @@ import type { EstadoPartidaPublico } from '@kabemjunto/shared';
 import type { ControladorMesa } from '../tipos';
 
 const confete = vi.hoisted(() => Object.assign(vi.fn(), { reset: vi.fn() }));
-vi.mock('canvas-confetti', () => ({ default: confete }));
+vi.mock('canvas-confetti', () => ({ default: { create: () => confete } }));
 
 import { ALTURA, LARGURA, desenharResultado } from './imagemDoResultado';
 import { compartilhar } from '../../services/compartilhar';
