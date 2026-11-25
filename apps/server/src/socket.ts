@@ -14,7 +14,14 @@ import {
   salaAtualizada,
   sendPrivateHands,
 } from './room-broadcast.js';
-import { RoomError, RoomStore, toPublicState } from './room-store.js';
+import {
+  RoomError,
+  RoomStore,
+  toPublicState,
+  type JoinRoomInput,
+  type QuickJoinInput,
+  type VagaAnterior,
+} from './room-store.js';
 import {
   isNonEmptyString,
   SocketRateLimiter,
@@ -95,11 +102,13 @@ export function registerSocketHandlers(
   /**
    * Um socket só ocupa uma identidade. Antes de entrar em outra, sai da anterior
    * (espera ou partida terminada); no meio de uma partida, a entrada é recusada.
-   * `mesma` diz se o pedido apenas retoma a vaga que o socket já ocupa.
+   * `mesma` diz se o pedido apenas retoma a vaga que o socket já ocupa, e
+   * `verificar` recusa o pedido antes de qualquer vaga ser liberada.
    */
   function liberarAnterior(
     socket: GameSocket,
     mesma: (salaId: string, jogadorId: string, rapida: boolean) => boolean,
+    verificar: (anterior: VagaAnterior) => void,
   ): void {
     const salaId = roomId(socket);
     const jogadorId = jogadorIdFromSocket(socket);
@@ -110,6 +119,7 @@ export function registerSocketHandlers(
       if (session.estado && !session.estado.finalizada) {
         throw new RoomError('JOGADOR_EM_OUTRA_SALA', 'Saia da partida atual antes de entrar.');
       }
+      verificar({ salaId, jogadorId });
       const restante = store.leaveWaitingRoom(salaId, jogadorId);
       if (restante) socket.to(salaId).emit('server:sala:atualizada', salaAtualizada(restante));
     }
@@ -199,11 +209,7 @@ export function registerSocketHandlers(
       }
       try {
         const pedida = payload.salaId.trim().toUpperCase();
-        liberarAnterior(
-          socket,
-          (salaId, jogadorId) => salaId === pedida && jogadorId === payload.jogadorId,
-        );
-        const joined = store.join({
+        const entrada: JoinRoomInput = {
           jogadorId: payload.jogadorId,
           salaId: payload.salaId,
           nome: payload.nome,
@@ -213,8 +219,13 @@ export function registerSocketHandlers(
           ...(payload.visibilidade !== undefined ? { visibilidade: payload.visibilidade } : {}),
           ...(payload.avatarId !== undefined ? { avatarId: payload.avatarId } : {}),
           ...(payload.resumeToken !== undefined ? { resumeToken: payload.resumeToken } : {}),
-        });
-        finalizarEntrada(socket, joined);
+        };
+        liberarAnterior(
+          socket,
+          (salaId, jogadorId) => salaId === pedida && jogadorId === payload.jogadorId,
+          (anterior) => store.verificarEntrada(entrada, anterior),
+        );
+        finalizarEntrada(socket, store.join(entrada));
         metrics.recordEventOutcome('sala', 'accepted');
       } catch (error) {
         metrics.recordEventOutcome('sala', 'rejected');
@@ -235,19 +246,23 @@ export function registerSocketHandlers(
         return;
       }
       try {
-        liberarAnterior(socket, (salaId, jogadorId, rapida) => {
-          const terminada = store.get(salaId)?.estado?.finalizada === true;
-          return rapida && !terminada && jogadorId === payload.jogadorId;
-        });
-        const joined = store.quickJoin({
+        const entrada: QuickJoinInput = {
           jogadorId: payload.jogadorId,
           nome: payload.nome,
           socketId: socket.id,
           tamanho: payload.tamanho,
           ...(payload.avatarId !== undefined ? { avatarId: payload.avatarId } : {}),
           ...(payload.resumeToken !== undefined ? { resumeToken: payload.resumeToken } : {}),
-        });
-        finalizarEntrada(socket, joined);
+        };
+        liberarAnterior(
+          socket,
+          (salaId, jogadorId, rapida) => {
+            const terminada = store.get(salaId)?.estado?.finalizada === true;
+            return rapida && !terminada && jogadorId === payload.jogadorId;
+          },
+          (anterior) => store.verificarEntradaRapida(entrada, anterior),
+        );
+        finalizarEntrada(socket, store.quickJoin(entrada));
         metrics.recordEventOutcome('sala', 'accepted');
       } catch (error) {
         metrics.recordEventOutcome('sala', 'rejected');
@@ -263,8 +278,14 @@ export function registerSocketHandlers(
         if (!salaId || !jogadorId) {
           throw new RoomError('SALA_INEXISTENTE', 'Entre em uma sala primeiro.');
         }
-        const session = store.leaveWaitingRoom(salaId, jogadorId);
-        // Depois do fim quem sai também recebe a resposta, como no abandono.
+        // Sair com a partida em andamento (ex.: ela começou agora) é abandonar:
+        // um assento nunca fica preso a quem já foi embora.
+        const estado = store.get(salaId)?.estado;
+        const session =
+          estado && !estado.finalizada
+            ? store.abandonGame(salaId, jogadorId)
+            : store.leaveWaitingRoom(salaId, jogadorId);
+        // Com partida, quem sai também recebe a resposta, como no abandono.
         if (session?.estado) {
           broadcastState(io, salaId, { estado: toPublicState(session.estado) });
           io.to(salaId).emit('server:sala:atualizada', salaAtualizada(session));

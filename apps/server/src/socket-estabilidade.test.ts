@@ -129,6 +129,52 @@ describe('7. um socket só ocupa uma identidade', () => {
     expect(t.store.get(salaId)!.sala.jogadores.map((j) => j.id)).toEqual(['duda']);
   });
 
+  it('uma entrada recusada não tira ninguém da sala em que está', async () => {
+    const t = await servidor();
+    const ana = await t.conectar();
+    const bia = await t.conectar();
+    const caio = await t.conectar();
+    await t.entrar(ana, 'ana', 'ESPERA');
+    await t.entrar(bia, 'bia', 'ESPERA');
+    await t.entrar(caio, 'caio', 'ALHEIA');
+    for (const [evento, payload] of [
+      ['client:jogar:rapido', { jogadorId: 'caio', nome: 'x', tamanho: 3 }],
+      ['client:jogar:rapido', { jogadorId: 'nova', nome: 'x', tamanho: 11 }],
+      ['client:entrar:sala', { jogadorId: 'nova', salaId: 'NAOHA1', nome: 'x', criar: false }],
+      ['client:entrar:sala', { jogadorId: 'caio', salaId: 'ALHEIA', nome: 'x' }],
+    ] as const) {
+      const erro = once<ServerErroEvent>(bia, 'server:erro');
+      bia.emit(evento, payload);
+      await erro;
+      expect(t.store.get('ESPERA')!.sala.jogadores.map((j) => j.id)).toEqual(['ana', 'bia']);
+    }
+    const chat = once<{ jogadorId: string }>(ana, 'server:chat:msg');
+    bia.emit('client:chat:msg', { texto: 'ainda aqui' });
+    expect((await chat).jogadorId).toBe('bia');
+  });
+
+  it('sair da sala com a partida em andamento equivale a abandonar', async () => {
+    const t = await servidor();
+    const ana = await t.conectar();
+    const bia = await t.conectar();
+    await t.entrar(ana, 'ana', 'SAIDA1');
+    await t.entrar(bia, 'bia', 'SAIDA1');
+    const comecou = once(bia, 'server:estado:atualizado');
+    ana.emit('client:iniciar:partida', {});
+    await comecou;
+    const erros: unknown[] = [];
+    ana.on('server:erro', (e) => erros.push(e));
+    const sala = once<{ hostId: string }>(bia, 'server:sala:atualizada');
+    ana.emit('client:sair:sala', {});
+    expect((await sala).hostId).toBe('bia');
+    const { estado } = t.store.get('SAIDA1')!;
+    expect(estado!.finalizada).toBe(false);
+    expect(estado!.jogadores[0]).toMatchObject({ isBot: true, motivoBot: 'SAIU' });
+    // A identidade fica livre para outra sala.
+    await t.entrar(ana, 'ana', 'OUTRA2');
+    expect(erros).toEqual([]);
+  });
+
   it('no meio da partida a segunda identidade é recusada e a primeira continua', async () => {
     const t = await servidor();
     const ana = await t.conectar();

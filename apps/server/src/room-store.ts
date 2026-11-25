@@ -95,6 +95,12 @@ export interface QuickJoinInput {
   avatarId?: string;
 }
 
+/** Vaga que um socket vai liberar ao entrar em outra. */
+export interface VagaAnterior {
+  salaId: SalaId;
+  jogadorId: JogadorId;
+}
+
 export interface RoomStoreOptions {
   /** Espera da sala "Jogar agora" antes de completar com bots. */
   quickPlayWaitMs?: number;
@@ -571,26 +577,9 @@ export class RoomStore {
    *   (anti-impersonation: jogador não pode estar em 2 salas ao mesmo tempo)
    */
   join(input: JoinRoomInput): JoinRoomResult {
+    this.verificarEntrada(input);
     const salaId = input.salaId.trim().toUpperCase();
-    if (!salaId) throw new RoomError('SALA_INEXISTENTE', 'Informe o código da sala.');
-
-    if (!input.jogadorId) {
-      throw new RoomError('INTERNAL', 'Jogador precisa de um jogadorId (UUID v4).');
-    }
-
-    // Verifica se o jogador já existe em OUTRA sala.
-    for (const [outraSalaId, outraSession] of this.rooms) {
-      if (outraSalaId === salaId) continue;
-      // Assento que ficou com um bot porque a pessoa saiu não prende a identidade dela.
-      if (outraSession.sala.jogadores.some((j) => j.id === input.jogadorId && !j.isBot)) {
-        throw new RoomError('AUTH_REQUIRED', AUTH_REQUIRED_MESSAGE);
-      }
-    }
-
     let session = this.rooms.get(salaId);
-    if (!session && input.criar === false) {
-      throw new RoomError('SALA_INEXISTENTE', 'Sala não encontrada.');
-    }
     if (!session) {
       const sala: Sala = {
         id: salaId,
@@ -617,11 +606,6 @@ export class RoomStore {
     const jogadorExistente = session.sala.jogadores.find((j) => j.id === input.jogadorId);
 
     if (jogadorExistente) {
-      if (
-        !validResumeToken(input.resumeToken, session.resumeTokenHashByPlayer.get(input.jogadorId))
-      ) {
-        throw new RoomError('AUTH_REQUIRED', AUTH_REQUIRED_MESSAGE);
-      }
       const issued = issueResumeToken();
       const previousSocketId = session.socketByPlayer.get(input.jogadorId);
       const jogadores = session.sala.jogadores.map((j) =>
@@ -659,15 +643,7 @@ export class RoomStore {
       };
     }
 
-    if (session.sala.status !== 'AGUARDANDO') {
-      throw new RoomError('SALA_CHEIA', 'A partida desta sala já começou.');
-    }
-
     // Jogador novo: cria.
-    if (session.sala.jogadores.length >= session.sala.maxJogadores) {
-      throw new RoomError('SALA_CHEIA', 'A sala atingiu o limite de jogadores.');
-    }
-
     const jogadorId = input.jogadorId;
     const jogador: JogadorPublico = {
       id: jogadorId,
@@ -692,6 +668,71 @@ export class RoomStore {
     };
     const gravada = this.commit(next);
     return { session: gravada, jogadorId, reconectado: false, resumeToken: issued.raw };
+  }
+
+  /**
+   * Recusa, sem mudar nada, uma entrada que não daria certo. `anterior` é a vaga
+   * que este mesmo socket vai liberar antes de entrar.
+   */
+  verificarEntrada(input: JoinRoomInput, anterior?: VagaAnterior): void {
+    const salaId = input.salaId.trim().toUpperCase();
+    if (!salaId) throw new RoomError('SALA_INEXISTENTE', 'Informe o código da sala.');
+
+    if (!input.jogadorId) {
+      throw new RoomError('INTERNAL', 'Jogador precisa de um jogadorId (UUID v4).');
+    }
+
+    // Verifica se o jogador já existe em OUTRA sala.
+    for (const [outraSalaId, outraSession] of this.rooms) {
+      if (outraSalaId === salaId) continue;
+      if (outraSalaId === anterior?.salaId && input.jogadorId === anterior.jogadorId) continue;
+      // Assento que ficou com um bot porque a pessoa saiu não prende a identidade dela.
+      if (outraSession.sala.jogadores.some((j) => j.id === input.jogadorId && !j.isBot)) {
+        throw new RoomError('AUTH_REQUIRED', AUTH_REQUIRED_MESSAGE);
+      }
+    }
+
+    const session = this.rooms.get(salaId);
+    const libera = session !== undefined && anterior?.salaId === salaId;
+    const some = libera && humanPlayers(session).length === 1;
+    if (!session || some) {
+      // Sala que não existe (ou que some quando a vaga anterior é liberada).
+      if (input.criar === false) throw new RoomError('SALA_INEXISTENTE', 'Sala não encontrada.');
+      return;
+    }
+    if (session.sala.jogadores.some((j) => j.id === input.jogadorId)) {
+      if (
+        !validResumeToken(input.resumeToken, session.resumeTokenHashByPlayer.get(input.jogadorId))
+      ) {
+        throw new RoomError('AUTH_REQUIRED', AUTH_REQUIRED_MESSAGE);
+      }
+      return;
+    }
+    if (session.sala.status !== 'AGUARDANDO') {
+      throw new RoomError('SALA_CHEIA', 'A partida desta sala já começou.');
+    }
+    if (session.sala.jogadores.length - (libera ? 1 : 0) >= session.sala.maxJogadores) {
+      throw new RoomError('SALA_CHEIA', 'A sala atingiu o limite de jogadores.');
+    }
+  }
+
+  /** Como `verificarEntrada`, para "Jogar agora". */
+  verificarEntradaRapida(input: QuickJoinInput, anterior?: VagaAnterior): void {
+    const tamanho = Math.trunc(input.tamanho);
+    if (!Number.isFinite(tamanho) || tamanho < 2 || tamanho > 10) {
+      throw new RoomError('INTERNAL', 'Tamanho de mesa inválido (de 2 a 10 jogadores).');
+    }
+    for (const session of this.rooms.values()) {
+      const { sala, estado } = session;
+      if (!sala.jogadores.some((j) => j.id === input.jogadorId && !j.isBot)) continue;
+      if (sala.id === anterior?.salaId && input.jogadorId === anterior.jogadorId) continue;
+      // Ids são públicos: só o token prova que o assento é de quem pede.
+      const hash = session.resumeTokenHashByPlayer.get(input.jogadorId);
+      const terminada = estado?.finalizada === true || sala.status === 'FINALIZADA';
+      const livre = sala.rapida !== undefined && terminada && hash === undefined;
+      const provou = sala.rapida !== undefined && validResumeToken(input.resumeToken, hash);
+      if (!livre && !provou) throw new RoomError('AUTH_REQUIRED', AUTH_REQUIRED_MESSAGE);
+    }
   }
 
   listAvailablePublicRooms(): ServerSalaDisponivel[] {
@@ -725,10 +766,8 @@ export class RoomStore {
    * quem ainda está nela (a sala some se não sobra ninguém).
    */
   quickJoin(input: QuickJoinInput): JoinRoomResult {
+    this.verificarEntradaRapida(input);
     const tamanho = Math.trunc(input.tamanho);
-    if (!Number.isFinite(tamanho) || tamanho < 2 || tamanho > 10) {
-      throw new RoomError('INTERNAL', 'Tamanho de mesa inválido (de 2 a 10 jogadores).');
-    }
     const base = {
       jogadorId: input.jogadorId,
       nome: input.nome,
@@ -743,16 +782,6 @@ export class RoomStore {
       const assento = session.sala.jogadores.find((jogador) => jogador.id === input.jogadorId);
       if (!assento || assento.isBot) continue; // não participa, ou saiu e um bot ficou no lugar
       if (session.estado?.finalizada || session.sala.status === 'FINALIZADA') {
-        // Ids são públicos: só tira da sala uma pessoa conectada se for ela mesma.
-        const hash = session.resumeTokenHashByPlayer.get(input.jogadorId);
-        if (
-          assento.conectado &&
-          hash !== undefined &&
-          session.socketByPlayer.get(input.jogadorId) !== input.socketId &&
-          !validResumeToken(input.resumeToken, hash)
-        ) {
-          throw new RoomError('AUTH_REQUIRED', AUTH_REQUIRED_MESSAGE);
-        }
         this.leaveFinishedRoom(session, input.jogadorId);
         continue;
       }

@@ -329,6 +329,54 @@ describe('4. sala manual vazia em partida', () => {
   });
 });
 
+describe('sala manual vazia na espera', () => {
+  function naEspera() {
+    const disco = new Disco();
+    const store = new RoomStore(disco);
+    const d = new ResilienciaDirector(criarIo().io, store, { salaVaziaMs: VAZIA });
+    d.start();
+    parar.push(() => d.stop());
+    const entrar = (jogadorId: string, resumeToken?: string) =>
+      store.join({
+        jogadorId,
+        salaId: SALA,
+        nome: jogadorId,
+        socketId: `s-${jogadorId}`,
+        ...(resumeToken ? { resumeToken } : {}),
+      });
+    const { resumeToken } = entrar('ana');
+    entrar('bia');
+    return { store, disco, entrar, resumeToken };
+  }
+
+  it('some após o prazo, com retomada possível antes', () => {
+    const t = naEspera();
+    t.store.disconnect('s-ana');
+    vi.advanceTimersByTime(VAZIA * 2); // a Bia continua lá
+    t.store.disconnect('s-bia');
+    vi.advanceTimersByTime(VAZIA - 1);
+    t.entrar('ana', t.resumeToken);
+    vi.advanceTimersByTime(VAZIA);
+    expect(t.store.get(SALA)!.sala.jogadores).toHaveLength(2);
+    t.store.disconnect('s-ana');
+    vi.advanceTimersByTime(VAZIA - 1);
+    expect(t.store.get(SALA)).toBeDefined();
+    vi.advanceTimersByTime(1);
+    expect(t.store.get(SALA)).toBeUndefined();
+    expect(t.disco.salvo).toEqual([]);
+  });
+
+  it('vale também para a sala restaurada ao reiniciar', () => {
+    const t = naEspera();
+    const store = new RoomStore(t.disco);
+    const d = new ResilienciaDirector(criarIo().io, store, { salaVaziaMs: VAZIA });
+    d.start();
+    parar.push(() => d.stop());
+    vi.advanceTimersByTime(VAZIA);
+    expect(store.get(SALA)).toBeUndefined();
+  });
+});
+
 describe('6. tolerância 0', () => {
   it('o prazo da vez corre para quem caiu se há outra pessoa conectada', () => {
     const t = montar(['ana', 'bia'], { tolerancia: 0, prazoParaDesconectado: true });

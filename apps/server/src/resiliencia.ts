@@ -6,7 +6,7 @@
  * - **Cair e voltar em ciclo:** o tempo fora se acumula dentro da mesma vez, então
  *   reconectar não renova a tolerância.
  * - **Sala manual vazia:** partida sem ninguém conectado é encerrada depois de um
- *   tempo (na hora, se não sobrou nenhuma pessoa); terminada e vazia, a sala some.
+ *   tempo (na hora, se não sobrou nenhuma pessoa); na espera ou terminada, a sala some.
  * - **Prazo da vez:** quando o prazo que o `RoomStore` gravou em `estado.turno`
  *   acaba, um bot joga só aquela vez.
  *
@@ -29,7 +29,7 @@ import type { GameServer } from './socket-types.js';
 export interface ResilienciaOptions {
   /** Quanto esperar por quem caiu antes de um bot jogar por ele; 0 desliga. */
   disconnectGraceMs?: number;
-  /** Quanto uma sala manual com partida fica sem ninguém conectado até ser encerrada. */
+  /** Quanto uma sala manual fica sem ninguém conectado até ser encerrada (ou apagada). */
   salaVaziaMs?: number;
 }
 
@@ -270,14 +270,14 @@ export class ResilienciaDirector {
     // Quem saiu de vez não tem mais socket nem credencial, mesmo que conste na sala.
     const presente = pessoas.some((p) => p.conectado && session.socketByPlayer.has(p.id));
     // As salas rápidas têm a própria limpeza (QuickPlayDirector).
-    if (sala.rapida || !estado || presente) {
+    if (sala.rapida || presente) {
       this.cancelarVazia(sala.id);
       return;
     }
-    const chave = `${estado.partidaId}:${estado.finalizada}`;
+    const chave = this.chaveVazia(session);
     if (this.vazias.get(sala.id)?.chave === chave) return;
     const alguemPodeVoltar = pessoas.some((p) => session.resumeTokenHashByPlayer.has(p.id));
-    const emMs = alguemPodeVoltar ? this.salaVazia : estado.finalizada ? SALA_SEM_VOLTA_MS : 0;
+    const emMs = alguemPodeVoltar ? this.salaVazia : estado?.finalizada ? SALA_SEM_VOLTA_MS : 0;
     this.armarVazia(sala.id, chave, emMs);
   }
 
@@ -290,15 +290,20 @@ export class ResilienciaDirector {
 
   private encerrarVazia(id: string, chave: string): void {
     this.vazias.delete(id);
-    const estado = this.store.get(id)?.estado;
-    if (!estado || `${estado.partidaId}:${estado.finalizada}` !== chave) return;
+    const session = this.store.get(id);
+    if (!session || this.chaveVazia(session) !== chave) return;
+    const { estado } = session;
     try {
       // Encerrar reavalia a sala, que então espera de novo antes de ser apagada.
-      if (estado.finalizada) this.store.removeRoom(id);
+      if (!estado || estado.finalizada) this.store.removeRoom(id);
       else this.store.encerrarSemHumanos(id, estado.partidaId);
     } catch {
       this.armarVazia(id, chave, NOVA_TENTATIVA_MS);
     }
+  }
+
+  private chaveVazia({ estado }: RoomSession): string {
+    return estado ? `${estado.partidaId}:${estado.finalizada}` : 'AGUARDANDO';
   }
 
   private cancelarVazia(id: string): void {

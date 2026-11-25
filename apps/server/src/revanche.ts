@@ -4,8 +4,9 @@
  * - **Fim:** na primeira gravação com a partida terminada, por qualquer caminho,
  *   transmite `server:partida:encerrada` uma única vez.
  * - **Revanche:** começa na hora se todas as pessoas conectadas aceitaram; senão,
- *   depois da espera (contada do primeiro pedido) com quem aceitou. Quem sai ou
- *   cai deixa de contar. As outras vagas viram bots.
+ *   depois da espera (contada do primeiro pedido) com quem aceitou. Quem sai perde
+ *   o aceite; quem cai deixa de contar enquanto está fora, mas volta pronto se
+ *   voltar antes do fim da espera. As outras vagas viram bots.
  *
  * Como os outros diretores, observa o `RoomStore`. A contagem vive só em memória:
  * reiniciar o servidor derruba todo mundo, então não há o que retomar.
@@ -37,17 +38,20 @@ const TOLERANCIA_QUEDA_MS = 5_000;
 
 interface Andamento {
   partidaId: string;
+  /** Quem aceitou, inclusive quem caiu depois: só conta quem está conectado. */
   prontos: Set<JogadorId>;
   /** Último conjunto transmitido, para só avisar quando algo muda. */
   transmitido: string;
   comecaEm?: number;
-  /** Fim da espera contada do primeiro pedido; quem volta de uma queda recupera esse prazo. */
+  /** Fim da espera contada do primeiro pedido; até lá vale o aceite de quem caiu. */
   limite?: number;
   timer?: ReturnType<typeof setTimeout>;
 }
 
 export class RevancheDirector {
   private readonly andamentos = new Map<string, Andamento>();
+  /** Quando cada pessoa que está fora caiu, por sala. */
+  private readonly quedas = new Map<string, Map<JogadorId, number>>();
   private readonly espera: number;
   private readonly toleranciaQueda: number;
   private pararDeObservar: (() => void) | undefined;
@@ -65,9 +69,14 @@ export class RevancheDirector {
   start(): void {
     this.pararDeObservar?.();
     this.pararDeObservarRemocoes?.();
-    this.pararDeObservarRemocoes = this.store.addRemoveObserver((id) => this.esquecer(id));
+    this.pararDeObservarRemocoes = this.store.addRemoveObserver((id) => {
+      this.esquecer(id);
+      this.quedas.delete(id);
+    });
     // O que já tinha terminado antes de ligar não é transmitido de novo.
     for (const session of this.store.sessions()) {
+      // Nem quem já estava fora conta como queda recente.
+      this.anotarQuedas(session, Number.NEGATIVE_INFINITY);
       if (session.estado?.finalizada) this.novo(session.sala.id, session.estado.partidaId);
     }
     this.pararDeObservar = this.store.addCommitObserver((session) => this.aoMudar(session));
@@ -80,11 +89,12 @@ export class RevancheDirector {
     this.pararDeObservarRemocoes?.();
     this.pararDeObservarRemocoes = undefined;
     for (const id of [...this.andamentos.keys()]) this.esquecer(id);
+    this.quedas.clear();
   }
 
   /** Há uma contagem correndo nesta sala? */
   pendente(salaId: string): boolean {
-    return this.andamentos.get(salaId)?.timer !== undefined;
+    return this.andamentos.get(salaId)?.comecaEm !== undefined;
   }
 
   /** Uma pessoa quer jogar de novo. Repetir o pedido não muda nada. */
@@ -113,6 +123,7 @@ export class RevancheDirector {
 
   private aoMudar(session: RoomSession): void {
     const { sala, estado } = session;
+    this.anotarQuedas(session, Date.now());
     if (!estado?.finalizada) {
       this.esquecer(sala.id);
       return;
@@ -128,24 +139,39 @@ export class RevancheDirector {
   private reavaliar(session: RoomSession): void {
     const id = session.sala.id;
     const andamento = this.andamento(session);
-    const possiveis = possiveisNaRevanche(session);
+    const agora = Date.now();
+    const pessoas = new Set(humanPlayers(session).map((jogador) => jogador.id));
     for (const pronto of andamento.prontos) {
-      if (!possiveis.includes(pronto)) andamento.prontos.delete(pronto);
+      if (!pessoas.has(pronto)) andamento.prontos.delete(pronto);
+    }
+    if (andamento.limite !== undefined && agora >= andamento.limite) {
+      this.esquecerAusentes(session, andamento);
     }
 
-    const agora = Date.now();
-    if (andamento.prontos.size > 0) andamento.limite ??= agora + this.espera;
-    const todos = andamento.prontos.size > 0 && andamento.prontos.size === possiveis.length;
+    const possiveis = possiveisNaRevanche(session);
+    const presentes = possiveis.filter((pronto) => andamento.prontos.has(pronto)).length;
     if (andamento.prontos.size === 0) this.cancelar(andamento);
-    else if (todos) {
-      const alguemCaiu = humanPlayers(session).some((jogador) => !jogador.conectado);
-      const emMs = alguemCaiu ? this.toleranciaQueda : 0;
-      // Nunca adia uma contagem que já terminaria antes.
-      if (andamento.comecaEm === undefined || andamento.comecaEm > agora + emMs) {
-        this.armar(id, andamento, agora + emMs, emMs);
+    else {
+      andamento.limite ??= agora + this.espera;
+      const { limite } = andamento;
+      if (presentes === 0) {
+        // Só há aceites de quem caiu: não há contagem, apenas a validade deles.
+        delete andamento.comecaEm;
+        this.agendar(id, andamento, limite - agora);
+      } else {
+        let alvo = limite;
+        if (presentes === possiveis.length) {
+          // Quem acabou de cair (ex.: recarregou a página) ganha um tempo para voltar.
+          const ultima = Math.max(...(this.quedas.get(id)?.values() ?? []));
+          alvo = Math.min(limite, Math.max(agora, ultima + this.toleranciaQueda));
+        }
+        const atual = andamento.comecaEm;
+        // Passado o limite, só há uma nova tentativa de gravar: ela não é mexida.
+        if (atual === undefined || (atual !== alvo && atual <= limite)) {
+          andamento.comecaEm = alvo;
+          this.agendar(id, andamento, alvo - agora);
+        }
       }
-    } else if (andamento.comecaEm === undefined || andamento.comecaEm < andamento.limite!) {
-      this.armar(id, andamento, andamento.limite!, Math.max(0, andamento.limite! - agora));
     }
 
     const evento = this.evento(session, andamento);
@@ -161,18 +187,36 @@ export class RevancheDirector {
       partidaId: andamento.partidaId,
       prontos: possiveis.filter((id) => andamento.prontos.has(id)),
       possiveis,
-      ...(andamento.comecaEm !== undefined
+      ...(andamento.comecaEm !== undefined && possiveis.some((id) => andamento.prontos.has(id))
         ? { restanteMs: Math.max(0, andamento.comecaEm - Date.now()) }
         : {}),
     };
   }
 
   /** Nunca começa dentro da gravação que disparou a reavaliação: sempre por timer. */
-  private armar(id: string, andamento: Andamento, comecaEm: number, emMs: number): void {
+  private agendar(id: string, andamento: Andamento, emMs: number): void {
     if (andamento.timer) clearTimeout(andamento.timer);
-    andamento.comecaEm = comecaEm;
-    andamento.timer = setTimeout(() => this.comecar(id, andamento), emMs);
+    andamento.timer = setTimeout(() => this.comecar(id, andamento), Math.max(0, emMs));
     andamento.timer.unref?.();
+  }
+
+  /** Marca quem está fora (`em` vale para quem ainda não estava) e esquece quem voltou. */
+  private anotarQuedas(session: RoomSession, em: number): void {
+    const antes = this.quedas.get(session.sala.id);
+    const agora = new Map<JogadorId, number>();
+    for (const { id, conectado } of humanPlayers(session)) {
+      if (!conectado) agora.set(id, antes?.get(id) ?? em);
+    }
+    if (agora.size > 0) this.quedas.set(session.sala.id, agora);
+    else this.quedas.delete(session.sala.id);
+  }
+
+  /** O limite passou: quem aceitou e continua fora perde o aceite. */
+  private esquecerAusentes(session: RoomSession, andamento: Andamento): void {
+    const possiveis = possiveisNaRevanche(session);
+    for (const pronto of andamento.prontos) {
+      if (!possiveis.includes(pronto)) andamento.prontos.delete(pronto);
+    }
   }
 
   private comecar(id: string, andamento: Andamento): void {
@@ -182,12 +226,20 @@ export class RevancheDirector {
       this.esquecer(id);
       return;
     }
+    const presentes = possiveisNaRevanche(antes).filter((pronto) => andamento.prontos.has(pronto));
+    if (presentes.length === 0) {
+      // Ninguém pronto está aqui: se o limite venceu, volta ao começo.
+      delete andamento.timer;
+      this.reavaliar(antes);
+      return;
+    }
     let session: RoomSession;
     try {
       session = this.store.startRematch(id, andamento.partidaId, andamento.prontos);
     } catch {
-      if (this.andamentos.get(id) === andamento && andamento.prontos.size > 0) {
-        this.armar(id, andamento, Date.now() + NOVA_TENTATIVA_MS, NOVA_TENTATIVA_MS);
+      if (this.andamentos.get(id) === andamento) {
+        andamento.comecaEm = Date.now() + NOVA_TENTATIVA_MS;
+        this.agendar(id, andamento, NOVA_TENTATIVA_MS);
         this.io.to(id).emit('server:revanche:atualizada', this.evento(antes, andamento));
       }
       return;
