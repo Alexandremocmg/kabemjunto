@@ -6,19 +6,38 @@ import type {
 import { createNoopMetrics, type MetricsRegistry } from './observability.js';
 import type { ClientEvents, GameServer, GameSocket, ServerEvents } from './socket-types.js';
 import { QuickPlayDirector, type QuickPlayOptions } from './quickplay.js';
+import { RevancheDirector, type RevancheOptions } from './revanche.js';
+import { ResilienciaDirector, type ResilienciaOptions } from './resiliencia.js';
 import {
   broadcastState,
   maybeOpenInterceptionWindow,
   salaAtualizada,
   sendPrivateHands,
 } from './room-broadcast.js';
-import { RoomError, RoomStore, toPublicState } from './room-store.js';
+import {
+  RoomError,
+  RoomStore,
+  toPublicState,
+  type JoinRoomInput,
+  type QuickJoinInput,
+  type VagaAnterior,
+} from './room-store.js';
 import {
   isNonEmptyString,
   SocketRateLimiter,
   type SocketActionCategory,
 } from './socket-security.js';
 
+/** Eventos que exigem um objeto: qualquer outra coisa é recusada antes do tratamento. */
+const EVENTOS_COM_PAYLOAD: ReadonlySet<string> = new Set([
+  'client:entrar:sala',
+  'client:jogar:rapido',
+  'client:jogar',
+  'client:interceptar',
+  'client:chat:msg',
+]);
+/** Espera antes de tentar gravar de novo uma desconexão que falhou (ex.: disco cheio). */
+const NOVA_TENTATIVA_MS = 5_000;
 const EMPTY_EVENT: ClientIniciarPartidaEvent = {};
 const MAX_MULTIPLE_DISCARD_CARD_IDS = 109; // ADR-013: baralho canônico não contém mais que 109 cartas.
 void EMPTY_EVENT;
@@ -40,10 +59,20 @@ export function registerSocketHandlers(
   io: GameServer,
   store: RoomStore,
   metrics: MetricsRegistry = createNoopMetrics(),
-  options: { quickPlay?: QuickPlayOptions } = {},
+  options: {
+    quickPlay?: QuickPlayOptions;
+    resiliencia?: ResilienciaOptions;
+    revanche?: RevancheOptions;
+  } = {},
 ): void {
   const limiter = new SocketRateLimiter();
-  new QuickPlayDirector(io, store, options.quickPlay).start();
+  const revanche = new RevancheDirector(io, store, options.revanche);
+  revanche.start();
+  new QuickPlayDirector(io, store, {
+    revanchePendente: (salaId) => revanche.pendente(salaId),
+    ...options.quickPlay,
+  }).start();
+  new ResilienciaDirector(io, store, options.resiliencia).start();
 
   store.setInterceptionExpiredHandler((salaId, session, janelaId, proximaVezId) => {
     io.to(salaId).emit('server:interceptacao:resolvida', {
@@ -62,6 +91,57 @@ export function registerSocketHandlers(
       mensagem: 'Muitas ações em pouco tempo. Aguarde um instante.',
     });
     return false;
+  }
+
+  /** A pessoa deu sinal de vida: se um bot jogava por ela, devolve o assento e avisa a mesa. */
+  function registrarPresenca(salaId: string, jogadorId: string): void {
+    const session = store.registrarPresenca(salaId, jogadorId);
+    if (session?.estado) broadcastState(io, salaId, { estado: toPublicState(session.estado) });
+  }
+
+  /**
+   * Um socket só ocupa uma identidade. Antes de entrar em outra, sai da anterior
+   * (espera ou partida terminada); no meio de uma partida, a entrada é recusada.
+   * `mesma` diz se o pedido apenas retoma a vaga que o socket já ocupa, e
+   * `verificar` recusa o pedido antes de qualquer vaga ser liberada.
+   */
+  function liberarAnterior(
+    socket: GameSocket,
+    mesma: (salaId: string, jogadorId: string, rapida: boolean) => boolean,
+    verificar: (anterior: VagaAnterior) => void,
+  ): void {
+    const salaId = roomId(socket);
+    const jogadorId = jogadorIdFromSocket(socket);
+    if (!salaId || !jogadorId) return;
+    const session = store.get(salaId);
+    if (session?.socketByPlayer.get(jogadorId) === socket.id) {
+      if (mesma(salaId, jogadorId, session.sala.rapida !== undefined)) return;
+      if (session.estado && !session.estado.finalizada) {
+        throw new RoomError('JOGADOR_EM_OUTRA_SALA', 'Saia da partida atual antes de entrar.');
+      }
+      verificar({ salaId, jogadorId });
+      const restante = store.leaveWaitingRoom(salaId, jogadorId);
+      if (restante) socket.to(salaId).emit('server:sala:atualizada', salaAtualizada(restante));
+    }
+    void socket.leave(salaId);
+    delete socket.data.salaId;
+    delete socket.data.jogadorId;
+  }
+
+  /** Grava a queda de um socket; se a gravação falhar, tenta de novo até conseguir. */
+  function registrarQueda(socketId: string): void {
+    try {
+      const session = store.disconnect(socketId);
+      if (!session) return;
+      io.to(session.sala.id).emit('server:sala:atualizada', salaAtualizada(session));
+      // A queda de quem está na vez para o relógio: a mesa precisa saber.
+      if (session.estado && !session.estado.finalizada) {
+        broadcastState(io, session.sala.id, { estado: toPublicState(session.estado) });
+      }
+    } catch {
+      metrics.recordPersistenceFailure();
+      setTimeout(() => registrarQueda(socketId), NOVA_TENTATIVA_MS).unref?.();
+    }
   }
 
   /** O que acontece depois de entrar numa sala (por código ou por "Jogar agora"). */
@@ -86,17 +166,27 @@ export function registerSocketHandlers(
     io.to(joined.session.sala.id).emit('server:sala:atualizada', salaAtualizada(joined.session));
 
     // Se a partida JÁ está em andamento (reconexão no meio do jogo),
-    // reenvia o estado público + a mão privada pro novo socket.
+    // reenvia o estado público + a mão privada pro novo socket. O estado vai
+    // para a mesa toda: a volta pode devolver o assento e religar o prazo da vez.
     if (joined.session.estado) {
-      socket.emit('server:estado:atualizado', {
+      broadcastState(io, joined.session.sala.id, {
         estado: toPublicState(joined.session.estado),
       });
       sendPrivateHands(io, joined.session);
+      revanche.reenviar(socket, joined.session);
     }
   }
 
   io.on('connection', (socket: GameSocket) => {
     metrics.recordConnection(1);
+
+    socket.use(([evento, payload], next) => {
+      if (EVENTOS_COM_PAYLOAD.has(evento) && (typeof payload !== 'object' || payload === null)) {
+        emitError(socket, new RoomError('INTERNAL', 'Payload inválido.'));
+        return;
+      }
+      next();
+    });
 
     socket.on('client:listar:salas', () => {
       socket.emit('server:salas:disponiveis', { salas: store.listAvailablePublicRooms() });
@@ -118,7 +208,8 @@ export function registerSocketHandlers(
         return;
       }
       try {
-        const joined = store.join({
+        const pedida = payload.salaId.trim().toUpperCase();
+        const entrada: JoinRoomInput = {
           jogadorId: payload.jogadorId,
           salaId: payload.salaId,
           nome: payload.nome,
@@ -126,9 +217,15 @@ export function registerSocketHandlers(
           ...(payload.criar !== undefined ? { criar: payload.criar } : {}),
           ...(payload.nomeSala !== undefined ? { nomeSala: payload.nomeSala } : {}),
           ...(payload.visibilidade !== undefined ? { visibilidade: payload.visibilidade } : {}),
+          ...(payload.avatarId !== undefined ? { avatarId: payload.avatarId } : {}),
           ...(payload.resumeToken !== undefined ? { resumeToken: payload.resumeToken } : {}),
-        });
-        finalizarEntrada(socket, joined);
+        };
+        liberarAnterior(
+          socket,
+          (salaId, jogadorId) => salaId === pedida && jogadorId === payload.jogadorId,
+          (anterior) => store.verificarEntrada(entrada, anterior),
+        );
+        finalizarEntrada(socket, store.join(entrada));
         metrics.recordEventOutcome('sala', 'accepted');
       } catch (error) {
         metrics.recordEventOutcome('sala', 'rejected');
@@ -149,14 +246,23 @@ export function registerSocketHandlers(
         return;
       }
       try {
-        const joined = store.quickJoin({
+        const entrada: QuickJoinInput = {
           jogadorId: payload.jogadorId,
           nome: payload.nome,
           socketId: socket.id,
           tamanho: payload.tamanho,
+          ...(payload.avatarId !== undefined ? { avatarId: payload.avatarId } : {}),
           ...(payload.resumeToken !== undefined ? { resumeToken: payload.resumeToken } : {}),
-        });
-        finalizarEntrada(socket, joined);
+        };
+        liberarAnterior(
+          socket,
+          (salaId, jogadorId, rapida) => {
+            const terminada = store.get(salaId)?.estado?.finalizada === true;
+            return rapida && !terminada && jogadorId === payload.jogadorId;
+          },
+          (anterior) => store.verificarEntradaRapida(entrada, anterior),
+        );
+        finalizarEntrada(socket, store.quickJoin(entrada));
         metrics.recordEventOutcome('sala', 'accepted');
       } catch (error) {
         metrics.recordEventOutcome('sala', 'rejected');
@@ -172,11 +278,22 @@ export function registerSocketHandlers(
         if (!salaId || !jogadorId) {
           throw new RoomError('SALA_INEXISTENTE', 'Entre em uma sala primeiro.');
         }
-        const session = store.leaveWaitingRoom(salaId, jogadorId);
+        // Sair com a partida em andamento (ex.: ela começou agora) é abandonar:
+        // um assento nunca fica preso a quem já foi embora.
+        const estado = store.get(salaId)?.estado;
+        const session =
+          estado && !estado.finalizada
+            ? store.abandonGame(salaId, jogadorId)
+            : store.leaveWaitingRoom(salaId, jogadorId);
+        // Com partida, quem sai também recebe a resposta, como no abandono.
+        if (session?.estado) {
+          broadcastState(io, salaId, { estado: toPublicState(session.estado) });
+          io.to(salaId).emit('server:sala:atualizada', salaAtualizada(session));
+        }
         void socket.leave(salaId);
         delete socket.data.salaId;
         delete socket.data.jogadorId;
-        if (session) {
+        if (session && !session.estado) {
           io.to(salaId).emit('server:sala:atualizada', salaAtualizada(session));
         }
       } catch (error) {
@@ -202,6 +319,20 @@ export function registerSocketHandlers(
       }
     });
 
+    socket.on('client:retomar:controle', () => {
+      if (!checkRateLimit(socket, 'jogo')) return;
+      try {
+        const salaId = roomId(socket);
+        const jogadorId = jogadorIdFromSocket(socket);
+        if (!salaId || !jogadorId) {
+          throw new RoomError('SALA_INEXISTENTE', 'Entre em uma sala primeiro.');
+        }
+        registrarPresenca(salaId, jogadorId);
+      } catch (error) {
+        emitError(socket, error);
+      }
+    });
+
     socket.on('client:iniciar:partida', () => {
       if (!checkRateLimit(socket, 'jogo')) return;
       try {
@@ -211,6 +342,26 @@ export function registerSocketHandlers(
         broadcastState(io, salaId, { estado: toPublicState(session.estado!) });
         sendPrivateHands(io, session);
       } catch (error) {
+        emitError(socket, error);
+      }
+    });
+
+    socket.on('client:revanche:pedir', () => {
+      if (!checkRateLimit(socket, 'jogo')) return;
+      try {
+        const salaId = roomId(socket);
+        const jogadorId = jogadorIdFromSocket(socket);
+        if (!salaId || !jogadorId) {
+          throw new RoomError('SALA_INEXISTENTE', 'Entre em uma sala primeiro.');
+        }
+        const session = store.get(salaId);
+        if (session && session.socketByPlayer.get(jogadorId) !== socket.id) {
+          throw new RoomError('AUTH_REQUIRED', 'Você não participa mais desta sala.');
+        }
+        revanche.pedir(salaId, jogadorId);
+        metrics.recordEventOutcome('jogo', 'accepted');
+      } catch (error) {
+        metrics.recordEventOutcome('jogo', 'rejected');
         emitError(socket, error);
       }
     });
@@ -230,6 +381,7 @@ export function registerSocketHandlers(
         if (!salaId || !jogadorId) {
           throw new RoomError('SALA_INEXISTENTE', 'Entre em uma sala primeiro.');
         }
+        registrarPresenca(salaId, jogadorId);
         const corEscolhida = payload.corEscolhida === 'NEUTRO' ? undefined : payload.corEscolhida;
         const session = store.play(
           salaId,
@@ -276,6 +428,7 @@ export function registerSocketHandlers(
         if (!salaId || !jogadorId) {
           throw new RoomError('SALA_INEXISTENTE', 'Entre em uma sala primeiro.');
         }
+        registrarPresenca(salaId, jogadorId);
         const session = store.playMultiple(salaId, jogadorId, payload.cartaIds);
         socket.emit('server:descarte:multiplo:aceito', { cartaIds: payload.cartaIds, jogadorId });
         broadcastState(io, salaId, { estado: toPublicState(session.estado!) });
@@ -297,6 +450,7 @@ export function registerSocketHandlers(
         if (!salaId || !jogadorId) {
           throw new RoomError('SALA_INEXISTENTE', 'Entre em uma sala primeiro.');
         }
+        registrarPresenca(salaId, jogadorId);
         const session = store.buy(salaId, jogadorId);
         broadcastState(io, salaId, { estado: toPublicState(session.estado!) });
         sendPrivateHands(io, session);
@@ -333,6 +487,7 @@ export function registerSocketHandlers(
         if (!salaId || !jogadorId) {
           throw new RoomError('SALA_INEXISTENTE', 'Entre em uma sala primeiro.');
         }
+        registrarPresenca(salaId, jogadorId);
         const session = store.intercept(
           salaId,
           jogadorId,
@@ -368,8 +523,17 @@ export function registerSocketHandlers(
       }
       const texto = payload.texto.replace(/[<>]/g, '').trim().slice(0, 240);
       if (!texto) return;
-      const activeState = store.get(salaId)?.estado;
-      const silence = activeState ? store.penalizeSilenceBreak(salaId, jogadorId) : undefined;
+      try {
+        registrarPresenca(salaId, jogadorId);
+      } catch {
+        // Falha ao gravar a presença não pode impedir a mensagem.
+      }
+      let silence: ReturnType<RoomStore['penalizeSilenceBreak']> | undefined;
+      try {
+        if (store.get(salaId)?.estado) silence = store.penalizeSilenceBreak(salaId, jogadorId);
+      } catch {
+        // Sem cartas para a penalidade, ou falha ao gravar: a mensagem segue sem ela.
+      }
       const message: ServerChatEvent = { jogadorId, texto, timestamp: Date.now() };
       io.to(salaId).emit('server:chat:msg', message);
       if (silence?.penalized) {
@@ -382,13 +546,7 @@ export function registerSocketHandlers(
     socket.on('disconnect', () => {
       metrics.recordConnection(-1);
       limiter.releaseSocket(socket.id);
-      const session = store.disconnect(socket.id);
-      if (session) {
-        io.to(session.sala.id).emit('server:sala:atualizada', {
-          hostId: session.sala.hostId,
-          jogadores: session.sala.jogadores,
-        });
-      }
+      registrarQueda(socket.id);
     });
   });
 }

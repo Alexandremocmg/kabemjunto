@@ -6,6 +6,7 @@
  * aqui valida ou decide jogada, e o contrato de eventos não muda.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { observarPartida } from '../services/metricas';
 import type { useGameSocket } from '../services/socketClient';
 import type { AvisoMesa, ControladorMesa } from './tipos';
 
@@ -14,8 +15,15 @@ type JogoOnline = ReturnType<typeof useGameSocket>;
 export function useMesaOnline(online: JogoOnline): ControladorMesa | undefined {
   const [aviso, setAviso] = useState<AvisoMesa>();
   const sequencia = useRef(0);
-  const { cartaRejeitada, erro, erroCodigo, estado, mao } = online.state;
+  const { cartaRejeitada, conexao, erro, erroCodigo, estado, fim, mao, revanche, status } =
+    online.state;
+  const { retomarControle } = online;
   const { comprarCarta, interceptar, jogadorId, jogarCarta, jogarMultiplasCartas } = online;
+
+  const modo = online.state.rapida ? 'rapida' : 'online';
+  useEffect(() => {
+    if (estado && jogadorId) observarPartida(estado, modo, jogadorId);
+  }, [estado, jogadorId, modo]);
 
   // Recusas do servidor viram aviso da mesa (e a carta volta para a mão).
   useEffect(() => {
@@ -39,11 +47,31 @@ export function useMesaOnline(online: JogoOnline): ControladorMesa | undefined {
       aviso,
       jogar: (cartaId, opcoes) => jogarCarta(cartaId, opcoes?.cor, opcoes?.alvoTrocaId),
       jogarMultiplas: jogarMultiplasCartas,
+      fim,
+      // Antes da queda: quem está pronto pode ter mudado; o servidor reenvia.
+      revanche: revanche?.conexao === conexao ? revanche : undefined,
+      conexao,
+      conectado: status === 'connected',
+      retomarControle,
       comprar: comprarCarta,
       interceptar: (cartaId) => {
         const janela = estado.interceptacao;
         if (janela) interceptar(janela.janelaId, janela.revisao, cartaId);
       },
     };
-  }, [aviso, comprarCarta, estado, interceptar, jogadorId, jogarCarta, jogarMultiplasCartas, mao]);
+  }, [
+    aviso,
+    comprarCarta,
+    conexao,
+    estado,
+    fim,
+    interceptar,
+    jogadorId,
+    jogarCarta,
+    jogarMultiplasCartas,
+    mao,
+    retomarControle,
+    revanche,
+    status,
+  ]);
 }

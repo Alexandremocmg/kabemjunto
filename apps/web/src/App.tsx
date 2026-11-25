@@ -1,6 +1,9 @@
 import { lazy, Suspense, useEffect, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
+import { situacaoDoBot } from './mesa/controleBot';
+import { useForaDaMesa } from './services/useForaDaMesa';
 import { useGameSocket } from './services/socketClient';
+import { ConvidarSala } from './components/ConvidarSala';
 import { AvatarComStatus } from './components/AvatarComStatus';
 import { WifiStatus } from './components/WifiStatus';
 import { Reconectando } from './components/Reconectando';
@@ -10,6 +13,7 @@ import { NotFound } from './components/NotFound';
 import { PainelColecao, type TemaColecao } from './components/PainelColecao';
 import { iniciarPartidaLocal, temPartidaLocal } from './mesa/partidaLocal';
 import { lerPreferenciaMesa } from './mesa/preferencias';
+import { buscaRapidaCancelada, buscaRapidaVirouLocal } from './services/metricas';
 import { useSemInternet } from './services/useSemInternet';
 
 // A mesa (e o Three.js, carregado só na 3D) fica fora do bundle inicial do menu.
@@ -115,6 +119,7 @@ function OnlineApp({
   onJogarContraBots: (nome: string, totalJogadores: number) => void;
 }) {
   const online = useGameSocket();
+  useForaDaMesa(online);
   const semInternet = useSemInternet();
   const [chatInput, setChatInput] = useState('');
   const [copiedCode, setCopiedCode] = useState(false);
@@ -138,6 +143,7 @@ function OnlineApp({
     if (!pedidoRapido) return undefined;
     const timer = window.setTimeout(
       () => {
+        buscaRapidaVirouLocal(buscaFalhou ? 'falha' : 'tempo');
         sairDaBusca();
         onJogarContraBots(pedidoRapido.nome, pedidoRapido.tamanho);
       },
@@ -145,6 +151,12 @@ function OnlineApp({
     );
     return () => window.clearTimeout(timer);
   }, [buscaFalhou, onJogarContraBots, pedidoRapido, sairDaBusca]);
+
+  // A tela de fim é um diálogo: a gaveta não pode ficar por cima disputando o foco.
+  const partidaFinalizada = Boolean(online.state.estado?.finalizada);
+  useEffect(() => {
+    if (partidaFinalizada) setUtilityOpen(false);
+  }, [partidaFinalizada]);
 
   useEffect(() => {
     if (!utilityOpen) return undefined;
@@ -242,6 +254,9 @@ function OnlineApp({
               />
               <span style={{ flex: 1 }}>
                 <strong>{jogador.nome}</strong>
+                {jogador.controladoPorBot && (
+                  <small className="muted"> {situacaoDoBot(jogador)}</small>
+                )}
               </span>
               <small>{jogador.quantidadeCartas} cartas</small>
             </li>
@@ -355,6 +370,7 @@ function OnlineApp({
           onEntrar={(credentials) => online.entrarSala(credentials)}
           onJogarAgora={online.jogarRapido}
           erro={online.state.erro}
+          aviso={online.avisoMenu}
           desabilitado={online.state.status === 'connecting'}
           semInternet={semInternet}
           salasPublicas={online.state.salasPublicas}
@@ -367,7 +383,10 @@ function OnlineApp({
           rapida={online.state.rapida}
           souAnfitriao={online.isHost}
           onComecar={online.iniciarPartida}
-          onCancelar={online.sair}
+          onCancelar={() => {
+            buscaRapidaCancelada();
+            online.sair();
+          }}
         />
       ) : !partidaIniciada ? (
         <section className="room-layout">
@@ -375,7 +394,9 @@ function OnlineApp({
             <div className="room-toolbar">
               <div>
                 <p className="eyebrow">CÓDIGO DA SALA</p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div
+                  style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px' }}
+                >
                   <strong className="room-code">{online.salaId}</strong>
                   <button
                     type="button"
@@ -386,6 +407,7 @@ function OnlineApp({
                   >
                     {textoCopiar}
                   </button>
+                  {online.salaId && <ConvidarSala salaId={online.salaId} />}
                 </div>
               </div>
               <button className="button button-secondary" onClick={online.sair}>

@@ -2,10 +2,9 @@ import { describe, it, expect } from 'vitest';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { NotFound } from './NotFound';
-import { VitoriaAnimada } from './VitoriaAnimada';
 import { PainelColecao } from './PainelColecao';
 
-describe('Sprint 5 Assets & Visual Components (A11, A12)', () => {
+describe('Sprint 5 Assets & Visual Components (A11)', () => {
   describe('[A11] NotFound', () => {
     it('renderiza título 404 e mensagem padrão', () => {
       const html = renderToStaticMarkup(React.createElement(NotFound));
@@ -19,35 +18,6 @@ describe('Sprint 5 Assets & Visual Components (A11, A12)', () => {
         React.createElement(NotFound, { mensagem: 'Sala #999 não encontrada!' }),
       );
       expect(html).toContain('Sala #999 não encontrada!');
-    });
-  });
-
-  describe('[A12] VitoriaAnimada', () => {
-    it('renderiza modal de vitória para o jogador atual (isVoce=true)', () => {
-      const html = renderToStaticMarkup(
-        React.createElement(VitoriaAnimada, {
-          vencedorNome: 'Alexandre',
-          isVoce: true,
-          onJogarNovamente: () => {},
-        }),
-      );
-      expect(html).toContain('Você Venceu!');
-      expect(html).toContain('GRANDE VITÓRIA!');
-      expect(html).toContain('Jogar Novamente');
-      expect(html).toContain('🏆');
-    });
-
-    it('renderiza modal de vitória para outro jogador (isVoce=false)', () => {
-      const html = renderToStaticMarkup(
-        React.createElement(VitoriaAnimada, {
-          vencedorNome: 'MavisBot',
-          isVoce: false,
-          onJogarNovamente: () => {},
-        }),
-      );
-      expect(html).toContain('MavisBot Venceu!');
-      expect(html).toContain('PARTIDA CONCLUÍDA');
-      expect(html).toContain('👑');
     });
   });
 
@@ -95,6 +65,12 @@ describe('Sprint 5 Assets & Visual Components (A11, A12)', () => {
     it('renderiza radiogroup de temas com aria-label', () => {
       const html = renderToStaticMarkup(React.createElement(PainelColecao, basePainelProps));
       expect(html).toContain('aria-label="Escolha o tema da mesa"');
+    });
+
+    it('oferece o interruptor de estatísticas anônimas', () => {
+      const html = renderToStaticMarkup(React.createElement(PainelColecao, basePainelProps));
+      expect(html).toContain('role="switch"');
+      expect(html).toContain('Enviar estatísticas anônimas');
     });
 
     it('marca o tema NEON como selecionado quando passado via props', () => {

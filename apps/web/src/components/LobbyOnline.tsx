@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import type { ServerSalaDisponivel } from '@kabemjunto/shared';
+import { codigoDoConvite } from '../services/convite';
 
 const PLAYER_NAME_KEY = 'kabemjunto-player-name';
 
@@ -23,6 +24,8 @@ export interface LobbyOnlineProps {
   /** Partida local, no aparelho, sem servidor e sem esperar ninguém. */
   onJogarContraBots?: (nome: string, totalJogadores: number) => void;
   erro?: string | undefined;
+  /** Aviso que não é erro (ex.: a mesa continuou sem você). */
+  aviso?: string | undefined;
   desabilitado?: boolean;
   /** Navegador sem rede: salas online esperam a conexão; contra bots segue funcionando. */
   semInternet?: boolean;
@@ -39,12 +42,17 @@ export const LobbyOnline: React.FC<LobbyOnlineProps> = ({
   onJogarAgora,
   onJogarContraBots,
   erro,
+  aviso,
   desabilitado,
   semInternet = false,
   salasPublicas = [],
   onListarSalas = () => undefined,
 }) => {
-  const [salaInput, setSalaInput] = useState('');
+  // Link de convite: só preenche o código; a pessoa confere o apelido e entra.
+  const [convite] = useState(() =>
+    typeof window === 'undefined' ? undefined : codigoDoConvite(window.location.search),
+  );
+  const [salaInput, setSalaInput] = useState(convite ?? '');
   const [nomeInput, setNomeInput] = useState(() => {
     try {
       return localStorage.getItem(PLAYER_NAME_KEY) || '';
@@ -188,6 +196,11 @@ export const LobbyOnline: React.FC<LobbyOnlineProps> = ({
           />
         ))}
       </div>
+      {aviso && (
+        <p className="menu-aviso" role="status">
+          {aviso}
+        </p>
+      )}
       <form className="lobby-form" onSubmit={entrarExistente} noValidate>
         <label>
           Seu apelido
@@ -300,6 +313,11 @@ export const LobbyOnline: React.FC<LobbyOnlineProps> = ({
               Entrar
             </button>
           </div>
+          {convite && salaInput === convite && (
+            <p className="muted" role="status">
+              Convite para a sala {convite}: confira seu apelido e toque em Entrar.
+            </p>
+          )}
         </section>
       </form>
       {errorMessage && (

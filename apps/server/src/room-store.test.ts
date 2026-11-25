@@ -703,9 +703,10 @@ describe('RoomStore — saída explícita', () => {
 });
 
 describe('RoomStore — abandono explícito', () => {
-  it('finaliza a partida para todos, registra ABANDONO e revoga a retomada do abandonador', () => {
+  it('a última pessoa finaliza a partida, registra ABANDONO e perde a retomada', () => {
     const store = createStartedStore();
     const session = store.get('KJTEST')!;
+    expect(store.abandonGame('KJTEST', uuid(2)).estado?.finalizada).toBe(false);
     const abandoned = store.abandonGame('KJTEST', uuid(1));
 
     expect(abandoned.estado?.finalizada).toBe(true);

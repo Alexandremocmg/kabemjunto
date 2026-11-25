@@ -5,32 +5,43 @@
  *   pessoas). Passado o prazo, completa a mesa com bots e começa a partida.
  * - **Bots:** depois que a partida começa, joga a vez de cada bot pelo motor
  *   compartilhado (`executarTurnoBot`), depois de uma pausa curta para a mesa
- *   não parecer instantânea.
+ *   não parecer instantânea. Vale para qualquer sala, e também para assentos em
+ *   que um bot assumiu no lugar de alguém que saiu, caiu ou ficou inativo. Sem
+ *   nenhuma pessoa conectada os bots param.
  * - **Limpeza:** sala terminada, ou sem ninguém conectado, sai da memória
- *   depois de um tempo de tolerância (reconexões rápidas não perdem a vaga).
+ *   depois de um tempo de tolerância (reconexões rápidas não perdem a vaga). Com
+ *   a partida terminada e gente conectada, espera mais, para dar tempo à revanche.
  *
  * É um observador do `RoomStore`: reage a cada estado gravado, então qualquer
  * caminho que muda a sala (jogada, compra, janela de Corta-Frente que expira,
  * reconexão) já reavalia o que falta fazer, sem lógica duplicada.
  */
 import type { GameServer } from './socket-types.js';
+import { maybeOpenInterceptionWindow, transmitirPartida } from './room-broadcast.js';
 import {
-  broadcastState,
-  maybeOpenInterceptionWindow,
-  salaAtualizada,
-  sendPrivateHands,
-} from './room-broadcast.js';
-import { humanPlayers, toPublicState, type RoomSession, type RoomStore } from './room-store.js';
+  humanPlayers,
+  jogaComoBot,
+  possiveisNaRevanche,
+  type RoomSession,
+  type RoomStore,
+} from './room-store.js';
 
 export interface QuickPlayOptions {
   /** Pausa, em ms, antes de cada jogada de bot (sorteada entre `min` e `max`). */
   botDelayMs?: { min: number; max: number };
   /** Quanto uma sala terminada ou sem ninguém conectado demora para sair da memória. */
   graceMs?: number;
+  /** Teto, desde o fim, de uma sala terminada em que ainda há gente conectada. */
+  tetoTerminadaMs?: number;
+  /** Há uma contagem de revanche correndo nesta sala? Se sim, a limpeza espera por ela. */
+  revanchePendente?: (salaId: string) => boolean;
 }
 
 const BOT_PAUSA_PADRAO = { min: 900, max: 1700 };
 const LIMPEZA_PADRAO_MS = 60_000;
+const TETO_TERMINADA_PADRAO_MS = 5 * 60_000;
+/** Espera antes de tentar de novo quando gravar falha (ex.: disco cheio). */
+const NOVA_TENTATIVA_MS = 5_000;
 
 type Cronometro = ReturnType<typeof setTimeout>;
 
@@ -40,40 +51,53 @@ export class QuickPlayDirector {
     string,
     { timer: Cronometro; botId: string; partidaId: string }
   >();
-  private readonly limpezas = new Map<string, Cronometro>();
+  private readonly limpezas = new Map<string, { timer: Cronometro; comGente: boolean }>();
+  /** Quando esta partida terminou (visto por este processo). */
+  private readonly fins = new Map<string, { partidaId: string; em: number }>();
   private readonly pausaDoBot: { min: number; max: number };
   private readonly tolerancia: number;
+  private readonly tetoTerminada: number;
+  private pararDeObservar: (() => void) | undefined;
+  private pararDeObservarRemocoes: (() => void) | undefined;
 
   constructor(
     private readonly io: GameServer,
     private readonly store: RoomStore,
-    opcoes: QuickPlayOptions = {},
+    private readonly opcoes: QuickPlayOptions = {},
   ) {
     this.pausaDoBot = opcoes.botDelayMs ?? BOT_PAUSA_PADRAO;
     this.tolerancia = opcoes.graceMs ?? LIMPEZA_PADRAO_MS;
+    this.tetoTerminada = opcoes.tetoTerminadaMs ?? TETO_TERMINADA_PADRAO_MS;
   }
 
   /** Passa a observar o store e reavalia as salas que já existiam (ex.: depois de reiniciar). */
   start(): void {
-    this.store.setCommitHandler((session) => this.aoMudar(session));
+    this.pararDeObservar?.();
+    this.pararDeObservarRemocoes?.();
+    this.pararDeObservarRemocoes = this.store.addRemoveObserver((id) => this.esquecer(id));
+    this.pararDeObservar = this.store.addCommitObserver((session) => this.aoMudar(session));
     for (const session of this.store.sessions()) this.aoMudar(session);
   }
 
   /** Cancela todos os timers e para de observar (usado nos testes). */
   stop(): void {
-    this.store.setCommitHandler(undefined);
+    this.pararDeObservar?.();
+    this.pararDeObservar = undefined;
+    this.pararDeObservarRemocoes?.();
+    this.pararDeObservarRemocoes = undefined;
     for (const timer of this.esperas.values()) clearTimeout(timer);
     for (const { timer } of this.bots.values()) clearTimeout(timer);
-    for (const timer of this.limpezas.values()) clearTimeout(timer);
+    for (const { timer } of this.limpezas.values()) clearTimeout(timer);
     this.esperas.clear();
     this.bots.clear();
     this.limpezas.clear();
+    this.fins.clear();
   }
 
   private aoMudar(session: RoomSession): void {
     const { sala, estado } = session;
     const id = sala.id;
-    const temBots = (estado?.jogadores ?? []).some((jogador) => jogador.isBot);
+    const temBots = (estado?.jogadores ?? []).some(jogaComoBot);
     const rapida = sala.rapida !== undefined;
     const humanosConectados = humanPlayers(session).some((jogador) => jogador.conectado);
 
@@ -81,10 +105,11 @@ export class QuickPlayDirector {
     if (rapida && (!humanosConectados || estado?.finalizada || sala.status === 'FINALIZADA')) {
       this.cancelarEspera(id);
       this.cancelarBot(id);
-      this.agendarLimpeza(id);
+      this.agendarLimpeza(session);
       return;
     }
     this.cancelarLimpeza(id);
+    this.fins.delete(id);
 
     // 1. Esperando gente.
     if (sala.rapida && sala.status === 'AGUARDANDO') {
@@ -95,7 +120,7 @@ export class QuickPlayDirector {
     this.cancelarEspera(id);
 
     // 2. Partida com bots.
-    if (!estado || estado.finalizada || !temBots) {
+    if (!estado || estado.finalizada || !temBots || !humanosConectados) {
       this.cancelarBot(id);
       return;
     }
@@ -103,7 +128,7 @@ export class QuickPlayDirector {
     // da expiração chama esta função de novo).
     if (estado.interceptacao) return;
     const daVez = estado.jogadores.find((jogador) => jogador.id === estado.vezDe);
-    if (daVez?.isBot) this.agendarBot(id, estado.partidaId, daVez.id);
+    if (daVez && jogaComoBot(daVez)) this.agendarBot(id, estado.partidaId, daVez.id);
     else this.cancelarBot(id);
   }
 
@@ -124,21 +149,21 @@ export class QuickPlayDirector {
     try {
       iniciada = this.store.startWithBots(id);
     } catch {
-      return; // sem jogadores: a limpeza cuida da sala
+      // Sem jogadores, a limpeza cuida da sala; com gente, foi a gravação que falhou.
+      if (humanPlayers(atual).length > 0) this.agendarInicio(id, NOVA_TENTATIVA_MS);
+      return;
     }
-    this.io.to(id).emit('server:sala:atualizada', salaAtualizada(iniciada));
-    broadcastState(this.io, id, { estado: toPublicState(iniciada.estado!) });
-    sendPrivateHands(this.io, iniciada);
+    transmitirPartida(this.io, iniciada, { sala: true, maos: true });
   }
 
   // ─── Vez dos bots ───────────────────────────────────────────────────────────
 
-  private agendarBot(id: string, partidaId: string, botId: string): void {
+  private agendarBot(id: string, partidaId: string, botId: string, pausaMs?: number): void {
     const existente = this.bots.get(id);
     if (existente && existente.botId === botId && existente.partidaId === partidaId) return;
     this.cancelarBot(id);
     const { min, max } = this.pausaDoBot;
-    const pausa = min + Math.random() * Math.max(0, max - min);
+    const pausa = pausaMs ?? min + Math.random() * Math.max(0, max - min);
     const timer = setTimeout(() => this.jogarBot(id, botId), pausa);
     timer.unref?.();
     this.bots.set(id, { timer, botId, partidaId });
@@ -150,14 +175,16 @@ export class QuickPlayDirector {
     const estado = atual?.estado;
     if (!atual || !estado || estado.finalizada || estado.interceptacao) return;
     if (estado.vezDe !== botId) return; // o estado mudou enquanto esperava
+    const assento = estado.jogadores.find((jogador) => jogador.id === botId);
+    if (!assento || !jogaComoBot(assento)) return; // a pessoa voltou
     let resultado;
     try {
       resultado = this.store.playBotTurn(id);
     } catch {
+      this.agendarBot(id, estado.partidaId, botId, NOVA_TENTATIVA_MS);
       return;
     }
-    broadcastState(this.io, id, { estado: toPublicState(resultado.session.estado!) });
-    sendPrivateHands(this.io, resultado.session);
+    transmitirPartida(this.io, resultado.session, { maos: true });
     if (resultado.acao === 'JOGOU') {
       maybeOpenInterceptionWindow(this.io, this.store, id, resultado.botId);
     }
@@ -165,11 +192,28 @@ export class QuickPlayDirector {
 
   // ─── Limpeza ────────────────────────────────────────────────────────────────
 
-  private agendarLimpeza(id: string): void {
-    if (this.limpezas.has(id)) return;
-    const timer = setTimeout(() => this.limpar(id), this.tolerancia);
+  private agendarLimpeza(session: RoomSession): void {
+    const id = session.sala.id;
+    const comGente = possiveisNaRevanche(session).length > 0;
+    if (this.limpezas.get(id)?.comGente === comGente) return;
+    this.cancelarLimpeza(id);
+    let emMs = this.tolerancia;
+    if (session.estado?.finalizada) {
+      // O teto conta do fim da partida: cair e voltar não o renova.
+      const { partidaId } = session.estado;
+      const conhecido = this.fins.get(id);
+      const fim = conhecido?.partidaId === partidaId ? conhecido : { partidaId, em: Date.now() };
+      this.fins.set(id, fim);
+      const resta = Math.max(0, fim.em + this.tetoTerminada - Date.now());
+      emMs = comGente ? resta : Math.min(this.tolerancia, resta);
+    }
+    this.armarLimpeza(id, comGente, emMs);
+  }
+
+  private armarLimpeza(id: string, comGente: boolean, emMs: number): void {
+    const timer = setTimeout(() => this.limpar(id), emMs);
     timer.unref?.();
-    this.limpezas.set(id, timer);
+    this.limpezas.set(id, { timer, comGente });
   }
 
   private limpar(id: string): void {
@@ -178,10 +222,24 @@ export class QuickPlayDirector {
     if (!atual?.sala.rapida) return;
     const semGente = !humanPlayers(atual).some((jogador) => jogador.conectado);
     if (!semGente && !atual.estado?.finalizada && atual.sala.status !== 'FINALIZADA') return;
+    if (!semGente && this.opcoes.revanchePendente?.(id)) {
+      this.armarLimpeza(id, true, NOVA_TENTATIVA_MS);
+      return;
+    }
+    try {
+      this.store.removeRoom(id);
+    } catch {
+      this.armarLimpeza(id, !semGente, NOVA_TENTATIVA_MS);
+      return;
+    }
+    this.io.in(id).socketsLeave(id);
+  }
+
+  private esquecer(id: string): void {
     this.cancelarEspera(id);
     this.cancelarBot(id);
-    this.store.removeRoom(id);
-    this.io.in(id).socketsLeave(id);
+    this.cancelarLimpeza(id);
+    this.fins.delete(id);
   }
 
   private cancelarEspera(id: string): void {
@@ -197,8 +255,8 @@ export class QuickPlayDirector {
   }
 
   private cancelarLimpeza(id: string): void {
-    const timer = this.limpezas.get(id);
-    if (timer) clearTimeout(timer);
+    const atual = this.limpezas.get(id);
+    if (atual) clearTimeout(atual.timer);
     this.limpezas.delete(id);
   }
 }

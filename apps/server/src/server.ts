@@ -8,7 +8,7 @@ import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Server as SocketIOServer } from 'socket.io';
-import { loadConfig, type AppConfig } from './config.js';
+import { loadConfig, TURN_LIMIT_PADRAO_MS, type AppConfig } from './config.js';
 import { createMetricsRegistry, registerObservabilityRoutes } from './observability.js';
 import { JsonRoomPersistence } from './persistence.js';
 import { RoomError, RoomStore, toPublicState } from './room-store.js';
@@ -43,7 +43,12 @@ export async function buildServer(config: AppConfig = loadConfig(), webDistDir =
 
   const store = new RoomStore(
     config.roomStorageFile ? new JsonRoomPersistence(config.roomStorageFile) : undefined,
-    config.quickPlayWaitMs !== undefined ? { quickPlayWaitMs: config.quickPlayWaitMs } : {},
+    {
+      ...(config.quickPlayWaitMs !== undefined ? { quickPlayWaitMs: config.quickPlayWaitMs } : {}),
+      turnLimitMs: config.turnLimitMs ?? TURN_LIMIT_PADRAO_MS,
+      // Sem bot para assumir quem caiu, é o prazo da vez que faz a mesa andar.
+      prazoParaDesconectado: config.disconnectGraceMs === 0,
+    },
   );
   const metrics = createMetricsRegistry();
   app.addHook('onResponse', (_request, reply, done) => {
@@ -175,7 +180,14 @@ async function bootstrap(): Promise<void> {
     cors: { origin: config.corsOrigins ?? true },
     maxHttpBufferSize: SOCKET_MAX_BUFFER_BYTES,
   });
-  registerSocketHandlers(io, store, metrics);
+  registerSocketHandlers(io, store, metrics, {
+    ...(config.revancheWaitMs !== undefined
+      ? { revanche: { esperaMs: config.revancheWaitMs } }
+      : {}),
+    ...(config.disconnectGraceMs !== undefined
+      ? { resiliencia: { disconnectGraceMs: config.disconnectGraceMs } }
+      : {}),
+  });
   registerE2EFixtureRoutes(app, store, io, config);
   registerGracefulShutdown(app);
 

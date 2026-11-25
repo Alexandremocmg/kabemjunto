@@ -279,6 +279,26 @@ describe('JsonRoomPersistence', () => {
     expect(() => new JsonRoomPersistence(file).save([ruim])).toThrow(/malformada/);
   });
 
+  it('guarda quem saiu da partida e rejeita marcador de bot malformado', () => {
+    const { file } = temporaryFile();
+    const room = activeRoom();
+    const marcar = (marcas: object): PersistedRoomSession => ({
+      ...room,
+      estado: {
+        ...room.estado!,
+        jogadores: room.estado!.jogadores.map((j, i) => (i === 0 ? { ...j, ...marcas } : j)),
+      },
+    });
+    const persistence = new JsonRoomPersistence(file);
+    persistence.save([marcar({ isBot: true, controladoPorBot: true, motivoBot: 'SAIU' })]);
+    expect(persistence.load()[0]!.estado!.jogadores[0]).toMatchObject({
+      isBot: true,
+      motivoBot: 'SAIU',
+    });
+    expect(() => persistence.save([marcar({ controladoPorBot: 'sim' })])).toThrow(/malformada/);
+    expect(() => persistence.save([marcar({ motivoBot: 'OUTRO' })])).toThrow(/malformada/);
+  });
+
   it('rejeita IDs de sala duplicados', () => {
     const { file } = temporaryFile();
     const room = waitingRoom();
@@ -419,5 +439,44 @@ describe('JsonRoomPersistence', () => {
 
       expect(persistence.probeWritable()).toBe(false);
     });
+  });
+
+  it('placar é opcional, faz round-trip e é validado', () => {
+    const { file } = temporaryFile();
+    const persistence = new JsonRoomPersistence(file);
+    const base = activeRoom();
+    const [a, b] = base.sala.jogadores.map((jogador) => jogador.id) as [string, string];
+    const placar = {
+      partidas: 2,
+      vitorias: [
+        { jogadorId: a, vitorias: 1 },
+        { jogadorId: b, vitorias: 1 },
+      ],
+      ultimaPartidaId: 'game-anterior',
+    };
+    persistence.save([base]);
+    expect(persistence.load()[0]).not.toHaveProperty('placar');
+    persistence.save([{ ...base, placar }]);
+    expect(persistence.load()[0]!.placar).toEqual(placar);
+    const ruins: unknown[] = [
+      null,
+      { ...placar, partidas: 1 },
+      { ...placar, partidas: 1.5 },
+      { ...placar, ultimaPartidaId: undefined },
+      { ...placar, vitorias: [{ jogadorId: 'fora', vitorias: 0 }] },
+      { ...placar, vitorias: [{ jogadorId: a, vitorias: -1 }] },
+      {
+        ...placar,
+        vitorias: [
+          { jogadorId: a, vitorias: 1 },
+          { jogadorId: a, vitorias: 1 },
+        ],
+      },
+    ];
+    for (const ruim of ruins) {
+      expect(() => persistence.save([{ ...base, placar: ruim as typeof placar }])).toThrow(
+        RoomSnapshotError,
+      );
+    }
   });
 });

@@ -5,6 +5,7 @@
  * O menu da partida (sala, jogadores e chat) e a reconexão continuam no App.
  */
 import type { ReactNode } from 'react';
+import { partidaAbandonada, revanchePedida } from '../services/metricas';
 import type { useGameSocket } from '../services/socketClient';
 import { Mesa3D } from './Mesa3D';
 import { useBaloesDeFala } from './useBaloesDeFala';
@@ -35,8 +36,15 @@ export default function MesaOnline3D({ online, acoesHud, renderizacao }: MesaOnl
     <Mesa3D
       key={controlador.estado.partidaId}
       controlador={controlador}
-      onSair={online.abandonarPartida}
-      onJogarNovamente={online.sair}
+      onSair={() => {
+        partidaAbandonada(controlador.estado.partidaId);
+        online.abandonarPartida();
+      }}
+      onJogarNovamente={() => {
+        revanchePedida(controlador.estado.partidaId);
+        online.pedirRevanche();
+      }}
+      onVoltarAoMenu={online.sair}
       renderizacao={renderizacao}
       acoesHud={acoesHud}
       baloes={baloes}

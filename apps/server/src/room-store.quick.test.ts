@@ -292,7 +292,7 @@ describe('RoomStore — observador e limpeza', () => {
   it('avisa o observador a cada gravação e ele nunca impede o jogo', () => {
     const store = new RoomStore();
     const vistas: RoomSession[] = [];
-    store.setCommitHandler((session) => {
+    store.addCommitObserver((session) => {
       vistas.push(session);
       throw new Error('falha do observador');
     });

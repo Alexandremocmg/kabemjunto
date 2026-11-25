@@ -7,7 +7,7 @@
  * quando o bot joga, quando a janela de Corta-Frente abre e fecha.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Carta, EstadoPartida } from '@kabemjunto/shared';
+import { resumirPartida, type Carta, type EstadoPartida } from '@kabemjunto/shared';
 import {
   abrirJanelaDeInterceptacao,
   comprar,
@@ -20,6 +20,7 @@ import {
   saoCartasIdenticas,
   turnoBot,
 } from '../services/gameEngine';
+import { observarPartida, partidaAbandonada } from '../services/metricas';
 import { paraEstadoPublico } from './estadoPublico';
 import { CHAVE_PARTIDA_LOCAL } from './partidaLocal';
 import type { AvisoMesa, ControladorMesa, OpcoesDeJogada } from './tipos';
@@ -106,6 +107,10 @@ export function useMesaLocal(): MesaLocal {
     if (estado) window.sessionStorage.setItem(CHAVE_PARTIDA_LOCAL, JSON.stringify(estado));
     else window.sessionStorage.removeItem(CHAVE_PARTIDA_LOCAL);
   }, [estado]);
+
+  useEffect(() => {
+    if (estado && jogadorId) observarPartida(estado, 'local', jogadorId);
+  }, [estado, jogadorId]);
 
   // Vez de um bot: joga depois de uma pausa curta.
   useEffect(() => {
@@ -224,6 +229,7 @@ export function useMesaLocal(): MesaLocal {
   }, []);
 
   const encerrar = useCallback(() => {
+    if (estadoRef.current) partidaAbandonada(estadoRef.current.partidaId);
     setAviso(undefined);
     setEstado(null);
   }, []);
@@ -238,6 +244,7 @@ export function useMesaLocal(): MesaLocal {
       mao: estado.jogadores.find((jogador) => jogador.id === jogadorId)?.mao ?? [],
       jogadorId,
       aviso,
+      ...(estado.finalizada ? { fim: { resumo: resumirPartida(estado) } } : {}),
       jogar,
       jogarMultiplas,
       comprar: comprarCarta,

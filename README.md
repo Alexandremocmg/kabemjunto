@@ -126,6 +126,8 @@ Substitua o token ilustrativo antes de executar; mínimo de 16 caracteres. Em um
 | `CORS_ORIGINS`                               | Obrigatória em produção; origens separadas por vírgula.                                                                           |
 | `METRICS_TOKEN`                              | Obrigatório em produção, mínimo 16 caracteres; bearer de `/metrics`.                                                              |
 | `QUICKPLAY_WAIT_MS`                          | Espera do "Jogar agora" antes de completar com bots (0 a 120000 ms); padrão 10000.                                                |
+| `TURN_LIMIT_MS` / `DISCONNECT_GRACE_MS`      | Limite por vez (30000) e tolerância a quedas (20000); 0 desliga cada um.                                                          |
+| `REVANCHE_WAIT_MS`                           | Espera da revanche a partir do primeiro pedido; padrão 15000.                                                                     |
 | `KABEMJUNTO_E2E_FIXTURE`                     | `1` habilita fixtures somente fora de produção.                                                                                   |
 | `VITE_SOCKET_URL`                            | Endpoint público alternativo do Socket.IO, embutido no build web.                                                                 |
 | `VITE_TUNNEL_HOST`                           | Host adicional aceito pelo servidor de desenvolvimento Vite.                                                                      |

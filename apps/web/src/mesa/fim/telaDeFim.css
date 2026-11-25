@@ -1,0 +1,178 @@
+/* Fim da partida: topo e ações sempre visíveis; só o meio rola. */
+.fim {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(10px, env(safe-area-inset-top)) 12px max(10px, env(safe-area-inset-bottom));
+  background: rgba(2, 6, 23, 0.78);
+}
+
+.fim-painel {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 480px);
+  max-height: 100%;
+  min-height: 0;
+  padding: 18px;
+  border-radius: 20px;
+  border: 3px solid var(--mesa-destaque, #fff27a);
+  background: #0f172a;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.fim-topo {
+  flex: none;
+}
+
+.fim-icone {
+  font-size: 40px;
+  line-height: 1;
+}
+
+.fim-topo h2 {
+  margin: 4px 0;
+  font-family: var(--font-title, inherit);
+  font-size: clamp(22px, 6.4vw, 30px);
+  overflow-wrap: anywhere;
+  outline: none;
+}
+
+.fim-topo p {
+  margin: 0 0 10px;
+  font-size: 14px;
+  opacity: 0.86;
+  overflow-wrap: anywhere;
+}
+
+.fim-corpo {
+  flex: 0 1 auto;
+  min-height: 72px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px 4px;
+  border-radius: 10px;
+}
+
+.fim-corpo:focus-visible {
+  outline: 3px solid #fff;
+}
+
+.fim-corpo h3 {
+  margin: 6px 0;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: #cbd5e1;
+}
+
+.fim-premios,
+.fim-placar {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+}
+
+.fim-premios li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, auto);
+  gap: 2px 10px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  text-align: left;
+}
+
+.fim-premios strong {
+  color: var(--mesa-destaque, #fff27a);
+}
+
+.fim-premiado {
+  font-weight: 800;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+.fim-premios small {
+  grid-column: 1 / -1;
+  font-size: 13px;
+  opacity: 0.86;
+}
+
+.fim-placar li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 5px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 14px;
+  text-align: left;
+}
+
+.fim-placar li span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.fim-placar li strong {
+  white-space: nowrap;
+}
+
+.fim-placar-eu {
+  outline: 2px solid var(--mesa-destaque, #fff27a);
+  outline-offset: -2px;
+}
+
+.fim-acoes {
+  flex: none;
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+}
+
+.fim-acoes p {
+  margin: 0;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+/* Vazio, mas ainda na árvore: o leitor de tela só anuncia regiões que já existiam. */
+.fim-acoes p:empty {
+  height: 0;
+  margin-bottom: -8px;
+}
+
+/* Mesa de 10: a lista de prontos não pode empurrar os botões para fora. */
+.fim-revanche {
+  max-height: 54px;
+  overflow-y: auto;
+  font-weight: 700;
+}
+
+.fim-contagem {
+  opacity: 0.86;
+}
+
+.fim-acoes button[aria-disabled='true'] {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.fim-acoes-extras {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.fim-acoes button {
+  padding: 0 8px;
+}
+
+.fim-mensagem {
+  font-weight: 700;
+}

@@ -11,6 +11,7 @@
  * o servidor valida e devolve `server:estado:atualizado` com o estado canônico.
  */
 
+import type { ResumoPartida } from '../stats/index.js';
 import type { Carta, Cor, Acao } from './card.js';
 import type { JogadorId, JogadorPublico } from './player.js';
 import type {
@@ -80,6 +81,8 @@ export interface ClientEntrarSalaEvent {
   criar?: boolean;
   /** Só é usada na criação; omitida cria uma sala privada. */
   visibilidade?: VisibilidadeSala;
+  /** Avatar escolhido, de '01' a '12'. Ausente ou inválido usa o padrão. */
+  avatarId?: string;
 }
 
 /**
@@ -91,6 +94,8 @@ export interface ClientJogarRapidoEvent {
   nome: string;
   /** Tamanho da mesa quando começar (humanos + bots), 2 a 10. */
   tamanho: number;
+  /** Avatar escolhido, de '01' a '12'. Ausente ou inválido usa o padrão. */
+  avatarId?: string;
   /** Token opaco emitido pelo servidor para retomar uma identidade existente. */
   resumeToken?: string;
 }
@@ -101,8 +106,20 @@ export type ClientListarSalasEvent = Record<string, never>;
 /** Sai explicitamente de uma sala antes de a partida iniciar. */
 export type ClientSairSalaEvent = Record<string, never>;
 
-/** Abandona explicitamente a partida em andamento, sem possibilidade de retomada. */
+/**
+ * Abandona explicitamente a partida em andamento, sem possibilidade de retomada.
+ * Um bot assume o assento se ainda sobrar alguma pessoa; senão a partida acaba.
+ */
 export type ClientAbandonarPartidaEvent = Record<string, never>;
+
+/**
+ * A pessoa avisa que voltou e quer jogar de novo, depois que um bot assumiu por
+ * inatividade. Qualquer ação de jogo ou mensagem de chat tem o mesmo efeito.
+ */
+export type ClientRetomarControleEvent = Record<string, never>;
+
+/** Depois do fim, a pessoa quer jogar de novo com a mesma mesa. */
+export type ClientPedirRevancheEvent = Record<string, never>;
 
 /** Host quer iniciar a partida. */
 export type ClientIniciarPartidaEvent = Record<string, never>;
@@ -214,6 +231,28 @@ export interface ServerSalaAtualizadaEvent {
   rapida?: SalaRapida;
 }
 
+/** Vitórias de cada assento desde que a sala foi criada. */
+export interface PlacarSessao {
+  partidas: number;
+  vitorias: ReadonlyArray<{ jogadorId: JogadorId; vitorias: number }>;
+}
+
+/** A partida terminou: números e prêmios, sem nenhuma carta. Reenviado a quem reconecta. */
+export interface ServerPartidaEncerradaEvent {
+  resumo: ResumoPartida;
+  placar: PlacarSessao;
+}
+
+/** Andamento da revanche. `prontos` vazio e sem `restanteMs` = ninguém pediu ainda. */
+export interface ServerRevancheAtualizadaEvent {
+  partidaId: string;
+  prontos: ReadonlyArray<JogadorId>;
+  /** Pessoas conectadas que ainda podem aceitar, incluindo as prontas. */
+  possiveis: ReadonlyArray<JogadorId>;
+  /** Tempo até começar com quem aceitou (bots nas outras vagas), calculado no envio. */
+  restanteMs?: number;
+}
+
 /** Erro genérico (auth, sala cheia, etc.). */
 export interface ServerErroEvent {
   codigo:
@@ -259,7 +298,9 @@ export interface SocketEventMap {
   'client:listar:salas': ClientListarSalasEvent;
   'client:sair:sala': ClientSairSalaEvent;
   'client:abandonar:partida': ClientAbandonarPartidaEvent;
+  'client:retomar:controle': ClientRetomarControleEvent;
   'client:iniciar:partida': ClientIniciarPartidaEvent;
+  'client:revanche:pedir': ClientPedirRevancheEvent;
   'client:interceptar': ClientInterceptarEvent;
   // server → client
   'server:estado:atualizado': ServerEstadoAtualizadoEvent;
@@ -273,6 +314,8 @@ export interface SocketEventMap {
   'server:chat:msg': ServerChatEvent;
   'server:salas:disponiveis': ServerSalasDisponiveisEvent;
   'server:sala:atualizada': ServerSalaAtualizadaEvent;
+  'server:partida:encerrada': ServerPartidaEncerradaEvent;
+  'server:revanche:atualizada': ServerRevancheAtualizadaEvent;
   'server:mao:atualizada': ServerMaoAtualizadaEvent;
   'server:erro': ServerErroEvent;
   'server:interceptacao:aberta': ServerInterceptacaoAbertaEvent;

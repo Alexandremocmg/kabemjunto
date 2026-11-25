@@ -1,6 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Check, X } from 'lucide-react';
 import { AvatarComStatus } from './AvatarComStatus';
+import { definirOptOut, lerOptOut } from '../services/metricas';
 
 export type TemaColecao = 'FLORESTA' | 'NEON' | 'AREIA';
 
@@ -32,6 +33,7 @@ export const PainelColecao: React.FC<PainelColecaoProps> = ({
   onTemaChange,
   onClose,
 }) => {
+  const [estatisticas, setEstatisticas] = useState(() => !lerOptOut());
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -131,6 +133,25 @@ export const PainelColecao: React.FC<PainelColecaoProps> = ({
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="collection-section">
+          <h3>Privacidade</h3>
+          <label className="collection-opcao">
+            <input
+              type="checkbox"
+              role="switch"
+              checked={estatisticas}
+              onChange={(event) => {
+                definirOptOut(!event.target.checked);
+                setEstatisticas(event.target.checked);
+              }}
+            />
+            <span>
+              Enviar estatísticas anônimas
+              <small>Ajuda a melhorar o jogo. Nunca inclui nome, conversa ou cartas.</small>
+            </span>
+          </label>
         </div>
 
         <p className="collection-note">

@@ -92,4 +92,35 @@ describe('loadConfig', () => {
     const config = loadConfig(env({ ROOM_STORAGE_FILE: '/data/rooms.json' }));
     expect(config.roomStorageFile).toBe('/data/rooms.json');
   });
+
+  it('usa 30 s por vez e 20 s de tolerância, inclusive com a variável vazia', () => {
+    for (const vazio of [{}, { TURN_LIMIT_MS: '', DISCONNECT_GRACE_MS: ' ' }]) {
+      const config = loadConfig(env(vazio));
+      expect(config.turnLimitMs).toBe(30_000);
+      expect(config.disconnectGraceMs).toBe(20_000);
+    }
+  });
+
+  it('aceita 0 (desliga) e valores válidos para os tempos da partida', () => {
+    const config = loadConfig(env({ TURN_LIMIT_MS: '0', DISCONNECT_GRACE_MS: '45000' }));
+    expect(config.turnLimitMs).toBe(0);
+    expect(config.disconnectGraceMs).toBe(45_000);
+  });
+
+  it('recusa tempos da partida inválidos', () => {
+    for (const valor of ['-1', '999', '600001', '1500.5', 'abc']) {
+      expect(() => loadConfig(env({ TURN_LIMIT_MS: valor }))).toThrow(ConfigError);
+      expect(() => loadConfig(env({ DISCONNECT_GRACE_MS: valor }))).toThrow(ConfigError);
+    }
+  });
+
+  it('REVANCHE_WAIT_MS: 15 s por padrão, de 1 s a 2 min', () => {
+    for (const vazio of [{}, { REVANCHE_WAIT_MS: ' ' }]) {
+      expect(loadConfig(env(vazio)).revancheWaitMs).toBe(15_000);
+    }
+    expect(loadConfig(env({ REVANCHE_WAIT_MS: '5000' })).revancheWaitMs).toBe(5_000);
+    for (const valor of ['0', '-1', '999', '120001', '1500.5', 'abc']) {
+      expect(() => loadConfig(env({ REVANCHE_WAIT_MS: valor }))).toThrow(ConfigError);
+    }
+  });
 });

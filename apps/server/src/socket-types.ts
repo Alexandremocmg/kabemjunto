@@ -11,6 +11,8 @@ import type {
   ClientJogarEvent,
   ClientJogarRapidoEvent,
   ClientListarSalasEvent,
+  ClientPedirRevancheEvent,
+  ClientRetomarControleEvent,
   ClientSairSalaEvent,
   ServerChatEvent,
   ServerCorTrocadaEvent,
@@ -22,6 +24,8 @@ import type {
   ServerJogadaAceitaEvent,
   ServerJogadaRejeitadaEvent,
   ServerMaoAtualizadaEvent,
+  ServerPartidaEncerradaEvent,
+  ServerRevancheAtualizadaEvent,
   ServerSalaAtualizadaEvent,
   ServerSalasDisponiveisEvent,
   ServerSessaoEmitidaEvent,
@@ -35,7 +39,9 @@ export type ClientEvents = {
   'client:listar:salas': (payload: ClientListarSalasEvent) => void;
   'client:sair:sala': (payload: ClientSairSalaEvent) => void;
   'client:abandonar:partida': (payload: ClientAbandonarPartidaEvent) => void;
+  'client:retomar:controle': (payload: ClientRetomarControleEvent) => void;
   'client:iniciar:partida': (payload: ClientIniciarPartidaEvent) => void;
+  'client:revanche:pedir': (payload: ClientPedirRevancheEvent) => void;
   'client:jogar': (payload: ClientJogarEvent) => void;
   'client:descarte:multiplo': (payload: ClientDescarteMultiploEvent) => void;
   'client:comprar': (payload: ClientComprarEvent) => void;
@@ -55,6 +61,8 @@ export type ServerEvents = {
   'server:cor:trocada': (payload: ServerCorTrocadaEvent) => void;
   'server:silencio:quebrado': (payload: ServerSilencioQuebradoEvent) => void;
   'server:chat:msg': (payload: ServerChatEvent) => void;
+  'server:partida:encerrada': (payload: ServerPartidaEncerradaEvent) => void;
+  'server:revanche:atualizada': (payload: ServerRevancheAtualizadaEvent) => void;
   'server:mao:atualizada': (payload: ServerMaoAtualizadaEvent) => void;
   'server:interceptacao:aberta': (payload: ServerInterceptacaoAbertaEvent) => void;
   'server:interceptacao:resolvida': (payload: ServerInterceptacaoResolvidaEvent) => void;
