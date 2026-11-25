@@ -86,7 +86,7 @@ async function servidor(opcoes: { esperaMs?: number; limiteMs?: number } = {}) {
   registerSocketHandlers(io, store, undefined, {
     quickPlay: { botDelayMs: { min: 30, max: 30 } },
     resiliencia: { disconnectGraceMs: LONGE },
-    revanche: { esperaMs: opcoes.esperaMs ?? LONGE },
+    revanche: { esperaMs: opcoes.esperaMs ?? LONGE, toleranciaQuedaMs: 80 },
   });
   await new Promise<void>((resolve) => http.listen(0, '127.0.0.1', resolve));
   cleanup.push(() => new Promise<void>((resolve) => io.close(() => resolve())));

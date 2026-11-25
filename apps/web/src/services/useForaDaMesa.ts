@@ -27,9 +27,12 @@ export function useForaDaMesa(
   }, [ficarDeFora, semAssento, semLugar]);
 
   const recusada = acabou && (erroCodigo === 'SALA_INEXISTENTE' || erroCodigo === 'AUTH_REQUIRED');
+  // Alguém já tinha pedido revanche desta partida: foi ela que começou.
+  const haviaPedido =
+    revanche?.partidaId === estado?.partidaId && (revanche?.prontos.length ?? 0) > 0;
   useEffect(() => {
-    if (recusada) ficarDeFora(AVISO_MESA_DESFEITA);
-  }, [ficarDeFora, recusada]);
+    if (recusada) ficarDeFora(haviaPedido ? AVISO_REVANCHE : AVISO_MESA_DESFEITA);
+  }, [ficarDeFora, haviaPedido, recusada]);
 
   // A contagem acabou, ninguém avisou nada e a pessoa não tinha pedido.
   const minha = acabou && revanche?.partidaId === estado?.partidaId ? revanche : undefined;

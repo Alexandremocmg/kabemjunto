@@ -127,6 +127,37 @@ describe('contagem', () => {
     expect(t.partida()).not.toBe(antes);
   });
 
+  it('quem recarrega a página com os demais prontos tem 5 s para voltar, e recupera o prazo', () => {
+    const t = terminada();
+    const antes = t.partida();
+    t.revanche.pedir(t.id, 'ana');
+    t.store.disconnect('s-bia');
+    vi.advanceTimersByTime(4_999);
+    expect(t.partida()).toBe(antes);
+    // Voltou a tempo: a contagem retoma o prazo do primeiro pedido.
+    const sessao = t.store.get(t.id)!;
+    gravar(t.store, {
+      ...sessao,
+      sala: {
+        ...sessao.sala,
+        jogadores: sessao.sala.jogadores.map((j) => ({ ...j, conectado: true })),
+      },
+    });
+    vi.advanceTimersByTime(ESPERA - 5_000);
+    expect(t.partida()).toBe(antes);
+    vi.advanceTimersByTime(1);
+    expect(t.partida()).not.toBe(antes);
+  });
+
+  it('se não volta em 5 s, a revanche começa com quem aceitou', () => {
+    const t = terminada();
+    const antes = t.partida();
+    t.revanche.pedir(t.id, 'ana');
+    t.store.disconnect('s-bia');
+    vi.advanceTimersByTime(5_000);
+    expect(t.partida()).not.toBe(antes);
+  });
+
   it('regravar a sala terminada não repete o evento nem o placar, nem depois de reiniciar', () => {
     const disco = new Memoria();
     const t = terminada(disco);

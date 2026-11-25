@@ -14,6 +14,7 @@ import type { JogadorId, ServerRevancheAtualizadaEvent } from '@kabemjunto/share
 import { REVANCHE_WAIT_PADRAO_MS } from './config.js';
 import { transmitirPartida } from './room-broadcast.js';
 import {
+  humanPlayers,
   partidaEncerrada,
   possiveisNaRevanche,
   RoomError,
@@ -25,10 +26,14 @@ import type { GameServer, GameSocket } from './socket-types.js';
 export interface RevancheOptions {
   /** Quanto esperar, desde o primeiro pedido, por quem ainda não aceitou. */
   esperaMs?: number;
+  /** Tempo extra quando alguém acabou de cair e os demais já aceitaram. */
+  toleranciaQuedaMs?: number;
 }
 
 /** Espera antes de tentar de novo quando gravar falha (ex.: disco cheio). */
 const NOVA_TENTATIVA_MS = 5_000;
+/** Quem caiu agora (ex.: recarregou a página) ganha este tempo antes de perder a vaga. */
+const TOLERANCIA_QUEDA_MS = 5_000;
 
 interface Andamento {
   partidaId: string;
@@ -36,12 +41,15 @@ interface Andamento {
   /** Último conjunto transmitido, para só avisar quando algo muda. */
   transmitido: string;
   comecaEm?: number;
+  /** Fim da espera contada do primeiro pedido; quem volta de uma queda recupera esse prazo. */
+  limite?: number;
   timer?: ReturnType<typeof setTimeout>;
 }
 
 export class RevancheDirector {
   private readonly andamentos = new Map<string, Andamento>();
   private readonly espera: number;
+  private readonly toleranciaQueda: number;
   private pararDeObservar: (() => void) | undefined;
   private pararDeObservarRemocoes: (() => void) | undefined;
 
@@ -51,6 +59,7 @@ export class RevancheDirector {
     opcoes: RevancheOptions = {},
   ) {
     this.espera = opcoes.esperaMs ?? REVANCHE_WAIT_PADRAO_MS;
+    this.toleranciaQueda = opcoes.toleranciaQuedaMs ?? TOLERANCIA_QUEDA_MS;
   }
 
   start(): void {
@@ -125,11 +134,18 @@ export class RevancheDirector {
     }
 
     const agora = Date.now();
+    if (andamento.prontos.size > 0) andamento.limite ??= agora + this.espera;
     const todos = andamento.prontos.size > 0 && andamento.prontos.size === possiveis.length;
     if (andamento.prontos.size === 0) this.cancelar(andamento);
-    else if (todos) this.armar(id, andamento, agora, 0);
-    else if (andamento.comecaEm === undefined) {
-      this.armar(id, andamento, agora + this.espera, this.espera);
+    else if (todos) {
+      const alguemCaiu = humanPlayers(session).some((jogador) => !jogador.conectado);
+      const emMs = alguemCaiu ? this.toleranciaQueda : 0;
+      // Nunca adia uma contagem que já terminaria antes.
+      if (andamento.comecaEm === undefined || andamento.comecaEm > agora + emMs) {
+        this.armar(id, andamento, agora + emMs, emMs);
+      }
+    } else if (andamento.comecaEm === undefined || andamento.comecaEm < andamento.limite!) {
+      this.armar(id, andamento, andamento.limite!, Math.max(0, andamento.limite! - agora));
     }
 
     const evento = this.evento(session, andamento);
@@ -217,6 +233,7 @@ export class RevancheDirector {
     if (andamento.timer) clearTimeout(andamento.timer);
     delete andamento.timer;
     delete andamento.comecaEm;
+    delete andamento.limite;
   }
 
   private esquecer(id: string): void {

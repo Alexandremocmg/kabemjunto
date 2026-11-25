@@ -93,9 +93,7 @@ test('quem não aceita a tempo volta ao menu sabendo o motivo', async ({ browser
   test.setTimeout(90_000);
   const { host, convidado } = await partidaTerminada(browser, request);
   await host.getByRole('button', { name: REVANCHE }).click();
-  await expect(
-    convidado.getByText('A revanche começou sem você. Escolha outra mesa para jogar.'),
-  ).toBeVisible({ timeout: 60_000 });
+  await expect(convidado.getByText(/A revanche começou sem você/)).toBeVisible({ timeout: 60_000 });
   await expect(host.locator('.mesa3d')).toHaveAttribute('data-mao', '7');
 });
 
