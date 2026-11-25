@@ -36,21 +36,40 @@ async function novoJogador(browser: Browser): Promise<Page> {
 async function partidaTerminada(
   browser: Browser,
   request: APIRequestContext,
+  comRanking = false,
 ): Promise<{ host: Page; convidado: Page }> {
   const host = await novoJogador(browser);
   const convidado = await novoJogador(browser);
+  if (comRanking) {
+    await host.setViewportSize({ width: 375, height: 667 });
+    await host.addInitScript(() => {
+      Object.assign(navigator, {
+        share: async (dados: ShareData) => Object.assign(window, { __convite: dados.url }),
+      });
+    });
+  }
   await host.goto('/?mesa=2d');
   await host.getByLabel('Seu apelido').fill('Ana');
   await host.getByRole('button', { name: 'Criar sala' }).click();
-  await host
-    .getByRole('dialog', { name: 'Criar sala' })
-    .getByRole('button', { name: 'Criar sala privada' })
-    .click();
+  const criacao = host.getByRole('dialog', { name: 'Criar sala' });
+  if (comRanking) await criacao.getByRole('button', { name: 'Criar novo grupo' }).click();
+  await criacao.getByRole('button', { name: 'Criar sala privada' }).click();
   await expect(host.locator('.room-code')).toBeVisible();
   const salaId = (await host.locator('.room-code').textContent()) ?? '';
 
   // O convidado chega pelo link: o código já vem preenchido, mas ele é quem entra.
-  await convidado.goto(`/?mesa=2d&sala=${salaId}`);
+  if (comRanking) {
+    await expect(host.getByText(/Ranking semanal ativo/)).toBeVisible();
+    await host.getByRole('button', { name: 'Convidar' }).click();
+    await expect(host.getByText('Convite enviado.')).toBeVisible();
+    const link = await host.evaluate(() => (window as unknown as { __convite: string }).__convite);
+    const url = new URL(link);
+    expect(url.hash).toMatch(/^#grupo=[0-9a-f-]{36}$/);
+    url.searchParams.set('mesa', '2d');
+    await convidado.goto(url.href);
+  } else {
+    await convidado.goto(`/?mesa=2d&sala=${salaId}`);
+  }
   await expect(convidado.getByLabel('Código da sala')).toHaveValue(salaId);
   await convidado.getByLabel('Seu apelido').fill('Beto');
   await convidado.getByRole('button', { name: 'Entrar em sala' }).click();
@@ -63,12 +82,46 @@ async function partidaTerminada(
   });
   expect(resposta.ok()).toBeTruthy();
   const { vencedorCardId } = (await resposta.json()) as { vencedorCardId: string };
-  await host.locator(`[data-card-id="${vencedorCardId}"]`).focus();
+  await expect(host.locator('.mesa3d')).toHaveAttribute('data-mao', '1');
+  const carta = host.locator(`[data-card-id="${vencedorCardId}"]`);
+  await expect(carta).toBeVisible();
+  await carta.focus();
   await host.keyboard.press('Enter');
   await expect(host.getByRole('dialog', { name: 'Você Venceu!' })).toBeVisible();
   await expect(convidado.getByRole('dialog', { name: 'Ana Venceu!' })).toBeVisible();
   return { host, convidado };
 }
+
+test('ranking semanal mostra o progresso de cada amigo e o recupera ao recarregar', async ({
+  browser,
+  request,
+}) => {
+  const { host, convidado } = await partidaTerminada(browser, request, true);
+  const rankingDaAna = host.getByRole('region', { name: 'Ranking semanal entre amigos' });
+  const rankingDoBeto = convidado.getByRole('region', { name: 'Ranking semanal entre amigos' });
+  await expect(rankingDaAna).toBeVisible();
+  await expect(rankingDaAna.locator('summary').filter({ hasText: 'Mais vitórias' })).toContainText(
+    '1º lugar · 1 na semana · +1 nesta partida',
+  );
+  await expect(rankingDoBeto.locator('summary').filter({ hasText: 'Mais vitórias' })).toContainText(
+    'Sem posição · 0 na semana',
+  );
+  const maisJoga = rankingDoBeto.locator('summary').filter({ hasText: 'Mais joga' });
+  await expect(maisJoga).toContainText('1º lugar · 1 na semana · +1 nesta partida');
+  await maisJoga.click();
+  await expect(rankingDoBeto.getByText('Beto (você)', { exact: false })).toBeVisible();
+  await expect(rankingDaAna.locator('summary').filter({ hasText: 'Mestre do 0+' })).toBeVisible();
+  await convidado.reload();
+  await expect(maisJoga).toContainText('1º lugar · 1 na semana · +1 nesta partida');
+
+  const link = await host.evaluate(() => (window as unknown as { __convite: string }).__convite);
+  const grupo = new URLSearchParams(new URL(link).hash.slice(1)).get('grupo')!;
+  await host.getByRole('button', { name: 'Voltar ao menu' }).click();
+  await host.getByRole('button', { name: 'Criar sala' }).click();
+  const novaSala = host.getByRole('dialog', { name: 'Criar sala' });
+  await novaSala.getByRole('button', { name: 'Usar último grupo' }).click();
+  await expect(novaSala.getByLabel('Código do grupo (opcional)')).toHaveValue(grupo);
+});
 
 test('placar da sessão aparece para os dois e os dois aceitos começam outra partida', async ({
   browser,

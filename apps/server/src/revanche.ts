@@ -117,7 +117,10 @@ export class RevancheDirector {
   reenviar(socket: GameSocket, session: RoomSession): void {
     const fim = partidaEncerrada(session);
     if (!fim) return;
-    socket.emit('server:partida:encerrada', fim);
+    socket.emit(
+      'server:partida:encerrada',
+      this.store.fimPara(session, socket.data.jogadorId ?? '', fim),
+    );
     socket.emit('server:revanche:atualizada', this.evento(session, this.andamento(session)));
   }
 
@@ -130,7 +133,16 @@ export class RevancheDirector {
     }
     if (this.andamentos.get(sala.id)?.partidaId !== estado.partidaId) {
       this.novo(sala.id, estado.partidaId);
-      this.io.to(sala.id).emit('server:partida:encerrada', partidaEncerrada(session)!);
+      const fim = partidaEncerrada(session)!;
+      if (session.ranking) {
+        for (const [jogadorId, socketId] of session.socketByPlayer) {
+          this.io.sockets.sockets
+            .get(socketId)
+            ?.emit('server:partida:encerrada', this.store.fimPara(session, jogadorId, fim));
+        }
+      } else {
+        this.io.to(sala.id).emit('server:partida:encerrada', fim);
+      }
     }
     this.reavaliar(session);
   }

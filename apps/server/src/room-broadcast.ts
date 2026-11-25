@@ -9,6 +9,7 @@ export function salaAtualizada(session: RoomSession): ServerSalaAtualizadaEvent 
     jogadores: session.sala.jogadores,
     visibilidade: session.sala.visibilidade,
     ...(session.sala.rapida ? { rapida: session.sala.rapida } : {}),
+    ...(session.ranking ? { grupoRanking: session.ranking.grupo } : {}),
   };
 }
 

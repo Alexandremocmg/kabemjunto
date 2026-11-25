@@ -13,6 +13,8 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ### Adicionado
 
+- **Card de desafio** com QR: no menu leva ao jogo; em sala pública criada à mão leva à sala e vale até a partida começar.
+- **Ranking semanal entre amigos** em salas privadas com convite: vitórias, partidas e reflexos com o 0+. Só fica fora quem teve a vez jogada por bot (ADR-017).
 - **A partida online continua quando alguém sai, cai ou fica parado:** um bot assume o assento, e quem caiu ou ficou parado pode retomar. Limite de 30 s por vez, com aviso na tela (ADR-016).
 - **Fim de partida com prêmios, placar da sessão, revanche com a mesma mesa e imagem para compartilhar.** O link de convite preenche o código da sala.
 - **Selos no jogador afetado** (`+2`, `+4`, `REFLETIDO!`, `PULOU`, Silêncio quebrado) e anel no 7.

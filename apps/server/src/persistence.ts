@@ -21,6 +21,12 @@ import type {
   Sala,
   SalaRapida,
 } from '@kabemjunto/shared';
+import {
+  placaresSemanaisSchema,
+  rankingDaSalaSchema,
+  type PlacaresSemanais,
+  type RankingDaSala,
+} from './ranking.js';
 
 export const ROOM_SNAPSHOT_VERSION = 3 as const;
 const LEGACY_ROOM_SNAPSHOT_VERSION = 2 as const;
@@ -34,6 +40,7 @@ export interface PersistedRoomSession {
   resumeTokenHashes: Record<string, string>;
   /** Ausente em snapshots antigos e até a primeira partida terminar. */
   placar?: PlacarGravado;
+  ranking?: RankingDaSala;
 }
 
 /** Placar da sala, com a última partida já contada (para nunca contar duas vezes). */
@@ -44,11 +51,13 @@ export interface PlacarGravado extends PlacarSessao {
 interface RoomSnapshot {
   version: typeof ROOM_SNAPSHOT_VERSION;
   rooms: PersistedRoomSession[];
+  ranking?: PlacaresSemanais;
 }
 
 export interface RoomPersistence {
   load(): PersistedRoomSession[];
-  save(rooms: readonly PersistedRoomSession[]): void;
+  loadRanking?(): PlacaresSemanais;
+  save(rooms: readonly PersistedRoomSession[], ranking?: PlacaresSemanais): void;
   /** Probe não destrutivo: confirma que o volume ainda aceita escrita (usado por `/ready`). */
   probeWritable?(): boolean;
 }
@@ -483,15 +492,26 @@ function validateSnapshot(value: unknown): RoomSnapshot {
       );
     }
     roomIds.add(candidate['sala'].id);
+    const ranking = rankingDaSalaSchema.optional().safeParse(candidate['ranking']);
+    if (!ranking.success || (ranking.data && candidate['sala'].visibilidade !== 'PRIVADA')) {
+      throw new RoomSnapshotError('Snapshot de salas inválido: grupo semanal malformado.');
+    }
     rooms.push({
       sala: candidate['sala'],
       ...(normalizedState === undefined ? {} : { estado: normalizedState }),
       resumeTokenHashes: candidate['resumeTokenHashes'],
       ...(placar === undefined ? {} : { placar }),
+      ...(ranking.data === undefined ? {} : { ranking: ranking.data }),
     });
   }
 
-  return { version: ROOM_SNAPSHOT_VERSION, rooms };
+  const ranking = placaresSemanaisSchema.optional().safeParse(value['ranking']);
+  if (!ranking.success) throw new RoomSnapshotError('Snapshot de salas inválido: ranking semanal.');
+  return {
+    version: ROOM_SNAPSHOT_VERSION,
+    rooms,
+    ...(ranking.data === undefined ? {} : { ranking: ranking.data }),
+  };
 }
 
 function bestEffortChmod(path: string, mode: number): void {
@@ -504,12 +524,17 @@ function bestEffortChmod(path: string, mode: number): void {
 }
 
 export class JsonRoomPersistence implements RoomPersistence {
+  private ranking: PlacaresSemanais = [];
+
   constructor(private readonly filePath: string) {
     if (!filePath.trim()) throw new RoomSnapshotError('ROOM_STORAGE_FILE não pode ser vazio.');
   }
 
   load(): PersistedRoomSession[] {
-    if (!existsSync(this.filePath)) return [];
+    if (!existsSync(this.filePath)) {
+      this.ranking = [];
+      return [];
+    }
 
     let parsed: unknown;
     try {
@@ -519,11 +544,21 @@ export class JsonRoomPersistence implements RoomPersistence {
         cause: error,
       });
     }
-    return validateSnapshot(parsed).rooms;
+    const snapshot = validateSnapshot(parsed);
+    this.ranking = snapshot.ranking ?? [];
+    return snapshot.rooms;
   }
 
-  save(rooms: readonly PersistedRoomSession[]): void {
-    const snapshot = validateSnapshot({ version: ROOM_SNAPSHOT_VERSION, rooms: [...rooms] });
+  loadRanking(): PlacaresSemanais {
+    return this.ranking;
+  }
+
+  save(rooms: readonly PersistedRoomSession[], ranking = this.ranking): void {
+    const snapshot = validateSnapshot({
+      version: ROOM_SNAPSHOT_VERSION,
+      rooms: [...rooms],
+      ...(ranking.length ? { ranking } : {}),
+    });
     const directory = dirname(this.filePath);
     mkdirSync(directory, { recursive: true, mode: 0o700 });
     bestEffortChmod(directory, 0o700);
@@ -539,6 +574,7 @@ export class JsonRoomPersistence implements RoomPersistence {
       bestEffortChmod(temporaryPath, 0o600);
       renameSync(temporaryPath, this.filePath);
       bestEffortChmod(this.filePath, 0o600);
+      this.ranking = snapshot.ranking ?? [];
     } catch (error) {
       if (descriptor !== undefined) closeSync(descriptor);
       rmSync(temporaryPath, { force: true });

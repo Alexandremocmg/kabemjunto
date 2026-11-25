@@ -409,16 +409,25 @@ function OnlineApp({
                   style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px' }}
                 >
                   <strong className="room-code">{online.salaId}</strong>
-                  <button
-                    type="button"
-                    className="button button-secondary"
-                    style={{ padding: '4px 10px', fontSize: '12px' }}
-                    onClick={copiarCodigoSala}
-                    aria-label="Copiar código da sala"
-                  >
-                    {textoCopiar}
-                  </button>
-                  {online.salaId && <ConvidarSala salaId={online.salaId} />}
+                  {!online.state.grupoRanking && (
+                    <button
+                      type="button"
+                      className="button button-secondary"
+                      style={{ padding: '4px 10px', fontSize: '12px' }}
+                      onClick={copiarCodigoSala}
+                      aria-label="Copiar código da sala"
+                    >
+                      {textoCopiar}
+                    </button>
+                  )}
+                  {online.salaId && (
+                    <ConvidarSala
+                      salaId={online.salaId}
+                      {...(online.state.grupoRanking
+                        ? { grupoRanking: online.state.grupoRanking }
+                        : {})}
+                    />
+                  )}
                   {cardDesafio}
                 </div>
               </div>
@@ -429,7 +438,11 @@ function OnlineApp({
             <div className="waiting-state">
               <span className="waiting-icon">◈</span>
               <h2>Aguardando o grupo</h2>
-              <p className="muted">Compartilhe o código e inicie quando todos entrarem.</p>
+              <p className="muted">
+                {online.state.grupoRanking
+                  ? 'Ranking semanal ativo. Use Convidar para enviar o link aos amigos.'
+                  : 'Compartilhe o código e inicie quando todos entrarem.'}
+              </p>
               {online.isHost && (
                 <button
                   className="button button-primary"
