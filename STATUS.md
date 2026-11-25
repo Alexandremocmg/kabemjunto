@@ -7,6 +7,11 @@
 **Base da revisão:** `main` em `54c4601`, com a mesa 3D (`feat/mesa-3d`, PR #29) como base do PWA em `docs/revisao-documentacao` (PR #30)
 **Último briefing:** [Sprint 7](./briefings/sprint-7.md) — beta fechado e onboarding; conclusão das issues não revalidada nesta revisão
 
+### 2026-11-25 — Retenção, etapas 0 e 1 (branch `feat/retencao-etapas-0-1`)
+
+- Partida resiliente, revanche, prêmios, placar, compartilhar, selos, avatar online e métricas desligadas (ADR-016). Não publicado na VPS.
+- **Não verificado:** jogadores reais, celular físico, leitor de tela real e carga.
+
 ### 2026-11-25 — "Jogar agora" em sala pública com bots (branch `feat/jogar-agora-sala-publica`)
 
 - O botão principal do menu entra numa sala pública do servidor e, passados 10 s sem mais gente, completa a mesa com bots (ADR-015). "Só contra bots, neste aparelho" mantém o modo local, que também é o plano B sem internet ou sem resposta em 8 s.

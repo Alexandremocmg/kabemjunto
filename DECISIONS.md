@@ -19,6 +19,7 @@ Este arquivo registra as Decisões de Arquitetura (ADRs) do projeto Kabemjunto.
 - [ADR-013: Carta "+2 Para Todos" (MAIS_DOIS_TODOS) e Expansão do Baralho para 109](#adr-013-carta-2-para-todos-mais_dois_todos-e-expansão-do-baralho-para-109)
 - [ADR-014: Mesa 3D com Three.js, Camada Acessível em DOM e Fallback 2D](#adr-014-mesa-3d-com-threejs-camada-acessível-em-dom-e-fallback-2d)
 - [ADR-015: "Jogar agora": sala pública rápida completada com bots](#adr-015-jogar-agora-sala-pública-rápida-completada-com-bots)
+- [ADR-016: Partida resiliente, revanche e métricas sem dados pessoais](#adr-016-partida-resiliente-revanche-e-métricas-sem-dados-pessoais)
 
 ---
 
@@ -583,9 +584,10 @@ produto: ao clicar em jogar, entrar numa sala pública e, se faltar gente, compl
    `QuickPlayDirector` observa cada estado gravado pelo `RoomStore` (`setCommitHandler`) e agenda a vez do bot
    com uma pausa de 0,9 a 1,7 s. Observar o `commit` evita lógica duplicada: jogada, compra, janela de
    Corta-Frente que expira e reconexão já passam por ali.
-4. **Corta-Frente em sala com bots:** a janela de 5 s só abre se algum **humano** puder interceptar. Abrir a
-   janela sempre travaria a mesa 5 s a cada jogada; abri-la só quando alguém tem carta idêntica vazaria a mão.
-   Por isso a regra olha só as cartas dos humanos (`shouldOpenInterception`), e os bots não interceptam.
+4. **Corta-Frente em sala com bots:** com **um único humano**, a janela de 5 s só abre se ele puder cortar,
+   como na mesa local. Com **dois ou mais humanos** ela abre sempre: abri-la só quando alguém tem carta
+   idêntica revelaria a mão dos outros. Bots não interceptam (`shouldOpenInterception`).
+   _(Texto corrigido em 2026-11-25; o código não mudou.)_
 5. **Limpeza:** sala rápida terminada, ou sem nenhum humano conectado por 60 s, sai da memória. Reconexões
    rápidas mantêm a vaga (token de retomada, como nas salas comuns).
 6. **Persistência:** o snapshot de salas guarda `rapida` e a validação rejeita valores malformados.
@@ -602,3 +604,32 @@ produto: ao clicar em jogar, entrar numa sala pública e, se faltar gente, compl
 - ⚠ Atualizar a VPS exige reiniciar `kabemjunto.service` (ver `docs/OPERACAO-VPS.md`). Salas antigas sem `rapida`
   continuam válidas.
 - ❌ Ainda não medido com jogadores reais; o tempo de espera (10 s) é um palpite a revisar com dados.
+
+---
+
+### ADR-016: Partida resiliente, revanche e métricas sem dados pessoais
+
+**Status:** Proposto · **Data:** 2026-11-25
+
+**Contexto.** Sair de uma partida online a encerrava para todos, não havia limite de tempo por vez e o fim só
+levava ao menu. Com o "Jogar agora" juntando desconhecidos, isso custava partidas.
+
+**Decisão.**
+
+1. **Quem sai vira bot** (`SAIU`), sem volta, enquanto sobrar alguma pessoa. A última a sair encerra.
+2. **Quem cai** tem 20 s (`DISCONNECT_GRACE_MS`); depois um bot joga até a pessoa voltar (`CAIU`).
+3. **Limite de 30 s por vez** (`TURN_LIMIT_MS`, 0 desliga): ao estourar, o bot joga aquela vez; no segundo
+   estouro seguido assume (`INATIVO`) até a pessoa agir ou tocar em "Voltei". O cliente conta por
+   `restanteMs`, não pelo relógio do celular. Cair e voltar não renova a vez indefinidamente.
+4. **Fim:** `server:partida:encerrada` leva prêmios e placar, só com contagens e ids, nunca cartas.
+5. **Revanche:** começa quando todos aceitam, ou 15 s depois do primeiro pedido (`REVANCHE_WAIT_MS`) com
+   quem aceitou e bots nas outras vagas. Quem cai perto do início tem 5 s para voltar.
+6. **Métricas:** lista fechada de eventos sem nome, sala, id ou cartas; desligadas sem chave e com opt-out
+   (`docs/METRICAS.md`).
+
+**Consequências.**
+
+- ⚠ Servidor e interface devem ser publicados juntos. Um app antigo em cache joga sem ver o relógio até o
+  service worker atualizar.
+- O progresso é por sala e por aparelho; não há conta nem ranking.
+- ❌ Não medido com jogadores reais, em celular físico nem sob carga.

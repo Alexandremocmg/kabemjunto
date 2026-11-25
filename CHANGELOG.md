@@ -9,6 +9,11 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ### Adicionado
 
+- **A partida online continua quando alguém sai, cai ou fica parado:** um bot assume o assento, e quem caiu ou ficou parado pode retomar. Limite de 30 s por vez, com aviso na tela (ADR-016).
+- **Fim de partida com prêmios, placar da sessão, revanche com a mesma mesa e imagem para compartilhar.** O link de convite preenche o código da sala.
+- **Selos no jogador afetado** (`+2`, `+4`, `REFLETIDO!`, `PULOU`, Silêncio quebrado) e anel no 7.
+- O avatar escolhido aparece para os outros no online.
+- Métricas anônimas de retenção, desligadas sem chave e com opt-out no perfil (`docs/METRICAS.md`).
 - **"Jogar agora" entra numa sala pública e completa com bots.** O botão principal do menu leva a uma tela "Mesa pública" com contagem de 10 s; se ninguém mais chegar, o servidor completa a mesa com bots e começa. Quem pede o mesmo tamanho de mesa ao mesmo tempo cai na mesma sala. "Só contra bots, neste aparelho" mantém a partida local, que também é o plano B sem internet ou sem resposta do servidor em 8 s. Detalhes e a regra do Corta-Frente em salas com bots: ADR-015.
 - Servidor: evento `client:jogar:rapido`, `Sala.rapida`, variável `QUICKPLAY_WAIT_MS` (padrão 10000) e persistência validada das salas rápidas.
 - **Peso das cartas (opcional):** ao pousar no descarte, a carta ganha um pop de escala, uma leve inclinação que achata e uma sombra suave que acompanha o voo. Desligado por padrão; `?peso=1` liga, `?peso=0` desliga, e a escolha fica no aparelho. Respeita `prefers-reduced-motion`. Ainda sem medição de fps em celular.
