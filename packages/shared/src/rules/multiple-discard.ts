@@ -152,5 +152,8 @@ function proximoJogador(
   let passos = 1;
   if (acao === 'SKIP') passos += quantidade;
   if (acao === 'REVERSE' && total === 2) passos = 2;
-  return estado.jogadores[(indiceAtual + passos * estado.sentido + total) % total]!.id;
+  // Vários Pulas podem dar mais de uma volta: reduz antes de somar `total`, senão
+  // o índice fica negativo no sentido anti-horário.
+  const deslocamento = (passos * estado.sentido) % total;
+  return estado.jogadores[(indiceAtual + deslocamento + total) % total]!.id;
 }
