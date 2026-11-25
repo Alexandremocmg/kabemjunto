@@ -364,6 +364,14 @@ test.describe('Impactos — mobile 375×812 com 10 jogadores', () => {
             Math.min(a.direita, b.direita) - Math.max(a.esquerda, b.esquerda) > 4 &&
               Math.min(a.base, b.base) - Math.max(a.topo, b.topo) > 4,
           ).toBe(false);
+      // A faixa central (que dura mais) continua legível: nenhum selo a cobre.
+      const faixa = await page.locator('.mesa3d-faixa strong').boundingBox();
+      if (!faixa) throw new Error('faixa sem posição');
+      for (const m of medidas)
+        expect(
+          Math.min(m.direita, faixa.x + faixa.width) - Math.max(m.esquerda, faixa.x) > 1 &&
+            Math.min(m.base, faixa.y + faixa.height) - Math.max(m.topo, faixa.y) > 1,
+        ).toBe(false);
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
         375,
       );

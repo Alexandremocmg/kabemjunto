@@ -824,7 +824,7 @@ export function Mesa3D({
       {faixa && (
         <div
           key={`${faixa.tipo}-${faixa.titulo}`}
-          className={`mesa3d-faixa mesa3d-faixa-${faixa.tipo}`}
+          className={`mesa3d-faixa mesa3d-faixa-${faixa.tipo} ${selos.size >= 4 ? 'mesa3d-faixa-afastada' : ''}`}
           aria-hidden="true"
         >
           <strong>{faixa.titulo}</strong>

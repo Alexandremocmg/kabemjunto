@@ -394,6 +394,17 @@ export function desenharPlaqueta(canvas: HTMLCanvasElement, dados: DadosPlaqueta
     ctx.fillText(emojiDoAvatar(dados.avatar), 64, altura / 2 + 4);
   }
 
+  // Bot no lugar da pessoa: selo no avatar, que se lê mesmo na plaqueta pequena do celular.
+  if (dados.situacao) {
+    ctx.beginPath();
+    ctx.arc(94, altura / 2 + 26, 21, 0, Math.PI * 2);
+    ctx.fillStyle = '#fde68a';
+    ctx.fill();
+    ctx.font = `28px ${FONTE}`;
+    ctx.fillStyle = '#0f172a';
+    ctx.fillText('🤖', 94, altura / 2 + 28);
+  }
+
   // Nome (cortado para caber).
   ctx.font = `800 34px ${FONTE}`;
   ctx.textAlign = 'left';
@@ -407,7 +418,7 @@ export function desenharPlaqueta(canvas: HTMLCanvasElement, dados: DadosPlaqueta
   if (dados.situacao) {
     ctx.font = `700 21px ${FONTE}`;
     ctx.fillStyle = '#fde68a';
-    ctx.fillText(dados.situacao, 116, altura / 2 + 20, larguraMaxima);
+    ctx.fillText(dados.situacao, 122, altura / 2 + 20, larguraMaxima - 6);
   }
 
   // Contador de cartas.

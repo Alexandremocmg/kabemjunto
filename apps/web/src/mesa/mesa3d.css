@@ -260,6 +260,15 @@
   border-color: #22d3ee;
 }
 
+/* Celular com muitos selos: a faixa sobe para a área livre acima dos assentos,
+   sem cobrir selo nem ser coberta. Na 2D eles ficam nas fichas, fora do caminho. */
+@media (max-width: 600px) {
+  .mesa3d:not(.mesa2d) .mesa3d-faixa-afastada {
+    top: calc(max(10px, env(safe-area-inset-top)) + 84px);
+    z-index: 6;
+  }
+}
+
 @keyframes mesa3d-faixa {
   0% {
     opacity: 0;
