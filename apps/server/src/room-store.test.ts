@@ -8,8 +8,9 @@ import {
   type PersistedRoomSession,
   type RoomPersistence,
 } from './persistence.js';
+import { registrarRanking } from './ranking.js';
 import { buildServer } from './server.js';
-import { RoomError, RoomStore, toPublicState } from './room-store.js';
+import { partidaEncerrada, RoomError, RoomStore, toPublicState } from './room-store.js';
 
 const persistenceDirectories: string[] = [];
 
@@ -80,7 +81,110 @@ function prepareOpenNumberedInterception(store: RoomStore) {
   };
 }
 
-describe('RoomStore — básico', () => {
+describe('Ranking semanal entre amigos', () => {
+  const grupo = '0d5cf20f-cbfb-4494-8ba7-c8ca8b22b012';
+
+  it('vira na segunda-feira à meia-noite em Brasília', () => {
+    const estado = createStartedStore().get('KJTEST')!.estado!;
+    const ranking = { grupo, membros: {} };
+    const semana = (horario: string) =>
+      registrarRanking([], ranking, estado, Date.parse(horario)).ranking.resultado?.semana;
+    expect(semana('2026-11-30T02:59:59Z')).toBe('2026-11-23');
+    expect(semana('2026-11-30T03:00:00Z')).toBe('2026-11-30');
+  });
+
+  it('soma somente partidas elegíveis entre salas do grupo e persiste após o reinício', () => {
+    const arquivo = persistenceFile();
+    let store = new RoomStore(new JsonRoomPersistence(arquivo));
+    const credencialAna = '261267f9-14fc-45ef-9e70-509c59deac10';
+    const credencialBia = 'a2da09a9-c76f-4229-b4a5-c69825603fc5';
+
+    function prepararSala(salaId: string, anfitria: number, convidada: number) {
+      store.join({
+        salaId,
+        jogadorId: uuid(anfitria),
+        nome: 'Ana',
+        socketId: 'socket-a',
+        criar: true,
+        grupoRanking: grupo,
+        credencialRanking: credencialAna,
+      });
+      const entrada = {
+        salaId,
+        jogadorId: uuid(convidada),
+        nome: 'Bia',
+        socketId: 'socket-b',
+        criar: false,
+      };
+      expect(() => store.join(entrada)).toThrow(/link de convite/);
+      expect(() =>
+        store.join({
+          ...entrada,
+          grupoRanking: grupo,
+          credencialRanking: credencialAna,
+        }),
+      ).toThrow(/ocupa um lugar/);
+      const { resumeToken } = store.join({
+        ...entrada,
+        grupoRanking: grupo,
+        credencialRanking: credencialBia,
+      });
+      store.start(salaId, 'socket-a');
+      return { entrada, resumeToken };
+    }
+
+    function concluir(salaId: string, reflexo: boolean) {
+      const { fixture, session } = store.prepareDeterministicVictoryFixture(salaId);
+      if (reflexo) {
+        session.estado.historico = [
+          ...session.estado.historico,
+          {
+            tipo: 'ATAQUE_REFLETIDO_ZERO_MAIS',
+            timestamp: Date.now(),
+            origem: fixture.vencedorId,
+            alvo: session.estado.jogadores.find((j) => j.id !== fixture.vencedorId)!.id,
+            cartasDevolvidas: 2,
+          },
+        ];
+      }
+      return store.play(salaId, fixture.vencedorId, fixture.vencedorCardId, 'AZUL');
+    }
+
+    const { entrada, resumeToken } = prepararSala('RANK01', 1, 2);
+    const primeira = concluir('RANK01', true);
+    expect(store.fimPara(primeira, uuid(1), partidaEncerrada(primeira)!).ranking).toMatchObject({
+      contou: true,
+      vitorias: { minhaPosicao: 1, meuTotal: 1, nestaPartida: 1 },
+      partidas: { minhaPosicao: 1, meuTotal: 1, nestaPartida: 1 },
+      reflexos: { minhaPosicao: 1, meuTotal: 1, nestaPartida: 1 },
+    });
+    const { session: retomada } = store.join({ ...entrada, resumeToken, socketId: 'socket-b2' });
+    expect(store.fimPara(retomada, uuid(2), partidaEncerrada(retomada)!).ranking).toMatchObject({
+      partidas: { minhaPosicao: 1, meuTotal: 1, nestaPartida: 1 },
+      vitorias: { meuTotal: 0, nestaPartida: 0, top: [{ apelido: 'Ana', eu: false }] },
+    });
+    store.removeRoom('RANK01');
+    store = new RoomStore(new JsonRoomPersistence(arquivo), { turnLimitMs: 30_000 });
+    prepararSala('RANK02', 3, 4);
+    const segunda = concluir('RANK02', false);
+    expect(store.fimPara(segunda, uuid(3), partidaEncerrada(segunda)!).ranking).toMatchObject({
+      vitorias: { meuTotal: 2, nestaPartida: 1 },
+      partidas: { meuTotal: 2, nestaPartida: 1 },
+      reflexos: { meuTotal: 1, nestaPartida: 0 },
+    });
+
+    prepararSala('RANK03', 5, 6);
+    const vez = store.vezAtual('RANK03')!;
+    expect(store.expirarVez('RANK03', vez)).toBeDefined();
+    const comBot = concluir('RANK03', false);
+    expect(store.fimPara(comBot, uuid(5), partidaEncerrada(comBot)!).ranking).toMatchObject({
+      contou: false,
+      partidas: { meuTotal: 2, nestaPartida: 0 },
+    });
+  });
+});
+
+describe('RoomStore - básico', () => {
   it('cria uma sala e só inicia com pelo menos dois jogadores', () => {
     const store = new RoomStore();
     const joined = store.join({

@@ -219,6 +219,12 @@ export function registerSocketHandlers(
           ...(payload.visibilidade !== undefined ? { visibilidade: payload.visibilidade } : {}),
           ...(payload.avatarId !== undefined ? { avatarId: payload.avatarId } : {}),
           ...(payload.resumeToken !== undefined ? { resumeToken: payload.resumeToken } : {}),
+          ...(typeof payload.grupoRanking === 'string'
+            ? { grupoRanking: payload.grupoRanking }
+            : {}),
+          ...(typeof payload.credencialRanking === 'string'
+            ? { credencialRanking: payload.credencialRanking }
+            : {}),
         };
         liberarAnterior(
           socket,

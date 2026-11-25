@@ -26,6 +26,14 @@ Documentação reconciliada em **2026-11-25**, a partir de `c46a269`. A tag mais
 
 Consulte [GDD, regras canônicas](./GDD-Kabemjunto.md#7-regras-oficiais-canônicas-resumo), incluindo vitória imediata, efeitos de mão e esgotamento do monte.
 
+## Ranking semanal entre amigos
+
+No Online, escolha **Criar sala**, mantenha a visibilidade **Privada** e selecione **Criar novo grupo**. Envie o link pelo botão **Convidar**. Para somar partidas de outras salas ao mesmo ranking, selecione **Usar último grupo** ou cole o mesmo código de grupo na criação da sala.
+
+O ranking vira na segunda-feira, à meia-noite, no horário de Brasília. **Mais vitórias** compara mesas com o mesmo número de jogadores. **Mais joga** conta partidas concluídas. **Mestre do 0+** conta reflexos de ataques com `0+`. A tela de fim mostra a posição, o total semanal, os pontos da partida e os dez primeiros de cada categoria.
+
+Só pontuam partidas concluídas entre pessoas, sem abandono nem jogada de bot. O grupo reconhece cada participante pelo navegador. Trocar de navegador ou limpar os dados do site inicia uma nova identidade. O servidor grava os totais no snapshot quando `ROOM_STORAGE_FILE` está configurado.
+
 ## Executar localmente
 
 O CI e o Docker usam **Node.js 20**. Utilize npm com suporte a workspaces; o projeto mantém um `package-lock.json` na raiz.

@@ -1,6 +1,12 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import type { ServerSalaDisponivel } from '@kabemjunto/shared';
 import { codigoDoConvite } from '../services/convite';
+import {
+  credencialDoRanking,
+  grupoDoConvite,
+  normalizarGrupo,
+  ultimoGrupo,
+} from '../services/rankingAmigos';
 
 const PLAYER_NAME_KEY = 'kabemjunto-player-name';
 
@@ -12,6 +18,7 @@ export interface LobbyOnlineCredentials {
   nome: string;
   nomeSala?: string;
   visibilidade?: 'privada' | 'publica';
+  grupoRanking?: string;
 }
 
 export interface LobbyOnlineProps {
@@ -52,6 +59,9 @@ export const LobbyOnline: React.FC<LobbyOnlineProps> = ({
   const [convite] = useState(() =>
     typeof window === 'undefined' ? undefined : codigoDoConvite(window.location.search),
   );
+  const [grupoConvidado] = useState(() =>
+    convite ? grupoDoConvite(window.location.hash) : undefined,
+  );
   const [salaInput, setSalaInput] = useState(convite ?? '');
   const [nomeInput, setNomeInput] = useState(() => {
     try {
@@ -64,6 +74,8 @@ export const LobbyOnline: React.FC<LobbyOnlineProps> = ({
   const [criacaoAberta, setCriacaoAberta] = useState(false);
   const [nomeSalaInput, setNomeSalaInput] = useState('');
   const [visibilidade, setVisibilidade] = useState<'privada' | 'publica'>('privada');
+  const [grupoInput, setGrupoInput] = useState('');
+  const grupoAnterior = ultimoGrupo();
   const [jogadoresContraBots, setJogadoresContraBots] = useState(4);
   const [maisJogadores, setMaisJogadores] = useState(false);
   const [salasAbertas, setSalasAbertas] = useState<boolean | undefined>();
@@ -100,23 +112,26 @@ export const LobbyOnline: React.FC<LobbyOnlineProps> = ({
     return nomeLimpo;
   }
 
-  function entrar(criar: boolean): void {
+  function entrarExistente(event: FormEvent<HTMLFormElement>): void {
+    event.preventDefault();
     const nomeLimpo = validarNome();
     if (!nomeLimpo) return;
 
-    if (
-      !criar &&
-      (!salaInput.trim() || salaInput.trim().length < 4 || salaInput.trim().length > 6)
-    ) {
+    const salaId = salaInput.trim().toUpperCase();
+    if (salaId.length < 4 || salaId.length > 6) {
       setValidationError('Digite o código completo da sala (ex: MOHPSR) para entrar.');
       return;
     }
 
+    const grupoRanking = salaId === convite ? grupoConvidado : undefined;
+    if (grupoRanking && !credencialDoRanking(grupoRanking)) {
+      setValidationError('Permita o armazenamento deste site para participar do ranking.');
+      return;
+    }
     setValidationError(undefined);
     salvarNome(nomeLimpo);
-    const salaId = criar ? gerarCodigo() : salaInput.trim().toUpperCase();
     setSalaInput(salaId);
-    onEntrar({ salaId, nome: nomeLimpo, criar });
+    onEntrar({ salaId, nome: nomeLimpo, criar: false, ...(grupoRanking ? { grupoRanking } : {}) });
   }
 
   function abrirCriacao(): void {
@@ -129,17 +144,29 @@ export const LobbyOnline: React.FC<LobbyOnlineProps> = ({
     event.preventDefault();
     const nomeLimpo = validarNome();
     if (!nomeLimpo) return;
+    const grupoRanking = visibilidade === 'privada' ? normalizarGrupo(grupoInput) : undefined;
+    if (visibilidade === 'privada' && grupoInput.trim() && !grupoRanking) {
+      setValidationError('Confira o código do grupo semanal ou crie um novo grupo.');
+      return;
+    }
+    if (grupoRanking && !credencialDoRanking(grupoRanking)) {
+      setValidationError('Permita o armazenamento deste site para participar do ranking.');
+      return;
+    }
 
     const salaId = gerarCodigo();
     const nomeSala = nomeSalaInput.trim() || `Sala de ${nomeLimpo}`;
+    setValidationError(undefined);
     salvarNome(nomeLimpo);
     setCriacaoAberta(false);
-    onEntrar({ salaId, nome: nomeLimpo, criar: true, nomeSala, visibilidade });
-  }
-
-  function entrarExistente(event: FormEvent<HTMLFormElement>): void {
-    event.preventDefault();
-    entrar(false);
+    onEntrar({
+      salaId,
+      nome: nomeLimpo,
+      criar: true,
+      nomeSala,
+      visibilidade,
+      ...(grupoRanking ? { grupoRanking } : {}),
+    });
   }
 
   function entrarNaSalaPublica(salaId: string): void {
@@ -315,7 +342,8 @@ export const LobbyOnline: React.FC<LobbyOnlineProps> = ({
           </div>
           {convite && salaInput === convite && (
             <p className="muted" role="status">
-              Convite para a sala {convite}: confira seu apelido e toque em Entrar.
+              Convite para a sala {convite}
+              {grupoConvidado ? ' com ranking semanal' : ''}. Confira seu apelido e toque em Entrar.
             </p>
           )}
         </section>
@@ -395,6 +423,47 @@ export const LobbyOnline: React.FC<LobbyOnlineProps> = ({
                   <option value="publica">Pública</option>
                 </select>
               </label>
+              {visibilidade === 'privada' && (
+                <fieldset className="ranking-grupo">
+                  <legend>Ranking semanal entre amigos</legend>
+                  <label>
+                    Código do grupo (opcional)
+                    <input
+                      value={grupoInput}
+                      maxLength={36}
+                      onChange={(event) => setGrupoInput(event.target.value)}
+                      autoComplete="off"
+                      spellCheck={false}
+                    />
+                  </label>
+                  <div className="ranking-grupo-acoes">
+                    <button
+                      type="button"
+                      className="button button-secondary"
+                      onClick={() => {
+                        const novo = globalThis.crypto?.randomUUID?.();
+                        if (novo) setGrupoInput(novo);
+                        else setValidationError('Abra o jogo em HTTPS para criar um grupo.');
+                      }}
+                    >
+                      Criar novo grupo
+                    </button>
+                    {grupoAnterior && (
+                      <button
+                        type="button"
+                        className="button button-secondary"
+                        onClick={() => setGrupoInput(grupoAnterior)}
+                      >
+                        Usar último grupo
+                      </button>
+                    )}
+                  </div>
+                  <small>
+                    Envie o convite da sala aos amigos. Só partidas completas entre pessoas contam.
+                  </small>
+                </fieldset>
+              )}
+              {validationError && <p role="alert">{validationError}</p>}
               <div className="form-actions">
                 <button
                   type="button"

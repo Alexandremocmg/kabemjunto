@@ -7,6 +7,7 @@ import type { ControladorMesa } from '../tipos';
 import { useRestante } from '../useRestante';
 import { compartilhar } from '../../services/compartilhar';
 import { gerarImagemDoResultado } from './imagemDoResultado';
+import { RankingEntreAmigos } from './RankingEntreAmigos';
 import './telaDeFim.css';
 
 /** Sem resposta do servidor depois disso, dá para pedir a revanche de novo. */
@@ -242,8 +243,9 @@ export function TelaDeFim({ controlador, onJogarDeNovo, onVoltarAoMenu }: TelaDe
           </p>
         </header>
 
-        {(premios.length > 0 || placar.length > 0) && (
+        {(premios.length > 0 || placar.length > 0 || fim?.ranking) && (
           <div className="fim-corpo" tabIndex={0} role="group" aria-label="Resumo da partida">
+            {fim?.ranking && <RankingEntreAmigos ranking={fim.ranking} />}
             {premios.length > 0 && (
               <section aria-labelledby="fim-premios">
                 <h3 id="fim-premios">Prêmios</h3>

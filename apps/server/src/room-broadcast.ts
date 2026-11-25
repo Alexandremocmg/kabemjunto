@@ -8,6 +8,7 @@ export function salaAtualizada(session: RoomSession): ServerSalaAtualizadaEvent 
     hostId: session.sala.hostId,
     jogadores: session.sala.jogadores,
     ...(session.sala.rapida ? { rapida: session.sala.rapida } : {}),
+    ...(session.ranking ? { grupoRanking: session.ranking.grupo } : {}),
   };
 }
 

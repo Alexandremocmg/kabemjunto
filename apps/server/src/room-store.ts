@@ -31,6 +31,14 @@ import {
   type VisibilidadeSala,
 } from '@kabemjunto/shared';
 import type { PersistedRoomSession, PlacarGravado, RoomPersistence } from './persistence.js';
+import {
+  chaveMembro,
+  codigoRankingValido,
+  rankingDoJogador,
+  registrarRanking,
+  type PlacaresSemanais,
+  type RankingDaSala,
+} from './ranking.js';
 
 /**
  * Duração da janela de Corta-Frente no servidor (autoridade). O cliente
@@ -65,6 +73,7 @@ export interface RoomSession {
   resumeTokenHashByPlayer: ReadonlyMap<JogadorId, string>;
   /** Placar desde a criação da sala; ausente até a primeira partida terminar. */
   placar?: PlacarGravado;
+  ranking?: RankingDaSala;
 }
 
 export interface JoinRoomInput {
@@ -72,6 +81,8 @@ export interface JoinRoomInput {
   jogadorId: string;
   salaId: string;
   nome: string;
+  grupoRanking?: string;
+  credencialRanking?: string;
   socketId: string;
   criar?: boolean;
   /** Só é aplicado na criação; o servidor normaliza antes de persistir. */
@@ -260,6 +271,7 @@ function paraPersistir(session: RoomSession): PersistedRoomSession {
     ...(session.estado === undefined ? {} : { estado: semTurno(session.estado) }),
     resumeTokenHashes,
     ...(session.placar === undefined ? {} : { placar: session.placar }),
+    ...(session.ranking === undefined ? {} : { ranking: session.ranking }),
   };
 }
 
@@ -415,6 +427,7 @@ function botPublico(salaId: string, numero: number): JogadorPublico {
 
 export class RoomStore {
   private readonly rooms = new Map<SalaId, RoomSession>();
+  private placaresSemanais: PlacaresSemanais = [];
   private readonly commitObservers = new Set<(session: RoomSession) => void>();
   private readonly removeObservers = new Set<(salaId: SalaId) => void>();
   private readonly quickPlayWaitMs: number;
@@ -438,7 +451,11 @@ export class RoomStore {
     this.quickPlayWaitMs = options.quickPlayWaitMs ?? QUICK_PLAY_WAIT_MS;
     this.turnLimitMs = options.turnLimitMs ?? 0;
     this.prazoParaDesconectado = options.prazoParaDesconectado ?? false;
-    if (persistence) this.restoreState(persistence.load());
+    if (persistence) {
+      const salas = persistence.load();
+      this.placaresSemanais = persistence.loadRanking?.() ?? [];
+      this.restoreState(salas);
+    }
   }
 
   /**
@@ -478,7 +495,10 @@ export class RoomStore {
     if (!session) return;
     // Grava antes: se falhar, a sala continua inteira e dá para tentar de novo.
     if (this.persistence) {
-      this.persistence.save(this.exportState().filter((room) => room.sala.id !== id));
+      this.gravar(
+        this.exportState().filter((room) => room.sala.id !== id),
+        this.placaresSemanais,
+      );
     }
     if (session.estado?.interceptacao) {
       this.clearInterceptionTimer(session.estado.interceptacao.janelaId);
@@ -508,6 +528,22 @@ export class RoomStore {
 
   exportState(): PersistedRoomSession[] {
     return [...this.rooms.values()].map(paraPersistir);
+  }
+
+  fimPara(
+    session: RoomSession,
+    jogadorId: string,
+    fim: ServerPartidaEncerradaEvent,
+  ): ServerPartidaEncerradaEvent {
+    if (!session.ranking || !session.estado) return fim;
+    const ranking = rankingDoJogador(
+      this.placaresSemanais,
+      session.ranking,
+      session.estado,
+      jogadorId,
+      fim.resumo.jogadores.find((jogador) => jogador.jogadorId === jogadorId)?.reflexosFeitos ?? 0,
+    );
+    return ranking ? { ...fim, ranking } : fim;
   }
 
   restoreState(rooms: readonly PersistedRoomSession[]): void {
@@ -541,6 +577,7 @@ export class RoomStore {
         socketByPlayer: new Map(),
         resumeTokenHashByPlayer: new Map(Object.entries(room.resumeTokenHashes)),
         ...(room.placar === undefined ? {} : { placar: room.placar }),
+        ...(room.ranking === undefined ? {} : { ranking: room.ranking }),
       });
     }
     this.rooms.clear();
@@ -599,6 +636,9 @@ export class RoomStore {
         sala,
         socketByPlayer: new Map(),
         resumeTokenHashByPlayer: new Map(),
+        ...(input.criar === true && input.grupoRanking
+          ? { ranking: { grupo: input.grupoRanking.toLowerCase(), membros: {} } }
+          : {}),
       };
     }
 
@@ -665,6 +705,17 @@ export class RoomStore {
       sala: { ...session.sala, jogadores: [...session.sala.jogadores, jogador] },
       socketByPlayer,
       resumeTokenHashByPlayer,
+      ...(session.ranking && input.credencialRanking
+        ? {
+            ranking: {
+              ...session.ranking,
+              membros: {
+                ...session.ranking.membros,
+                [jogadorId]: chaveMembro(session.ranking.grupo, input.credencialRanking),
+              },
+            },
+          }
+        : {}),
     };
     const gravada = this.commit(next);
     return { session: gravada, jogadorId, reconectado: false, resumeToken: issued.raw };
@@ -698,6 +749,19 @@ export class RoomStore {
     if (!session || some) {
       // Sala que não existe (ou que some quando a vaga anterior é liberada).
       if (input.criar === false) throw new RoomError('SALA_INEXISTENTE', 'Sala não encontrada.');
+      if (
+        input.criar === true &&
+        input.grupoRanking !== undefined &&
+        (input.visibilidade === 'PUBLICA' ||
+          input.rapida ||
+          !codigoRankingValido(input.grupoRanking) ||
+          !codigoRankingValido(input.credencialRanking))
+      ) {
+        throw new RoomError(
+          'AUTH_REQUIRED',
+          'O ranking semanal exige sala privada e um grupo válido.',
+        );
+      }
       return;
     }
     if (session.sala.jogadores.some((j) => j.id === input.jogadorId)) {
@@ -707,6 +771,26 @@ export class RoomStore {
         throw new RoomError('AUTH_REQUIRED', AUTH_REQUIRED_MESSAGE);
       }
       return;
+    }
+    const ranking = session.ranking;
+    if (ranking) {
+      if (
+        ranking.grupo !== input.grupoRanking?.toLowerCase() ||
+        !codigoRankingValido(input.credencialRanking)
+      ) {
+        throw new RoomError('AUTH_REQUIRED', 'Use o link de convite do grupo semanal para entrar.');
+      }
+      const chave = chaveMembro(ranking.grupo, input.credencialRanking);
+      const duplicado = session.sala.jogadores.some(
+        (jogador) =>
+          !(anterior?.salaId === salaId && jogador.id === anterior.jogadorId) &&
+          Object.hasOwn(ranking.membros, jogador.id) &&
+          ranking.membros[jogador.id] === chave,
+      );
+      if (duplicado)
+        throw new RoomError('AUTH_REQUIRED', 'Este navegador já ocupa um lugar na mesa.');
+    } else if (input.criar === true && input.grupoRanking) {
+      throw new RoomError('AUTH_REQUIRED', 'O código já está em uso. Crie a sala novamente.');
     }
     if (session.sala.status !== 'AGUARDANDO') {
       throw new RoomError('SALA_CHEIA', 'A partida desta sala já começou.');
@@ -929,7 +1013,11 @@ export class RoomStore {
       throw new RoomError('INTERCEPTACAO_INVALIDA', 'Corta-Frente em andamento.');
     }
     const { novoEstado, acao } = this.jogadaAutomatica(estado);
-    return { session: this.saveState(session, novoEstado), botId: bot.id, acao };
+    return {
+      session: this.saveState(this.marcarJogadaAutomatica(session, estado), novoEstado),
+      botId: bot.id,
+      acao,
+    };
   }
 
   /**
@@ -988,7 +1076,7 @@ export class RoomStore {
     const estouros = (this.estouros.get(session.sala.id)?.get(jogadorId) ?? 0) + 1;
     const inativo = estouros >= ESTOUROS_ATE_INATIVO && !novoEstado.finalizada;
     const gravada = this.saveState(
-      session,
+      this.marcarJogadaAutomatica(session, estado),
       inativo ? this.comControleDoBot(novoEstado, jogadorId, 'INATIVO') : novoEstado,
     );
     const daSala = this.estouros.get(session.sala.id) ?? new Map<JogadorId, number>();
@@ -1127,6 +1215,16 @@ export class RoomStore {
       sala: { ...session.sala, hostId, jogadores },
       socketByPlayer,
       resumeTokenHashByPlayer,
+      ...(session.ranking
+        ? {
+            ranking: {
+              ...session.ranking,
+              membros: Object.fromEntries(
+                Object.entries(session.ranking.membros).filter(([id]) => id !== jogadorId),
+              ),
+            },
+          }
+        : {}),
     };
     return this.commit(next);
   }
@@ -1786,15 +1884,34 @@ export class RoomStore {
     return this.commit({ ...session, estado }, true);
   }
 
+  private marcarJogadaAutomatica(session: RoomSession, estado: EstadoPartida): RoomSession {
+    return session.ranking
+      ? { ...session, ranking: { ...session.ranking, partidaComBot: estado.partidaId } }
+      : session;
+  }
+
+  private gravar(salas: PersistedRoomSession[], ranking: PlacaresSemanais): void {
+    if (ranking.length > 0) this.persistence?.save(salas, ranking);
+    else this.persistence?.save(salas);
+  }
+
   private commit(proposta: RoomSession, novaVez = false): RoomSession {
+    let placares = this.placaresSemanais;
+    const { estado, ranking } = proposta;
+    if (estado?.finalizada && ranking && ranking.resultado?.partidaId !== estado.partidaId) {
+      const registro = registrarRanking(placares, ranking, estado, Date.now());
+      placares = registro.placares;
+      proposta = { ...proposta, ranking: registro.ranking };
+    }
     const { session, vez } = this.aplicarPrazo(comPlacar(proposta), novaVez);
     const id = session.sala.id;
     if (this.persistence) {
-      this.persistence.save([
-        ...this.exportState().filter((room) => room.sala.id !== id),
-        paraPersistir(session),
-      ]);
+      this.gravar(
+        [...this.exportState().filter((room) => room.sala.id !== id), paraPersistir(session)],
+        placares,
+      );
     }
+    this.placaresSemanais = placares;
     this.rooms.set(id, session);
     if (vez) this.vezes.set(id, vez);
     else this.vezes.delete(id);
