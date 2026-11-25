@@ -26,7 +26,7 @@ Documentação reconciliada em **2026-11-25**, a partir de `c46a269`. A tag mais
 
 Consulte [GDD, regras canônicas](./GDD-Kabemjunto.md#7-regras-oficiais-canônicas-resumo), incluindo vitória imediata, efeitos de mão e esgotamento do monte.
 
-Na sala de espera pública, abra **Card de desafio** para gerar um PNG vertical com o QR do convite. Use **Compartilhar no Status** para abrir o compartilhamento do aparelho, **Baixar imagem** para publicar pelo aplicativo ou **Copiar link** para enviar o convite direto. O QR abre o menu com o código da sala preenchido.
+No menu, **Card de desafio** gera um PNG vertical com o QR do jogo. Na sala de espera pública criada à mão, o QR leva à sala e vale até a partida começar; no **Jogar agora** não há card, porque a espera é de 10 s. Use **Compartilhar no Status** para abrir o compartilhamento do aparelho, **Baixar imagem** para publicar pelo aplicativo ou **Copiar link** para enviar o convite direto. O QR da sala abre o menu com o código preenchido.
 
 ## Executar localmente
 

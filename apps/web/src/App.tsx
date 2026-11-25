@@ -134,8 +134,9 @@ function OnlineApp({
   const procurandoMesa = online.pedidoRapido !== undefined;
   const salaRapida = Boolean(online.state.rapida) || procurandoMesa;
   const wifiOn = online.state.status === 'connected';
+  // No "Jogar agora" a mesa espera 10 s: um QR com o código venceria antes de ser aberto.
   const cardDesafio =
-    online.state.visibilidadeSala === 'PUBLICA' && online.salaId ? (
+    online.state.visibilidadeSala === 'PUBLICA' && online.salaId && !salaRapida ? (
       <CardDesafio key={online.salaId} salaId={online.salaId} />
     ) : undefined;
 
@@ -371,23 +372,27 @@ function OnlineApp({
           {...(online.state.erro ? { mensagem: online.state.erro } : {})}
         />
       ) : !entrouNaSala && !procurandoMesa ? (
-        <LobbyOnline
-          onEntrar={(credentials) => online.entrarSala(credentials)}
-          onJogarAgora={online.jogarRapido}
-          erro={online.state.erro}
-          aviso={online.avisoMenu}
-          desabilitado={online.state.status === 'connecting'}
-          semInternet={semInternet}
-          salasPublicas={online.state.salasPublicas}
-          onListarSalas={online.listarSalas}
-          onJogarContraBots={onJogarContraBots}
-        />
+        <>
+          <LobbyOnline
+            onEntrar={(credentials) => online.entrarSala(credentials)}
+            onJogarAgora={online.jogarRapido}
+            erro={online.state.erro}
+            aviso={online.avisoMenu}
+            desabilitado={online.state.status === 'connecting'}
+            semInternet={semInternet}
+            salasPublicas={online.state.salasPublicas}
+            onListarSalas={online.listarSalas}
+            onJogarContraBots={onJogarContraBots}
+          />
+          <div className="menu-desafio">
+            <CardDesafio />
+          </div>
+        </>
       ) : !partidaIniciada && salaRapida ? (
         <SalaRapidaEspera
           jogadores={online.state.jogadores}
           rapida={online.state.rapida}
           souAnfitriao={online.isHost}
-          convite={cardDesafio}
           onComecar={online.iniciarPartida}
           onCancelar={() => {
             buscaRapidaCancelada();

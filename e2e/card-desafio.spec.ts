@@ -112,3 +112,24 @@ test('sala privada oferece o convite comum', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Convidar', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Card de desafio' })).toHaveCount(0);
 });
+
+test('no menu, o card leva ao jogo, sem código de sala, e não depende de mesa aberta', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 667 });
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: async (texto: string) => Object.assign(window, { __copiado: texto }) },
+    });
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Card de desafio' }).click();
+  const dialogo = page.getByRole('dialog', { name: 'Card de desafio' });
+  await expect(dialogo.getByRole('img', { name: /QR do endereço do jogo/ })).toBeVisible();
+  await expect(dialogo.getByText('O convite vale até a partida começar.')).toHaveCount(0);
+  await dialogo.getByRole('button', { name: 'Copiar link' }).click();
+  expect(await page.evaluate(() => Reflect.get(window, '__copiado'))).toBe(
+    new URL('/', page.url()).href,
+  );
+});

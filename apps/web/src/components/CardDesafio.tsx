@@ -15,7 +15,7 @@ function lerImagem(imagem: Blob): Promise<string> {
   });
 }
 
-function DialogoDesafio({ salaId, fechar }: { salaId: string; fechar: () => void }) {
+function DialogoDesafio({ salaId, fechar }: { salaId: string | undefined; fechar: () => void }) {
   const dialogo = useRef<HTMLDialogElement>(null);
   const titulo = useId();
   const link = linkDoJogo(salaId);
@@ -51,7 +51,7 @@ function DialogoDesafio({ salaId, fechar }: { salaId: string; fechar: () => void
     setMensagem('');
     const resultado = await compartilhar({
       titulo: 'Desafio Kabemjunto',
-      texto: `${desafio} A mesa tá aberta. Encara?`,
+      texto: `${desafio} ${salaId ? 'A mesa tá aberta.' : 'Vem jogar.'} Encara?`,
       link,
       imagem: card.imagem,
       somenteImagem: true,
@@ -86,7 +86,14 @@ function DialogoDesafio({ salaId, fechar }: { salaId: string; fechar: () => void
           </form>
         </header>
         {card ? (
-          <img src={card.previa} alt={`${desafio} QR do convite para a sala ${salaId}.`} />
+          <img
+            src={card.previa}
+            alt={
+              salaId
+                ? `${desafio} QR do convite para a sala ${salaId}.`
+                : `${desafio} QR do endereço do jogo.`
+            }
+          />
         ) : (
           <p role="status">
             {falhou
@@ -94,6 +101,7 @@ function DialogoDesafio({ salaId, fechar }: { salaId: string; fechar: () => void
               : 'Gerando o card…'}
           </p>
         )}
+        {salaId && <p className="muted">O convite vale até a partida começar.</p>}
         <div className="card-desafio-acoes">
           <button
             type="button"
@@ -107,7 +115,7 @@ function DialogoDesafio({ salaId, fechar }: { salaId: string; fechar: () => void
             <a
               className="button button-secondary"
               href={card.previa}
-              download={`kabemjunto-desafio-${salaId}.png`}
+              download={salaId ? `kabemjunto-desafio-${salaId}.png` : 'kabemjunto-desafio.png'}
             >
               Baixar imagem
             </a>
@@ -130,7 +138,8 @@ function DialogoDesafio({ salaId, fechar }: { salaId: string; fechar: () => void
   );
 }
 
-export function CardDesafio({ salaId }: { salaId: string }) {
+/** Com `salaId`, convida para a sala; sem ele, desafia a abrir o jogo (não vence). */
+export function CardDesafio({ salaId }: { salaId?: string }) {
   const [aberto, setAberto] = useState(false);
   return (
     <>

@@ -45,7 +45,8 @@ test('sozinho, espera a contagem e a mesa é completada com bots', async ({ brow
   await jogarAgora(page, 'Ana', 3);
 
   await expect(page.getByRole('heading', { name: 'Mesa pública' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Card de desafio' })).toBeVisible();
+  // A espera é curta demais para um QR com código: o card fica no menu, sem sala.
+  await expect(page.getByRole('button', { name: 'Card de desafio' })).toHaveCount(0);
   await expect(page.getByText(/Começa em \d+ s/)).toBeVisible();
   await expect(page.getByText('1 de 3 jogadores')).toBeVisible();
   await expect(

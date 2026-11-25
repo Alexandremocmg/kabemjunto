@@ -56,7 +56,10 @@ function desenharQr(ctx: CanvasRenderingContext2D, link: string): void {
   }
 }
 
-export async function gerarImagemDoDesafio(salaId: string, link: string): Promise<Blob> {
+export async function gerarImagemDoDesafio(
+  salaId: string | undefined,
+  link: string,
+): Promise<Blob> {
   const canvas = document.createElement('canvas');
   canvas.width = LARGURA;
   canvas.height = ALTURA;
@@ -101,10 +104,15 @@ export async function gerarImagemDoDesafio(salaId: string, link: string): Promis
   texto(FRASE_DESAFIO[0], 850, 77);
   texto(FRASE_DESAFIO[1], 945, 91, '#f8c56b');
   texto(FRASE_DESAFIO[2], 1040, 91, '#f8c56b');
-  texto('A mesa tá aberta. Encara?', 1120, 42, '#fff9ee', 600);
+  texto(salaId ? 'A mesa tá aberta. Encara?' : 'Vem jogar. Encara?', 1120, 42, '#fff9ee', 600);
   desenharQr(ctx, link);
   texto('Escaneie e vem jogar', 1650, 48);
-  texto(`Sala ${salaId}`, 1722, 44, '#f8c56b', 600);
+  if (salaId) {
+    texto(`Sala ${salaId}`, 1722, 44, '#f8c56b', 600);
+    texto('Vale até a partida começar', 1786, 36, '#fff9ee', 500);
+  } else {
+    texto(new URL(link).host, 1722, 44, '#f8c56b', 600);
+  }
 
   return new Promise((resolver, rejeitar) => {
     canvas.toBlob((blob) => {
