@@ -3,6 +3,10 @@
  *
  * - **Queda:** se uma pessoa fica sem conexão além da tolerância, um bot passa a
  *   jogar pelo assento até ela voltar.
+ * - **Cair e voltar em ciclo:** o tempo fora se acumula dentro da mesma vez, então
+ *   reconectar não renova a tolerância.
+ * - **Sala manual vazia:** partida sem ninguém conectado é encerrada depois de um
+ *   tempo (na hora, se não sobrou nenhuma pessoa); terminada e vazia, a sala some.
  * - **Prazo da vez:** quando o prazo que o `RoomStore` gravou em `estado.turno`
  *   acaba, um bot joga só aquela vez.
  *
@@ -12,11 +16,10 @@
  * Sem nenhuma pessoa conectada na sala tudo fica parado.
  */
 import { DISCONNECT_GRACE_PADRAO_MS } from './config.js';
-import { broadcastState, maybeOpenInterceptionWindow, sendPrivateHands } from './room-broadcast.js';
+import { maybeOpenInterceptionWindow, transmitirPartida } from './room-broadcast.js';
 import {
   humanPlayers,
   jogaComoBot,
-  toPublicState,
   type RoomSession,
   type RoomStore,
   type VezEsperada,
@@ -26,7 +29,14 @@ import type { GameServer } from './socket-types.js';
 export interface ResilienciaOptions {
   /** Quanto esperar por quem caiu antes de um bot jogar por ele; 0 desliga. */
   disconnectGraceMs?: number;
+  /** Quanto uma sala manual com partida fica sem ninguém conectado até ser encerrada. */
+  salaVaziaMs?: number;
 }
+
+/** Tempo até encerrar a partida (e depois apagar a sala) sem ninguém conectado. */
+const SALA_VAZIA_PADRAO_MS = 30 * 60_000;
+/** Sala terminada para a qual ninguém mais pode voltar. */
+const SALA_SEM_VOLTA_MS = 60_000;
 
 /** Espera antes de tentar de novo quando gravar falha (ex.: disco cheio). */
 const NOVA_TENTATIVA_MS = 5_000;
@@ -36,6 +46,13 @@ type Cronometro = ReturnType<typeof setTimeout>;
 interface Prazo extends VezEsperada {
   timer: Cronometro;
   expiraEm: number;
+}
+
+/** Tempo que o dono da vez passou fora, somado dentro da mesma vez. */
+interface Fora {
+  revisao: number;
+  acumuladoMs: number;
+  desde?: number;
 }
 
 interface Ausencia {
@@ -48,8 +65,13 @@ export class ResilienciaDirector {
   private readonly prazos = new Map<string, Prazo>();
   /** Tolerância de quem caiu, por sala e jogador. */
   private readonly ausencias = new Map<string, Map<string, Ausencia>>();
+  private readonly fora = new Map<string, Fora>();
+  /** Salas manuais sem ninguém conectado. */
+  private readonly vazias = new Map<string, { timer: Cronometro; chave: string }>();
+  private readonly salaVazia: number;
   private readonly tolerancia: number;
   private pararDeObservar: (() => void) | undefined;
+  private pararDeObservarRemocoes: (() => void) | undefined;
 
   constructor(
     private readonly io: GameServer,
@@ -57,11 +79,14 @@ export class ResilienciaDirector {
     opcoes: ResilienciaOptions = {},
   ) {
     this.tolerancia = opcoes.disconnectGraceMs ?? DISCONNECT_GRACE_PADRAO_MS;
+    this.salaVazia = opcoes.salaVaziaMs ?? SALA_VAZIA_PADRAO_MS;
   }
 
   /** Passa a observar o store e reavalia as salas que já existiam. */
   start(): void {
     this.pararDeObservar?.();
+    this.pararDeObservarRemocoes?.();
+    this.pararDeObservarRemocoes = this.store.addRemoveObserver((id) => this.esquecer(id));
     this.pararDeObservar = this.store.addCommitObserver((session) => this.aoMudar(session));
     for (const session of this.store.sessions()) this.aoMudar(session);
   }
@@ -70,17 +95,34 @@ export class ResilienciaDirector {
   stop(): void {
     this.pararDeObservar?.();
     this.pararDeObservar = undefined;
+    this.pararDeObservarRemocoes?.();
+    this.pararDeObservarRemocoes = undefined;
     for (const { timer } of this.prazos.values()) clearTimeout(timer);
     for (const daSala of this.ausencias.values()) {
       for (const { timer } of daSala.values()) clearTimeout(timer);
     }
+    for (const { timer } of this.vazias.values()) clearTimeout(timer);
     this.prazos.clear();
     this.ausencias.clear();
+    this.fora.clear();
+    this.vazias.clear();
+  }
+
+  /** A sala foi apagada: nenhum timer dela pode sobrar. */
+  private esquecer(id: string): void {
+    const prazo = this.prazos.get(id);
+    if (prazo) clearTimeout(prazo.timer);
+    this.prazos.delete(id);
+    for (const { timer } of this.ausencias.get(id)?.values() ?? []) clearTimeout(timer);
+    this.ausencias.delete(id);
+    this.fora.delete(id);
+    this.cancelarVazia(id);
   }
 
   private aoMudar(session: RoomSession): void {
     this.reavaliarPrazo(session);
     this.reavaliarAusencias(session);
+    this.reavaliarVazia(session);
   }
 
   // ─── Prazo da vez ───────────────────────────────────────────────────────────
@@ -129,8 +171,7 @@ export class ResilienciaDirector {
       return;
     }
     if (!resultado) return;
-    broadcastState(this.io, id, { estado: toPublicState(resultado.session.estado!) });
-    sendPrivateHands(this.io, resultado.session);
+    transmitirPartida(this.io, resultado.session, { maos: true });
     if (resultado.acao === 'JOGOU') {
       maybeOpenInterceptionWindow(this.io, this.store, id, resultado.botId);
     }
@@ -149,6 +190,7 @@ export class ResilienciaDirector {
     const idsAusentes = new Set(ausentes.map((jogador) => jogador.id));
     const partidaId = estado?.partidaId;
 
+    const tolerancia = this.toleranciaDe(sala.id, idsAusentes);
     const daSala = this.ausencias.get(sala.id) ?? new Map<string, Ausencia>();
     for (const [jogadorId, ausencia] of daSala) {
       if (idsAusentes.has(jogadorId) && ausencia.partidaId === partidaId) continue;
@@ -158,12 +200,37 @@ export class ResilienciaDirector {
     if (partidaId !== undefined) {
       for (const jogadorId of idsAusentes) {
         if (!daSala.has(jogadorId)) {
-          this.armarAusencia(sala.id, daSala, partidaId, jogadorId, this.tolerancia);
+          this.armarAusencia(sala.id, daSala, partidaId, jogadorId, tolerancia(jogadorId));
         }
       }
     }
     if (daSala.size > 0) this.ausencias.set(sala.id, daSala);
     else this.ausencias.delete(sala.id);
+  }
+
+  /**
+   * Atualiza o tempo fora do dono da vez e diz quanto ainda esperar por quem caiu
+   * agora. Só para o dono da vez: fora dela, cair não prende a mesa.
+   */
+  private toleranciaDe(id: string, ausentes: ReadonlySet<string>): (jogadorId: string) => number {
+    const vez = this.store.vezAtual(id);
+    if (!vez) {
+      this.fora.delete(id);
+      return () => this.tolerancia;
+    }
+    const agora = Date.now();
+    let fora = this.fora.get(id);
+    if (fora?.revisao !== vez.revisao) {
+      fora = { revisao: vez.revisao, acumuladoMs: 0 };
+      this.fora.set(id, fora);
+    }
+    if (ausentes.has(vez.jogadorId)) fora.desde ??= agora;
+    else if (fora.desde !== undefined) {
+      fora.acumuladoMs += agora - fora.desde;
+      delete fora.desde;
+    }
+    const restante = Math.max(0, this.tolerancia - fora.acumuladoMs);
+    return (jogadorId) => (jogadorId === vez.jogadorId ? restante : this.tolerancia);
   }
 
   private armarAusencia(
@@ -192,6 +259,51 @@ export class ResilienciaDirector {
       this.armarAusencia(id, daSala, partidaId, jogadorId, NOVA_TENTATIVA_MS);
       return;
     }
-    if (session?.estado) broadcastState(this.io, id, { estado: toPublicState(session.estado) });
+    if (session) transmitirPartida(this.io, session);
+  }
+
+  // ─── Salas manuais sem ninguém ──────────────────────────────────────────────
+
+  private reavaliarVazia(session: RoomSession): void {
+    const { sala, estado } = session;
+    const pessoas = humanPlayers(session);
+    // Quem saiu de vez não tem mais socket nem credencial, mesmo que conste na sala.
+    const presente = pessoas.some((p) => p.conectado && session.socketByPlayer.has(p.id));
+    // As salas rápidas têm a própria limpeza (QuickPlayDirector).
+    if (sala.rapida || !estado || presente) {
+      this.cancelarVazia(sala.id);
+      return;
+    }
+    const chave = `${estado.partidaId}:${estado.finalizada}`;
+    if (this.vazias.get(sala.id)?.chave === chave) return;
+    const alguemPodeVoltar = pessoas.some((p) => session.resumeTokenHashByPlayer.has(p.id));
+    const emMs = alguemPodeVoltar ? this.salaVazia : estado.finalizada ? SALA_SEM_VOLTA_MS : 0;
+    this.armarVazia(sala.id, chave, emMs);
+  }
+
+  private armarVazia(id: string, chave: string, emMs: number): void {
+    this.cancelarVazia(id);
+    const timer = setTimeout(() => this.encerrarVazia(id, chave), emMs);
+    timer.unref?.();
+    this.vazias.set(id, { timer, chave });
+  }
+
+  private encerrarVazia(id: string, chave: string): void {
+    this.vazias.delete(id);
+    const estado = this.store.get(id)?.estado;
+    if (!estado || `${estado.partidaId}:${estado.finalizada}` !== chave) return;
+    try {
+      // Encerrar reavalia a sala, que então espera de novo antes de ser apagada.
+      if (estado.finalizada) this.store.removeRoom(id);
+      else this.store.encerrarSemHumanos(id, estado.partidaId);
+    } catch {
+      this.armarVazia(id, chave, NOVA_TENTATIVA_MS);
+    }
+  }
+
+  private cancelarVazia(id: string): void {
+    const atual = this.vazias.get(id);
+    if (atual) clearTimeout(atual.timer);
+    this.vazias.delete(id);
   }
 }

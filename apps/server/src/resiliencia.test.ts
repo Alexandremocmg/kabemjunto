@@ -264,8 +264,9 @@ describe('queda de conexão', () => {
     expect(t.estado().vezDe).toBe('ana');
   });
 
-  it('reconectar e cair de novo recomeça a tolerância', () => {
-    const t = montar(['ana', 'bia']);
+  it('fora da própria vez, reconectar e cair de novo recomeça a tolerância', () => {
+    const t = montar(['ana', 'bia'], { limite: 0 });
+    t.preparar('bia', {});
     t.store.disconnect('s-ana');
     vi.advanceTimersByTime(TOLERANCIA - 10);
     t.voltar('ana');
@@ -285,7 +286,7 @@ describe('queda de conexão', () => {
     t.store.disconnect('s-bia');
     const antes = t.estado().historico.length;
     t.preparar('ana', {}); // vez de um assento automático
-    vi.advanceTimersByTime(60 * 60_000);
+    vi.advanceTimersByTime(29 * 60_000);
     expect(t.estado().historico.length).toBe(antes);
     expect(t.jogador('bia').controladoPorBot).toBeUndefined();
 

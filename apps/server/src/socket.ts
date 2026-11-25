@@ -21,6 +21,16 @@ import {
   type SocketActionCategory,
 } from './socket-security.js';
 
+/** Eventos que exigem um objeto: qualquer outra coisa é recusada antes do tratamento. */
+const EVENTOS_COM_PAYLOAD: ReadonlySet<string> = new Set([
+  'client:entrar:sala',
+  'client:jogar:rapido',
+  'client:jogar',
+  'client:interceptar',
+  'client:chat:msg',
+]);
+/** Espera antes de tentar gravar de novo uma desconexão que falhou (ex.: disco cheio). */
+const NOVA_TENTATIVA_MS = 5_000;
 const EMPTY_EVENT: ClientIniciarPartidaEvent = {};
 const MAX_MULTIPLE_DISCARD_CARD_IDS = 109; // ADR-013: baralho canônico não contém mais que 109 cartas.
 void EMPTY_EVENT;
@@ -82,15 +92,50 @@ export function registerSocketHandlers(
     if (session?.estado) broadcastState(io, salaId, { estado: toPublicState(session.estado) });
   }
 
+  /**
+   * Um socket só ocupa uma identidade. Antes de entrar em outra, sai da anterior
+   * (espera ou partida terminada); no meio de uma partida, a entrada é recusada.
+   * `mesma` diz se o pedido apenas retoma a vaga que o socket já ocupa.
+   */
+  function liberarAnterior(
+    socket: GameSocket,
+    mesma: (salaId: string, jogadorId: string, rapida: boolean) => boolean,
+  ): void {
+    const salaId = roomId(socket);
+    const jogadorId = jogadorIdFromSocket(socket);
+    if (!salaId || !jogadorId) return;
+    const session = store.get(salaId);
+    if (session?.socketByPlayer.get(jogadorId) === socket.id) {
+      if (mesma(salaId, jogadorId, session.sala.rapida !== undefined)) return;
+      if (session.estado && !session.estado.finalizada) {
+        throw new RoomError('JOGADOR_EM_OUTRA_SALA', 'Saia da partida atual antes de entrar.');
+      }
+      const restante = store.leaveWaitingRoom(salaId, jogadorId);
+      if (restante) socket.to(salaId).emit('server:sala:atualizada', salaAtualizada(restante));
+    }
+    void socket.leave(salaId);
+    delete socket.data.salaId;
+    delete socket.data.jogadorId;
+  }
+
+  /** Grava a queda de um socket; se a gravação falhar, tenta de novo até conseguir. */
+  function registrarQueda(socketId: string): void {
+    try {
+      const session = store.disconnect(socketId);
+      if (!session) return;
+      io.to(session.sala.id).emit('server:sala:atualizada', salaAtualizada(session));
+      // A queda de quem está na vez para o relógio: a mesa precisa saber.
+      if (session.estado && !session.estado.finalizada) {
+        broadcastState(io, session.sala.id, { estado: toPublicState(session.estado) });
+      }
+    } catch {
+      metrics.recordPersistenceFailure();
+      setTimeout(() => registrarQueda(socketId), NOVA_TENTATIVA_MS).unref?.();
+    }
+  }
+
   /** O que acontece depois de entrar numa sala (por código ou por "Jogar agora"). */
   function finalizarEntrada(socket: GameSocket, joined: ReturnType<RoomStore['join']>): void {
-    // Veio direto de outra sala ("Jogar agora" depois do fim): não ouve mais nada dela.
-    const anterior = roomId(socket);
-    if (anterior && anterior !== joined.session.sala.id) {
-      void socket.leave(anterior);
-      const sala = store.get(anterior);
-      if (sala) io.to(anterior).emit('server:sala:atualizada', salaAtualizada(sala));
-    }
     socket.data.salaId = joined.session.sala.id;
     socket.data.jogadorId = joined.jogadorId;
     void socket.join(joined.session.sala.id);
@@ -125,6 +170,14 @@ export function registerSocketHandlers(
   io.on('connection', (socket: GameSocket) => {
     metrics.recordConnection(1);
 
+    socket.use(([evento, payload], next) => {
+      if (EVENTOS_COM_PAYLOAD.has(evento) && (typeof payload !== 'object' || payload === null)) {
+        emitError(socket, new RoomError('INTERNAL', 'Payload inválido.'));
+        return;
+      }
+      next();
+    });
+
     socket.on('client:listar:salas', () => {
       socket.emit('server:salas:disponiveis', { salas: store.listAvailablePublicRooms() });
     });
@@ -145,6 +198,11 @@ export function registerSocketHandlers(
         return;
       }
       try {
+        const pedida = payload.salaId.trim().toUpperCase();
+        liberarAnterior(
+          socket,
+          (salaId, jogadorId) => salaId === pedida && jogadorId === payload.jogadorId,
+        );
         const joined = store.join({
           jogadorId: payload.jogadorId,
           salaId: payload.salaId,
@@ -177,6 +235,10 @@ export function registerSocketHandlers(
         return;
       }
       try {
+        liberarAnterior(socket, (salaId, jogadorId, rapida) => {
+          const terminada = store.get(salaId)?.estado?.finalizada === true;
+          return rapida && !terminada && jogadorId === payload.jogadorId;
+        });
         const joined = store.quickJoin({
           jogadorId: payload.jogadorId,
           nome: payload.nome,
@@ -445,8 +507,12 @@ export function registerSocketHandlers(
       } catch {
         // Falha ao gravar a presença não pode impedir a mensagem.
       }
-      const activeState = store.get(salaId)?.estado;
-      const silence = activeState ? store.penalizeSilenceBreak(salaId, jogadorId) : undefined;
+      let silence: ReturnType<RoomStore['penalizeSilenceBreak']> | undefined;
+      try {
+        if (store.get(salaId)?.estado) silence = store.penalizeSilenceBreak(salaId, jogadorId);
+      } catch {
+        // Sem cartas para a penalidade, ou falha ao gravar: a mensagem segue sem ela.
+      }
       const message: ServerChatEvent = { jogadorId, texto, timestamp: Date.now() };
       io.to(salaId).emit('server:chat:msg', message);
       if (silence?.penalized) {
@@ -459,14 +525,7 @@ export function registerSocketHandlers(
     socket.on('disconnect', () => {
       metrics.recordConnection(-1);
       limiter.releaseSocket(socket.id);
-      const session = store.disconnect(socket.id);
-      if (session) {
-        io.to(session.sala.id).emit('server:sala:atualizada', salaAtualizada(session));
-        // A queda de quem está na vez para o relógio: a mesa precisa saber.
-        if (session.estado && !session.estado.finalizada) {
-          broadcastState(io, session.sala.id, { estado: toPublicState(session.estado) });
-        }
-      }
+      registrarQueda(socket.id);
     });
   });
 }

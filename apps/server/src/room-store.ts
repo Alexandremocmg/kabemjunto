@@ -48,6 +48,9 @@ const QUICK_PLAY_JOIN_MARGIN_MS = 2_000;
 /** Quem reconecta na própria vez recebe ao menos isto, mesmo se o prazo já tinha acabado. */
 const TURNO_MINIMO_AO_VOLTAR_MS = 5_000;
 
+/** Espera antes de tentar de novo fechar um Corta-Frente cuja gravação falhou. */
+const NOVA_TENTATIVA_MS = 5_000;
+
 /** Estouros seguidos do limite por vez até um bot jogar pela pessoa. */
 export const ESTOUROS_ATE_INATIVO = 2;
 
@@ -97,6 +100,11 @@ export interface RoomStoreOptions {
   quickPlayWaitMs?: number;
   /** Limite por vez de uma pessoa conectada (ms); 0 ou ausente desliga. */
   turnLimitMs?: number;
+  /**
+   * O prazo da vez também corre para quem está sem conexão, se houver outra
+   * pessoa conectada. Use quando nenhum bot assume quem caiu (tolerância 0).
+   */
+  prazoParaDesconectado?: boolean;
 }
 
 /** Identifica uma vez específica; um prazo de outra vez nunca pode disparar nesta. */
@@ -112,6 +120,8 @@ interface VezAtual extends VezEsperada {
   expiraEm?: number;
   /** Tempo que sobrava quando o dono da vez caiu. */
   restanteMs?: number;
+  /** O mínimo de quem volta já foi dado nesta vez (só vale uma vez). */
+  minimoUsado?: boolean;
 }
 
 export interface BotTurnResult {
@@ -400,8 +410,10 @@ function botPublico(salaId: string, numero: number): JogadorPublico {
 export class RoomStore {
   private readonly rooms = new Map<SalaId, RoomSession>();
   private readonly commitObservers = new Set<(session: RoomSession) => void>();
+  private readonly removeObservers = new Set<(salaId: SalaId) => void>();
   private readonly quickPlayWaitMs: number;
   private readonly turnLimitMs: number;
+  private readonly prazoParaDesconectado: boolean;
   /** Vez atual de cada sala com partida. */
   private readonly vezes = new Map<SalaId, VezAtual>();
   private ultimaRevisao = 0;
@@ -419,6 +431,7 @@ export class RoomStore {
   ) {
     this.quickPlayWaitMs = options.quickPlayWaitMs ?? QUICK_PLAY_WAIT_MS;
     this.turnLimitMs = options.turnLimitMs ?? 0;
+    this.prazoParaDesconectado = options.prazoParaDesconectado ?? false;
     if (persistence) this.restoreState(persistence.load());
   }
 
@@ -434,6 +447,19 @@ export class RoomStore {
     };
   }
 
+  /** Observa salas apagadas (para cancelar timers). Devolve a função que para de observar. */
+  addRemoveObserver(observer: (salaId: SalaId) => void): () => void {
+    this.removeObservers.add(observer);
+    return () => {
+      this.removeObservers.delete(observer);
+    };
+  }
+
+  /** Identifica a vez atual da sala, mesmo quando nenhum prazo está correndo. */
+  vezAtual(salaId: string): VezEsperada | undefined {
+    return this.vezes.get(salaId.trim().toUpperCase());
+  }
+
   /** Todas as salas atuais (para varrer o que ficou pendente depois de reiniciar). */
   sessions(): RoomSession[] {
     return [...this.rooms.values()];
@@ -444,14 +470,22 @@ export class RoomStore {
     const id = salaId.trim().toUpperCase();
     const session = this.rooms.get(id);
     if (!session) return;
+    // Grava antes: se falhar, a sala continua inteira e dá para tentar de novo.
+    if (this.persistence) {
+      this.persistence.save(this.exportState().filter((room) => room.sala.id !== id));
+    }
     if (session.estado?.interceptacao) {
       this.clearInterceptionTimer(session.estado.interceptacao.janelaId);
     }
     this.rooms.delete(id);
     this.vezes.delete(id);
     this.estouros.delete(id);
-    if (this.persistence) {
-      this.persistence.save(this.exportState().filter((room) => room.sala.id !== id));
+    for (const observer of this.removeObservers) {
+      try {
+        observer(id);
+      } catch {
+        // Um observador nunca pode impedir a sala de ser apagada.
+      }
     }
   }
 
@@ -510,7 +544,16 @@ export class RoomStore {
       const janela = session.estado?.interceptacao;
       if (!janela) continue;
       if (janela.fechaEm <= Date.now()) {
-        this.resolveExpiredInterceptionWindow(salaId, janela.janelaId);
+        try {
+          this.resolveExpiredInterceptionWindow(salaId, janela.janelaId);
+        } catch {
+          this.armInterceptionTimer(
+            salaId,
+            janela.janelaId,
+            Date.now() + NOVA_TENTATIVA_MS,
+            janela.proximaVezId,
+          );
+        }
       } else {
         this.armInterceptionTimer(salaId, janela.janelaId, janela.fechaEm, janela.proximaVezId);
       }
@@ -606,7 +649,7 @@ export class RoomStore {
         socketByPlayer,
         resumeTokenHashByPlayer,
       };
-      this.zerarEstouros(salaId, input.jogadorId);
+      // Voltar, por si só, não zera os estouros: só agir (registrarPresenca).
       return {
         session: this.commit(next),
         jogadorId: input.jogadorId,
@@ -1039,12 +1082,7 @@ export class RoomStore {
     }
     const jogadores = session.sala.jogadores.filter((player) => player.id !== jogadorId);
     if (jogadores.length === 0) {
-      if (this.persistence) {
-        this.persistence.save(
-          this.exportState().filter((room) => room.sala.id !== session.sala.id),
-        );
-      }
-      this.rooms.delete(session.sala.id);
+      this.removeRoom(session.sala.id);
       return undefined;
     }
     const hostId =
@@ -1281,8 +1319,16 @@ export class RoomStore {
             this.interceptionExpiredHandler?.(salaId, resolved, janelaId, proximaVezId);
           }
         } catch {
-          // A janela foi resolvida por interceptação ou a sala deixou de
-          // existir. O callback é deliberadamente idempotente.
+          // Se a janela continua aberta, foi a gravação que falhou: sem tentar
+          // de novo a vez ficaria presa. Se já foi resolvida, não há o que fazer.
+          if (this.get(salaId)?.estado?.interceptacao?.janelaId === janelaId) {
+            this.armInterceptionTimer(
+              salaId,
+              janelaId,
+              Date.now() + NOVA_TENTATIVA_MS,
+              proximaVezId,
+            );
+          }
         }
       },
       Math.max(0, fechaEm - Date.now()),
@@ -1412,6 +1458,34 @@ export class RoomStore {
       socketByPlayer,
       resumeTokenHashByPlayer,
     });
+  }
+
+  /**
+   * Encerra por abandono uma partida em que não há ninguém conectado. Devolve
+   * `undefined`, sem mexer em nada, se alguém voltou ou a partida já acabou.
+   */
+  encerrarSemHumanos(salaId: string, partidaId: string): RoomSession | undefined {
+    const session = this.get(salaId);
+    const estado = session?.estado;
+    if (!session || !estado || estado.finalizada || estado.partidaId !== partidaId) {
+      return undefined;
+    }
+    if (humanPlayers(session).some((jogador) => jogador.conectado)) return undefined;
+    const encerrada = this.commit({
+      ...session,
+      sala: { ...session.sala, status: 'FINALIZADA' },
+      estado: {
+        ...estado,
+        interceptacao: undefined,
+        finalizada: true,
+        historico: [
+          ...estado.historico,
+          { tipo: 'PARTIDA_FINALIZADA', timestamp: Date.now(), motivo: 'ABANDONO' },
+        ],
+      },
+    });
+    if (estado.interceptacao) this.clearInterceptionTimer(estado.interceptacao.janelaId);
+    return encerrada;
   }
 
   prepareDeterministicVictoryFixture(salaId: string): {
@@ -1713,7 +1787,8 @@ export class RoomStore {
    * - Vez nova (ação de turno ou troca de dono): prazo inteiro.
    * - Mesma vez (reconexão de outro, penalidade de silêncio): prazo mantido.
    * - Queda do dono: guarda o que restava; ao voltar, continua dali (com um
-   *   mínimo), para que recarregar a página não renda tempo extra.
+   *   mínimo, uma única vez por vez), para que recarregar a página não renda
+   *   tempo extra.
    */
   private aplicarPrazo(
     session: RoomSession,
@@ -1731,14 +1806,18 @@ export class RoomStore {
       partidaId: estado.partidaId,
       jogadorId: estado.vezDe,
       revisao: anterior?.revisao ?? (this.ultimaRevisao += 1),
+      ...(anterior?.minimoUsado ? { minimoUsado: true } : {}),
     };
     const dono = estado.jogadores.find((jogador) => jogador.id === estado.vezDe);
+    const outraPessoa = humanPlayers(session).some(
+      (jogador) => jogador.conectado && jogador.id !== estado.vezDe,
+    );
     const correndo =
       this.turnLimitMs > 0 &&
       !estado.finalizada &&
       !estado.interceptacao &&
       dono !== undefined &&
-      dono.conectado &&
+      (dono.conectado || (this.prazoParaDesconectado && outraPessoa)) &&
       !jogaComoBot(dono);
 
     if (!correndo) {
@@ -1750,13 +1829,13 @@ export class RoomStore {
       return { session: estado === session.estado ? session : { ...session, estado }, vez };
     }
 
+    let duracao = anterior?.restanteMs ?? this.turnLimitMs;
     const minimo = Math.min(this.turnLimitMs, TURNO_MINIMO_AO_VOLTAR_MS);
-    const expiraEm =
-      anterior?.expiraEm ??
-      agora +
-        (anterior?.restanteMs !== undefined
-          ? Math.max(minimo, anterior.restanteMs)
-          : this.turnLimitMs);
+    if (anterior?.expiraEm === undefined && duracao < minimo && !vez.minimoUsado) {
+      duracao = minimo;
+      vez.minimoUsado = true;
+    }
+    const expiraEm = anterior?.expiraEm ?? agora + duracao;
     vez.expiraEm = expiraEm;
     const turno: PrazoTurno = {
       jogadorId: vez.jogadorId,

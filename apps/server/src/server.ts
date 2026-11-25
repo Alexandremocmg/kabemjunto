@@ -46,6 +46,8 @@ export async function buildServer(config: AppConfig = loadConfig(), webDistDir =
     {
       ...(config.quickPlayWaitMs !== undefined ? { quickPlayWaitMs: config.quickPlayWaitMs } : {}),
       turnLimitMs: config.turnLimitMs ?? TURN_LIMIT_PADRAO_MS,
+      // Sem bot para assumir quem caiu, é o prazo da vez que faz a mesa andar.
+      prazoParaDesconectado: config.disconnectGraceMs === 0,
     },
   );
   const metrics = createMetricsRegistry();

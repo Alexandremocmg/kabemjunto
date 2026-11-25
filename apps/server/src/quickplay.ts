@@ -17,17 +17,11 @@
  * reconexão) já reavalia o que falta fazer, sem lógica duplicada.
  */
 import type { GameServer } from './socket-types.js';
-import {
-  broadcastState,
-  maybeOpenInterceptionWindow,
-  salaAtualizada,
-  sendPrivateHands,
-} from './room-broadcast.js';
+import { maybeOpenInterceptionWindow, transmitirPartida } from './room-broadcast.js';
 import {
   humanPlayers,
   jogaComoBot,
   possiveisNaRevanche,
-  toPublicState,
   type RoomSession,
   type RoomStore,
 } from './room-store.js';
@@ -46,7 +40,7 @@ export interface QuickPlayOptions {
 const BOT_PAUSA_PADRAO = { min: 900, max: 1700 };
 const LIMPEZA_PADRAO_MS = 60_000;
 const TETO_TERMINADA_PADRAO_MS = 5 * 60_000;
-/** Espera antes de tentar de novo quando a vez do bot falha (ex.: disco cheio). */
+/** Espera antes de tentar de novo quando gravar falha (ex.: disco cheio). */
 const NOVA_TENTATIVA_MS = 5_000;
 
 type Cronometro = ReturnType<typeof setTimeout>;
@@ -64,6 +58,7 @@ export class QuickPlayDirector {
   private readonly tolerancia: number;
   private readonly tetoTerminada: number;
   private pararDeObservar: (() => void) | undefined;
+  private pararDeObservarRemocoes: (() => void) | undefined;
 
   constructor(
     private readonly io: GameServer,
@@ -78,6 +73,8 @@ export class QuickPlayDirector {
   /** Passa a observar o store e reavalia as salas que já existiam (ex.: depois de reiniciar). */
   start(): void {
     this.pararDeObservar?.();
+    this.pararDeObservarRemocoes?.();
+    this.pararDeObservarRemocoes = this.store.addRemoveObserver((id) => this.esquecer(id));
     this.pararDeObservar = this.store.addCommitObserver((session) => this.aoMudar(session));
     for (const session of this.store.sessions()) this.aoMudar(session);
   }
@@ -86,6 +83,8 @@ export class QuickPlayDirector {
   stop(): void {
     this.pararDeObservar?.();
     this.pararDeObservar = undefined;
+    this.pararDeObservarRemocoes?.();
+    this.pararDeObservarRemocoes = undefined;
     for (const timer of this.esperas.values()) clearTimeout(timer);
     for (const { timer } of this.bots.values()) clearTimeout(timer);
     for (const { timer } of this.limpezas.values()) clearTimeout(timer);
@@ -150,11 +149,11 @@ export class QuickPlayDirector {
     try {
       iniciada = this.store.startWithBots(id);
     } catch {
-      return; // sem jogadores: a limpeza cuida da sala
+      // Sem jogadores, a limpeza cuida da sala; com gente, foi a gravação que falhou.
+      if (humanPlayers(atual).length > 0) this.agendarInicio(id, NOVA_TENTATIVA_MS);
+      return;
     }
-    this.io.to(id).emit('server:sala:atualizada', salaAtualizada(iniciada));
-    broadcastState(this.io, id, { estado: toPublicState(iniciada.estado!) });
-    sendPrivateHands(this.io, iniciada);
+    transmitirPartida(this.io, iniciada, { sala: true, maos: true });
   }
 
   // ─── Vez dos bots ───────────────────────────────────────────────────────────
@@ -185,8 +184,7 @@ export class QuickPlayDirector {
       this.agendarBot(id, estado.partidaId, botId, NOVA_TENTATIVA_MS);
       return;
     }
-    broadcastState(this.io, id, { estado: toPublicState(resultado.session.estado!) });
-    sendPrivateHands(this.io, resultado.session);
+    transmitirPartida(this.io, resultado.session, { maos: true });
     if (resultado.acao === 'JOGOU') {
       maybeOpenInterceptionWindow(this.io, this.store, id, resultado.botId);
     }
@@ -228,11 +226,20 @@ export class QuickPlayDirector {
       this.armarLimpeza(id, true, NOVA_TENTATIVA_MS);
       return;
     }
+    try {
+      this.store.removeRoom(id);
+    } catch {
+      this.armarLimpeza(id, !semGente, NOVA_TENTATIVA_MS);
+      return;
+    }
+    this.io.in(id).socketsLeave(id);
+  }
+
+  private esquecer(id: string): void {
     this.cancelarEspera(id);
     this.cancelarBot(id);
+    this.cancelarLimpeza(id);
     this.fins.delete(id);
-    this.store.removeRoom(id);
-    this.io.in(id).socketsLeave(id);
   }
 
   private cancelarEspera(id: string): void {

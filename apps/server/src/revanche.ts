@@ -12,12 +12,11 @@
  */
 import type { JogadorId, ServerRevancheAtualizadaEvent } from '@kabemjunto/shared';
 import { REVANCHE_WAIT_PADRAO_MS } from './config.js';
-import { broadcastState, salaAtualizada, sendPrivateHands } from './room-broadcast.js';
+import { transmitirPartida } from './room-broadcast.js';
 import {
   partidaEncerrada,
   possiveisNaRevanche,
   RoomError,
-  toPublicState,
   type RoomSession,
   type RoomStore,
 } from './room-store.js';
@@ -44,6 +43,7 @@ export class RevancheDirector {
   private readonly andamentos = new Map<string, Andamento>();
   private readonly espera: number;
   private pararDeObservar: (() => void) | undefined;
+  private pararDeObservarRemocoes: (() => void) | undefined;
 
   constructor(
     private readonly io: GameServer,
@@ -55,6 +55,8 @@ export class RevancheDirector {
 
   start(): void {
     this.pararDeObservar?.();
+    this.pararDeObservarRemocoes?.();
+    this.pararDeObservarRemocoes = this.store.addRemoveObserver((id) => this.esquecer(id));
     // O que já tinha terminado antes de ligar não é transmitido de novo.
     for (const session of this.store.sessions()) {
       if (session.estado?.finalizada) this.novo(session.sala.id, session.estado.partidaId);
@@ -66,6 +68,8 @@ export class RevancheDirector {
   stop(): void {
     this.pararDeObservar?.();
     this.pararDeObservar = undefined;
+    this.pararDeObservarRemocoes?.();
+    this.pararDeObservarRemocoes = undefined;
     for (const id of [...this.andamentos.keys()]) this.esquecer(id);
   }
 
@@ -105,7 +109,6 @@ export class RevancheDirector {
       return;
     }
     if (this.andamentos.get(sala.id)?.partidaId !== estado.partidaId) {
-      this.limparRemovidas();
       this.novo(sala.id, estado.partidaId);
       this.io.to(sala.id).emit('server:partida:encerrada', partidaEncerrada(session)!);
     }
@@ -174,9 +177,7 @@ export class RevancheDirector {
       return;
     }
     this.retirarQuemFicouFora(session);
-    this.io.to(id).emit('server:sala:atualizada', salaAtualizada(session));
-    broadcastState(this.io, id, { estado: toPublicState(session.estado!) });
-    sendPrivateHands(this.io, session);
+    transmitirPartida(this.io, session, { sala: true, maos: true });
   }
 
   /** Antes de transmitir a partida nova, tira da sala todo socket que não participa dela. */
@@ -222,9 +223,5 @@ export class RevancheDirector {
     const andamento = this.andamentos.get(id);
     if (andamento) this.cancelar(andamento);
     this.andamentos.delete(id);
-  }
-
-  private limparRemovidas(): void {
-    for (const id of [...this.andamentos.keys()]) if (!this.store.get(id)) this.esquecer(id);
   }
 }
