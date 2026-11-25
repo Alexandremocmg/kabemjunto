@@ -14,6 +14,7 @@
 import type { ResumoPartida } from '../stats/index.js';
 import type { Carta, Cor, Acao } from './card.js';
 import type { JogadorId, JogadorPublico } from './player.js';
+import type { RankingSemanal } from './ranking.js';
 import type {
   EstadoPartidaPublico,
   SalaId,
@@ -73,6 +74,8 @@ export interface ClientEntrarSalaEvent {
   jogadorId: string;
   salaId: string;
   nome: string;
+  grupoRanking?: string;
+  credencialRanking?: string;
   /** Nome público da sala, aplicado somente quando a criação é autorizada. */
   nomeSala?: string;
   /** Token opaco emitido pelo servidor para retomar uma identidade existente. */
@@ -229,6 +232,7 @@ export interface ServerSalaAtualizadaEvent {
   jogadores: ReadonlyArray<JogadorPublico>;
   /** Presente nas salas "Jogar agora": tamanho da mesa e quando a partida começa. */
   rapida?: SalaRapida;
+  grupoRanking?: string;
 }
 
 /** Vitórias de cada assento desde que a sala foi criada. */
@@ -241,6 +245,7 @@ export interface PlacarSessao {
 export interface ServerPartidaEncerradaEvent {
   resumo: ResumoPartida;
   placar: PlacarSessao;
+  ranking?: RankingSemanal;
 }
 
 /** Andamento da revanche. `prontos` vazio e sem `restanteMs` = ninguém pediu ainda. */

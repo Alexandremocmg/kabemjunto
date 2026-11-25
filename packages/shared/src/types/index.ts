@@ -14,3 +14,4 @@ export * from './card.js';
 export * from './player.js';
 export * from './game.js';
 export * from './socket-events.js';
+export * from './ranking.js';

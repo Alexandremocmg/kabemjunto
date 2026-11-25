@@ -185,3 +185,17 @@
   z-index: 10000;
   pointer-events: none;
 }
+.fim-ranking-categoria {
+  margin-block: 0.4rem;
+}
+
+.fim-ranking-categoria summary {
+  padding-block: 0.4rem;
+  cursor: pointer;
+}
+
+.fim-ranking-categoria summary span {
+  display: block;
+  padding-inline-start: 1rem;
+  font-size: 0.875rem;
+}

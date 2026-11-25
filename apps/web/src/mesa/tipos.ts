@@ -3,6 +3,7 @@ import type {
   Cor,
   EstadoPartidaPublico,
   PlacarSessao,
+  RankingSemanal,
   ResumoPartida,
 } from '@kabemjunto/shared';
 import type { RevancheRecebida } from '../services/socketClient';
@@ -44,7 +45,7 @@ export interface ControladorMesa {
   /** Corta-Frente: pede a interceptação da janela ativa com uma carta idêntica. */
   interceptar: (cartaId: string) => void;
   /** Prêmios e placar; online pode chegar depois do fim (ou não chegar). */
-  fim?: { resumo: ResumoPartida; placar?: PlacarSessao } | undefined;
+  fim?: { resumo: ResumoPartida; placar?: PlacarSessao; ranking?: RankingSemanal } | undefined;
   revanche?: RevancheRecebida | undefined;
   /** Online: falso enquanto a conexão não volta. */
   conectado?: boolean;

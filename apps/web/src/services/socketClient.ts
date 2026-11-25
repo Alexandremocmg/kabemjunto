@@ -14,8 +14,6 @@ import {
   type JogadorPublico,
   type SalaRapida,
   type ServerChatEvent,
-  type PlacarSessao,
-  type ResumoPartida,
   type ServerDescarteMultiploAceitoEvent,
   type ServerErroEvent,
   type ServerEstadoAtualizadoEvent,
@@ -31,6 +29,7 @@ import {
 } from '@kabemjunto/shared';
 import { lerAvatarEscolhido } from './avatar';
 import { reconectado } from './metricas';
+import { credencialDoRanking, lembrarGrupo, normalizarGrupo } from './rankingAmigos';
 
 type RoomCreationOptions = {
   nomeSala?: string;
@@ -90,7 +89,8 @@ export interface SocketGameState {
   /** Incrementado cada vez que server:erro dispara enquanto há um batch pendente. */
   descarteMultiploErro: number;
   /** Fim da partida. Pode ser de outra partida: quem lê compara com `estado.partidaId`. */
-  fim: { resumo: ResumoPartida; placar: PlacarSessao } | undefined;
+  fim: ServerPartidaEncerradaEvent | undefined;
+  grupoRanking?: string | undefined;
   /** Andamento da revanche, com a mesma ressalva de `fim`. */
   revanche: RevancheRecebida | undefined;
   /** Muda a cada conexão: o primeiro estado depois dela não se compara com o anterior. */
@@ -153,6 +153,7 @@ export interface SessionCredentials extends RoomCreationOptions {
   criar?: boolean;
   /** Token opaco rotativo emitido pelo servidor. Nunca é enviado à telemetria/logs. */
   resumeToken?: string;
+  grupoRanking?: string;
   /**
    * "Jogar agora": tamanho da mesa pedida. Enquanto `salaId` está vazio, a pessoa ainda
    * está sendo encaixada numa sala pública pelo servidor (que devolve o código da sala).
@@ -167,9 +168,13 @@ export function toEntrarSalaEvent({
   ...credentials
 }: SessionCredentials): ClientEntrarSalaEvent {
   const avatarId = lerAvatarEscolhido();
+  const credencialRanking = credentials.grupoRanking
+    ? credencialDoRanking(credentials.grupoRanking)
+    : undefined;
   return {
     ...credentials,
     ...(avatarId ? { avatarId } : {}),
+    ...(credencialRanking ? { credencialRanking } : {}),
     ...(visibilidade === undefined
       ? {}
       : { visibilidade: visibilidade === 'publica' ? 'PUBLICA' : 'PRIVADA' }),
@@ -220,10 +225,15 @@ export function readSession(): SessionCredentials | undefined {
       typeof parsed.salaId === 'string' &&
       typeof parsed.nome === 'string'
     ) {
+      const grupoRanking =
+        'grupoRanking' in parsed && typeof parsed.grupoRanking === 'string'
+          ? normalizarGrupo(parsed.grupoRanking)
+          : undefined;
       return {
         jogadorId: parsed.jogadorId,
         salaId: parsed.salaId,
         nome: parsed.nome,
+        ...(grupoRanking ? { grupoRanking } : {}),
         ...('nomeSala' in parsed && typeof parsed.nomeSala === 'string'
           ? { nomeSala: parsed.nomeSala }
           : {}),
@@ -337,6 +347,7 @@ export function useGameSocket(): {
     rapida: undefined,
     descarteMultiploErro: 0,
     fim: undefined,
+    grupoRanking: undefined,
     revanche: undefined,
     conexao: 0,
   });
@@ -421,11 +432,11 @@ export function useGameSocket(): {
       if (salaAtualRef.current && estado.salaId !== salaAtualRef.current) return;
       setState((current) => comEstado(current, estado));
     };
-    const onMatchEnded = ({ resumo, placar }: ServerPartidaEncerradaEvent) => {
+    const onMatchEnded = (fim: ServerPartidaEncerradaEvent) => {
       if (foraDaSala()) return;
       setState((current) =>
-        eventoVale(current.estado?.partidaId, current.fim?.resumo.partidaId, resumo.partidaId)
-          ? { ...current, fim: { resumo, placar } }
+        eventoVale(current.estado?.partidaId, current.fim?.resumo.partidaId, fim.resumo.partidaId)
+          ? { ...current, fim }
           : current,
       );
     };
@@ -438,10 +449,16 @@ export function useGameSocket(): {
           : current,
       );
     };
-    const onRoom = ({ hostId: nextHostId, jogadores, rapida }: ServerSalaAtualizadaEvent) => {
+    const onRoom = ({
+      hostId: nextHostId,
+      jogadores,
+      rapida,
+      grupoRanking,
+    }: ServerSalaAtualizadaEvent) => {
       if (foraDaSala()) return;
       setHostId(nextHostId);
-      setState((current) => ({ ...current, jogadores, rapida }));
+      if (grupoRanking) lembrarGrupo(grupoRanking);
+      setState((current) => ({ ...current, jogadores, rapida, grupoRanking }));
     };
     const onChat = (message: ServerChatEvent) =>
       !foraDaSala() &&
@@ -576,6 +593,7 @@ export function useGameSocket(): {
         salaId: nextCredentials.salaId.trim().toUpperCase(),
         nome: nextCredentials.nome.trim(),
         criar: nextCredentials.criar ?? false,
+        ...(nextCredentials.grupoRanking ? { grupoRanking: nextCredentials.grupoRanking } : {}),
         ...(nextCredentials.nomeSala === undefined
           ? {}
           : { nomeSala: nextCredentials.nomeSala.trim() }),
@@ -712,6 +730,7 @@ export function useGameSocket(): {
       rapida: undefined,
       descarteMultiploErro: 0,
       fim: undefined,
+      grupoRanking: undefined,
       revanche: undefined,
       conexao: current.conexao,
     }));

@@ -10,8 +10,11 @@ export function codigoDoConvite(busca: string): string | undefined {
 export function linkDoJogo(
   codigo: string | undefined,
   base: string = new URL(import.meta.env.BASE_URL, window.location.origin).href,
+  grupoRanking?: string,
 ): string {
   const url = new URL(base);
   if (codigo && FORMATO.test(codigo)) url.searchParams.set('sala', codigo);
+  // O fragmento não vai para o servidor ao abrir o link.
+  if (grupoRanking) url.hash = new URLSearchParams({ grupo: grupoRanking }).toString();
   return url.href;
 }
