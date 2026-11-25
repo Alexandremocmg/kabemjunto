@@ -639,7 +639,7 @@ levava ao menu. Com o "Jogar agora" juntando desconhecidos, isso custava partida
 
 ### ADR-017: Ranking semanal entre amigos
 
-**Status:** Proposto · **Data:** 2026-11-25
+**Status:** Aceito (PR #42, publicado em 2026-11-25) · **Data:** 2026-11-25
 
 **Contexto.** A turma precisa de um motivo para voltar, sem conta nem ranking público.
 

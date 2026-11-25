@@ -6,7 +6,7 @@ Jogo de cartas com temática brasileira, **109 cartas**, regra do 7 (Silêncio),
 
 [![CI](https://github.com/Alexandremocmg/kabemjunto/actions/workflows/ci.yml/badge.svg)](https://github.com/Alexandremocmg/kabemjunto/actions/workflows/ci.yml)
 
-Documentação reconciliada em **2026-11-25**, a partir de `c46a269`. A tag mais recente encontrada é `v0.5.1`; ela não inclui todas as mudanças posteriores da branch. A versão `1.0.0` no `package.json` também não comprova lançamento público v1.0. Contagens antigas de testes e relatos de deploy são evidências históricas, não resultados desta revisão.
+Documentação reconciliada em **2026-11-25**, a partir de `9f6f6cf`. A tag mais recente encontrada é `v0.5.1`; ela não inclui todas as mudanças posteriores da branch. A versão `1.0.0` no `package.json` também não comprova lançamento público v1.0. Contagens antigas de testes e relatos de deploy são evidências históricas, não resultados desta revisão.
 
 ## Jogar
 

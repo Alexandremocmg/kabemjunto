@@ -4,14 +4,14 @@
 
 **Time:** Mavis (lead) · Codex (eng. pleno) · Antigravity (eng. júnior)
 **Fonte atual:** [README](./README.md) (operação), [GDD mestre](./GDD-Kabemjunto.md) v1.1 (regras) e código; plano e entradas anteriores são históricos
-**Base da revisão:** `main` em `c46a269` (2026-11-25), com mesa 3D, PWA, "Jogar agora", partida resiliente e revanche
+**Base da revisão:** `main` em `9f6f6cf` (2026-11-25), com ranking entre amigos, card de desafio, mesa 3D, PWA, "Jogar agora", partida resiliente e revanche
 **Último briefing:** [Sprint 7](./briefings/sprint-7.md) — beta fechado e onboarding; conclusão das issues não revalidada nesta revisão
 
 ### 2026-11-25 — Situação atual
 
-- **No ar:** `main` em `c46a269`, publicada na VPS em `https://kabemjunto.kabemmanager.online` (PRs #35 a #40). Conferido de fora: endereços principais, prazo da vez, avatar, bot assumindo quem sai, e confete na tela de fim.
+- **No ar:** `main` em `9f6f6cf`, publicada na VPS em `https://kabemjunto.kabemmanager.online` (PRs #35 a #43). Conferido de fora: partida completa com ranking e revanche (dois clientes automáticos), recusa de quem entra no ranking sem o link, card de desafio no menu, endereços principais, prazo da vez, avatar, bot assumindo quem sai, e confete na tela de fim.
 - **Próximo:** playtest fechado ([roteiro](./docs/PLAYTEST-FECHADO-v0.5.1.md), issue #16). Depois, decidir sobre as métricas (`docs/METRICAS.md`), a primeira partida (issue #17) e a moderação de chat e apelidos, antes de divulgar.
-- **Ainda não verificado:** pessoas reais nesta versão, celular físico, carga, e a revanche na VPS (passou nos testes locais e no CI).
+- **Ainda não verificado:** pessoas reais nesta versão, celular físico, carga e compartilhamento real do card.
 
 ### 2026-11-25 — Retenção, etapas 0 e 1 (PR #38)
 
