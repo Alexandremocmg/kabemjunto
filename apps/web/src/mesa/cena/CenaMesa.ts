@@ -77,6 +77,7 @@ import {
   DURACAO_ANEL_SILENCIO,
   DURACAO_IMPACTO,
 } from './impacto';
+import { imagemDoAvatar } from './avatares';
 import { BancoDeTexturas, desenharPlaqueta, type TemaMesa } from './texturas';
 
 // ─── Contratos ──────────────────────────────────────────────────────────────
@@ -93,6 +94,8 @@ export interface AdversarioCena {
   avatar: string;
   quantidadeCartas: number;
   conectado: boolean;
+  /** Por que um bot joga neste assento, em texto curto. */
+  situacao?: string | undefined;
   naVez: boolean;
 }
 
@@ -524,6 +527,13 @@ export class CenaMesa {
     this.ultimoInstante = performance.now();
     this.animacao = requestAnimationFrame(this.quadro);
   }
+
+  /** Um desenho de avatar chegou: as plaquetas que o esperavam são refeitas. */
+  private readonly aoCarregarAvatar = (): void => {
+    if (this.destruida || !this.instantaneo) return;
+    this.aplicar(this.instantaneo, false);
+    this.marcarSujo();
+  };
 
   // ─── API pública ──────────────────────────────────────────────────────────
 
@@ -981,7 +991,8 @@ export class CenaMesa {
     for (const adversario of inst.adversarios) {
       const assento = this.assentos.get(adversario.id);
       if (!assento) continue;
-      const assinatura = `${adversario.nome}|${adversario.avatar}|${adversario.quantidadeCartas}|${adversario.naVez}|${adversario.conectado}`;
+      const imagem = imagemDoAvatar(adversario.avatar, this.aoCarregarAvatar);
+      const assinatura = `${adversario.nome}|${adversario.avatar}|${adversario.quantidadeCartas}|${adversario.naVez}|${adversario.conectado}|${adversario.situacao ?? ''}|${imagem ? 1 : 0}`;
       if (assinatura !== assento.assinatura) {
         desenharPlaqueta(assento.canvas, {
           nome: adversario.nome,
@@ -989,6 +1000,8 @@ export class CenaMesa {
           quantidadeCartas: adversario.quantidadeCartas,
           naVez: adversario.naVez,
           conectado: adversario.conectado,
+          situacao: adversario.situacao,
+          imagem,
           destaque: this.opcoes.tema.destaque,
         });
         assento.textura.needsUpdate = true;

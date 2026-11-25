@@ -236,17 +236,22 @@ test('falas rápidas viram balão no assento de quem falou e ficam no chat do me
   await expect(menu.locator('.player-list')).not.toContainText('0 cartas');
 });
 
-test('sair no meio da partida volta ao menu e avisa quem ficou', async ({ browser }) => {
+test('sair no meio da partida volta ao menu, e um bot joga no lugar para quem ficou', async ({
+  browser,
+}) => {
   const { host, convidado } = await abrirPartida(browser);
 
   await convidado.getByRole('button', { name: 'Sair da partida' }).click();
   const confirmacao = convidado.getByRole('dialog', { name: 'Sair da partida?' });
+  await expect(confirmacao).toContainText('Um bot assume o seu lugar');
   await expect(confirmacao).toContainText('não poderá voltar');
   await confirmacao.getByRole('button', { name: 'Sair' }).click();
   await expect(convidado.getByRole('heading', { name: 'Como você quer jogar?' })).toBeVisible();
 
-  const encerrada = host.getByRole('dialog', { name: 'Partida encerrada' });
-  await expect(encerrada).toBeVisible();
-  await encerrada.getByRole('button', { name: 'Voltar ao menu' }).click();
-  await expect(host.getByRole('heading', { name: 'Como você quer jogar?' })).toBeVisible();
+  // A partida continua para quem ficou.
+  await expect(host.getByRole('list', { name: 'Jogadores' })).toContainText('saiu · bot joga');
+  await expect(host.getByRole('dialog')).toHaveCount(0);
+  await expect(host.locator('.mesa3d canvas')).toBeVisible();
+  await host.getByRole('button', { name: /Menu da partida/ }).click();
+  await expect(host.getByRole('dialog', { name: 'Partida' })).toContainText('saiu · bot joga');
 });

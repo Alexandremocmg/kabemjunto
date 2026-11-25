@@ -1,4 +1,5 @@
 import React from 'react';
+import { caminhoDoAvatar, emojiDoAvatar } from '../services/avatar';
 
 export interface AvatarComStatusProps {
   avatarId?: string;
@@ -24,11 +25,8 @@ export const AvatarComStatus: React.FC<AvatarComStatusProps> = ({
   const statusColor = isConnected ? '#22C55E' : '#6B7280';
   const statusLabel = isConnected ? 'Conectado' : 'Desconectado';
 
-  // Se avatarId for ex: 'avatar-01' ou '01', resolve o caminho SVG
-  const normalizedId = avatarId?.replace(/^avatar-?/, '');
-  const svgPath =
-    avatarUrl ??
-    (normalizedId ? `/assets/svgs/avatars/avatar-${normalizedId.padStart(2, '0')}.svg` : undefined);
+  // '01'..'12' viram desenho; emoji (bots, salas antigas) aparece como está.
+  const svgPath = avatarUrl ?? caminhoDoAvatar(avatarId);
 
   return (
     <div
@@ -70,7 +68,9 @@ export const AvatarComStatus: React.FC<AvatarComStatusProps> = ({
           }}
         />
       ) : (
-        <span style={{ fontSize: `${size * 0.5}px`, userSelect: 'none' }}>👤</span>
+        <span style={{ fontSize: `${size * 0.5}px`, userSelect: 'none' }}>
+          {emojiDoAvatar(avatarId)}
+        </span>
       )}
 
       {/* Anel / Ponto de Status */}

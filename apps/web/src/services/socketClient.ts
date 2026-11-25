@@ -14,17 +14,22 @@ import {
   type JogadorPublico,
   type SalaRapida,
   type ServerChatEvent,
+  type PlacarSessao,
+  type ResumoPartida,
   type ServerDescarteMultiploAceitoEvent,
   type ServerErroEvent,
   type ServerEstadoAtualizadoEvent,
   type ServerJogadaAceitaEvent,
   type ServerJogadaRejeitadaEvent,
   type ServerMaoAtualizadaEvent,
+  type ServerPartidaEncerradaEvent,
+  type ServerRevancheAtualizadaEvent,
   type ServerSalaAtualizadaEvent,
   type ServerSalasDisponiveisEvent,
   type ServerSalaDisponivel,
   type ServerSessaoEmitidaEvent,
 } from '@kabemjunto/shared';
+import { lerAvatarEscolhido } from './avatar';
 import { reconectado } from './metricas';
 
 type RoomCreationOptions = {
@@ -44,6 +49,8 @@ type ClientEvents = {
   'client:sair:sala': (payload: Record<string, never>) => void;
   'client:abandonar:partida': (payload: Record<string, never>) => void;
   'client:listar:salas': (payload: Record<string, never>) => void;
+  'client:retomar:controle': (payload: Record<string, never>) => void;
+  'client:revanche:pedir': (payload: Record<string, never>) => void;
 };
 
 type ServerEvents = {
@@ -59,6 +66,8 @@ type ServerEvents = {
   'server:jogada:aceita': (payload: ServerJogadaAceitaEvent) => void;
   'server:jogada:rejeitada': (payload: ServerJogadaRejeitadaEvent) => void;
   'server:mao:atualizada': (payload: ServerMaoAtualizadaEvent) => void;
+  'server:partida:encerrada': (payload: ServerPartidaEncerradaEvent) => void;
+  'server:revanche:atualizada': (payload: ServerRevancheAtualizadaEvent) => void;
   'server:salas:disponiveis': (payload: ServerSalasDisponiveisEvent) => void;
 };
 
@@ -80,6 +89,45 @@ export interface SocketGameState {
   rapida: SalaRapida | undefined;
   /** Incrementado cada vez que server:erro dispara enquanto há um batch pendente. */
   descarteMultiploErro: number;
+  /** Fim da partida. Pode ser de outra partida: quem lê compara com `estado.partidaId`. */
+  fim: { resumo: ResumoPartida; placar: PlacarSessao } | undefined;
+  /** Andamento da revanche, com a mesma ressalva de `fim`. */
+  revanche: RevancheRecebida | undefined;
+  /** Muda a cada conexão: o primeiro estado depois dela não se compara com o anterior. */
+  conexao: number;
+}
+
+export interface RevancheRecebida extends ServerRevancheAtualizadaEvent {
+  /** `performance.now()` da chegada: a contagem parte de `restanteMs` a partir daqui. */
+  recebidaEm: number;
+}
+
+/** Um evento de partida antiga nunca apaga o da partida na tela. */
+function eventoVale(
+  atual: string | undefined,
+  guardado: string | undefined,
+  novo: string,
+): boolean {
+  return atual === undefined || novo === atual || guardado !== atual;
+}
+
+/** Estado novo do servidor; numa partida nova, o fim e a revanche da anterior somem. */
+function comEstado(current: SocketGameState, estado: EstadoPartidaPublico): SocketGameState {
+  const nova = !estado.finalizada;
+  return {
+    ...current,
+    estado,
+    erro: undefined,
+    erroCodigo: undefined,
+    ...(nova && current.fim?.resumo.partidaId !== estado.partidaId ? { fim: undefined } : {}),
+    ...(nova && current.revanche?.partidaId !== estado.partidaId ? { revanche: undefined } : {}),
+  };
+}
+
+/** A pessoa não faz mais parte desta mesa (a revanche começou sem ela). */
+export function ficouDeFora(estado: EstadoPartidaPublico, jogadorId: string): boolean {
+  const eu = estado.jogadores.find((jogador) => jogador.id === jogadorId);
+  return !eu || eu.isBot;
 }
 
 const configuredSocketUrl = import.meta.env.VITE_SOCKET_URL?.trim();
@@ -110,11 +158,27 @@ export function toEntrarSalaEvent({
   rapido: _rapido,
   ...credentials
 }: SessionCredentials): ClientEntrarSalaEvent {
+  const avatarId = lerAvatarEscolhido();
   return {
     ...credentials,
+    ...(avatarId ? { avatarId } : {}),
     ...(visibilidade === undefined
       ? {}
       : { visibilidade: visibilidade === 'publica' ? 'PUBLICA' : 'PRIVADA' }),
+  };
+}
+
+/** Pedido de "Jogar agora" com o avatar escolhido no perfil. */
+function toJogarRapidoEvent(
+  pedido: Pick<SessionCredentials, 'jogadorId' | 'nome'>,
+  tamanho: number,
+): ClientJogarRapidoEvent {
+  const avatarId = lerAvatarEscolhido();
+  return {
+    jogadorId: pedido.jogadorId,
+    nome: pedido.nome,
+    tamanho,
+    ...(avatarId ? { avatarId } : {}),
   };
 }
 
@@ -233,6 +297,15 @@ export function useGameSocket(): {
   sair: () => void;
   abandonarPartida: () => void;
   listarSalas: () => void;
+  /** Avisa que a pessoa voltou a jogar (um bot jogava por inatividade). */
+  retomarControle: () => void;
+  pedirRevanche: () => void;
+  /** Volta ao menu porque a mesa seguiu sem a pessoa; o menu explica o motivo. */
+  ficarDeFora: (motivo: string) => void;
+  /** Aviso para o menu (some ao entrar em outra mesa). */
+  avisoMenu: string | undefined;
+  /** Sala do "Jogar agora": não se convida ninguém pelo código. */
+  emSalaRapida: boolean;
 } {
   const socketRef = useRef<GameSocket>();
   if (!socketRef.current) socketRef.current = createSocket();
@@ -253,7 +326,13 @@ export function useGameSocket(): {
     salasPublicas: [],
     rapida: undefined,
     descarteMultiploErro: 0,
+    fim: undefined,
+    revanche: undefined,
+    conexao: 0,
   });
+  const [avisoMenu, setAvisoMenu] = useState<string>();
+  const estadoRef = useRef(state.estado);
+  estadoRef.current = state.estado;
   const [credentials, setCredentials] = useState<SessionCredentials | undefined>(readSession);
   const [hostId, setHostId] = useState<string | undefined>();
   const listRequestedRef = useRef(false);
@@ -267,6 +346,7 @@ export function useGameSocket(): {
       setState((current) => ({
         ...current,
         status: 'connected',
+        conexao: current.conexao + 1,
         erro: undefined,
         erroCodigo: undefined,
       }));
@@ -276,17 +356,13 @@ export function useGameSocket(): {
       if (disconnectAtRef.current !== undefined) {
         reconectado(Date.now() - disconnectAtRef.current);
         disconnectAtRef.current = undefined;
-        setTentativaReconexao(0);
       }
+      setTentativaReconexao(0);
 
       const saved = credentials ?? readSession();
       if (saved && !saved.salaId && saved.rapido !== undefined) {
         // Ainda sem sala: repete o pedido de "Jogar agora" (a conexão caiu antes da resposta).
-        socket.emit('client:jogar:rapido', {
-          jogadorId: saved.jogadorId,
-          nome: saved.nome,
-          tamanho: saved.rapido,
-        });
+        socket.emit('client:jogar:rapido', toJogarRapidoEvent(saved, saved.rapido));
       } else if (saved) {
         socket.emit(
           'client:entrar:sala',
@@ -305,7 +381,12 @@ export function useGameSocket(): {
         return;
       }
       setState((current) => ({ ...current, status: 'reconnecting', erro: undefined }));
-      if (disconnectAtRef.current === undefined) {
+      // Só conta como queda o que interrompeu uma partida em andamento.
+      if (
+        disconnectAtRef.current === undefined &&
+        estadoRef.current &&
+        !estadoRef.current.finalizada
+      ) {
         disconnectAtRef.current = Date.now();
       }
       setTentativaReconexao((n) => n + 1);
@@ -323,7 +404,24 @@ export function useGameSocket(): {
     };
     const onState = ({ estado }: ServerEstadoAtualizadoEvent) => {
       if (saindoRef.current) return;
-      setState((current) => ({ ...current, estado, erro: undefined, erroCodigo: undefined }));
+      setState((current) => comEstado(current, estado));
+    };
+    const onMatchEnded = ({ resumo, placar }: ServerPartidaEncerradaEvent) => {
+      if (saindoRef.current) return;
+      setState((current) =>
+        eventoVale(current.estado?.partidaId, current.fim?.resumo.partidaId, resumo.partidaId)
+          ? { ...current, fim: { resumo, placar } }
+          : current,
+      );
+    };
+    const onRematch = (revanche: ServerRevancheAtualizadaEvent) => {
+      if (saindoRef.current) return;
+      const recebida = { ...revanche, recebidaEm: performance.now() };
+      setState((current) =>
+        eventoVale(current.estado?.partidaId, current.revanche?.partidaId, revanche.partidaId)
+          ? { ...current, revanche: recebida }
+          : current,
+      );
     };
     const onRoom = ({ hostId: nextHostId, jogadores, rapida }: ServerSalaAtualizadaEvent) => {
       if (saindoRef.current) return;
@@ -398,6 +496,8 @@ export function useGameSocket(): {
     socket.io.on('reconnect_failed', onReconnectFailed);
     socket.on('server:estado:atualizado', onState);
     socket.on('server:sessao:emitida', onSessionIssued);
+    socket.on('server:partida:encerrada', onMatchEnded);
+    socket.on('server:revanche:atualizada', onRematch);
     socket.on('server:sala:atualizada', onRoom);
     socket.on('server:chat:msg', onChat);
     socket.on('server:descarte:multiplo:aceito', onMultipleDiscardAccepted);
@@ -420,6 +520,8 @@ export function useGameSocket(): {
       socket.io.off('reconnect_failed', onReconnectFailed);
       socket.off('server:estado:atualizado', onState);
       socket.off('server:sessao:emitida', onSessionIssued);
+      socket.off('server:partida:encerrada', onMatchEnded);
+      socket.off('server:revanche:atualizada', onRematch);
       socket.off('server:sala:atualizada', onRoom);
       socket.off('server:chat:msg', onChat);
       socket.off('server:descarte:multiplo:aceito', onMultipleDiscardAccepted);
@@ -439,6 +541,7 @@ export function useGameSocket(): {
       },
     ) => {
       saindoRef.current = false;
+      setAvisoMenu(undefined);
       cancelarDesconexaoPendenteRef.current?.();
       const normalized: SessionCredentials = {
         jogadorId: nextCredentials.jogadorId ?? gerarJogadorId(),
@@ -467,6 +570,7 @@ export function useGameSocket(): {
   const jogarRapido = useCallback(
     (nome: string, tamanho: number) => {
       saindoRef.current = false;
+      setAvisoMenu(undefined);
       cancelarDesconexaoPendenteRef.current?.();
       const pedido: SessionCredentials = {
         jogadorId: gerarJogadorId(),
@@ -480,11 +584,7 @@ export function useGameSocket(): {
         setState((current) => ({ ...current, status: 'connecting', erro: undefined }));
         socket.connect();
       } else {
-        socket.emit('client:jogar:rapido', {
-          jogadorId: pedido.jogadorId,
-          nome: pedido.nome,
-          tamanho,
-        });
+        socket.emit('client:jogar:rapido', toJogarRapidoEvent(pedido, tamanho));
       }
     },
     [socket],
@@ -561,9 +661,10 @@ export function useGameSocket(): {
   const limparSessaoLocal = useCallback(() => {
     sessionStorage.removeItem(SESSION_KEY);
     saindoRef.current = true;
+    disconnectAtRef.current = undefined;
     setCredentials(undefined);
     setHostId(undefined);
-    setState({
+    setState((current) => ({
       jogadores: [],
       mensagens: [],
       status: 'idle',
@@ -575,8 +676,11 @@ export function useGameSocket(): {
       salasPublicas: [],
       rapida: undefined,
       descarteMultiploErro: 0,
-    });
-  }, [socket]);
+      fim: undefined,
+      revanche: undefined,
+      conexao: current.conexao,
+    }));
+  }, []);
   const sair = useCallback(() => {
     limparSessaoLocal();
     enviarEDesconectar('client:sair:sala');
@@ -585,6 +689,15 @@ export function useGameSocket(): {
     limparSessaoLocal();
     enviarEDesconectar('client:abandonar:partida');
   }, [enviarEDesconectar, limparSessaoLocal]);
+  const ficarDeFora = useCallback(
+    (motivo: string) => {
+      sair();
+      setAvisoMenu(motivo);
+    },
+    [sair],
+  );
+  const retomarControle = useCallback(() => socket.emit('client:retomar:controle', {}), [socket]);
+  const pedirRevanche = useCallback(() => socket.emit('client:revanche:pedir', {}), [socket]);
   const listarSalas = useCallback(() => {
     if (socket.connected) {
       socket.emit('client:listar:salas', {});
@@ -625,8 +738,17 @@ export function useGameSocket(): {
       sair,
       abandonarPartida,
       listarSalas,
+      retomarControle,
+      pedirRevanche,
+      ficarDeFora,
+      avisoMenu,
+      emSalaRapida: credentials?.rapido !== undefined || state.rapida !== undefined,
     }),
     [
+      avisoMenu,
+      ficarDeFora,
+      pedirRevanche,
+      retomarControle,
       abandonarPartida,
       comprarCarta,
       credentials?.jogadorId,

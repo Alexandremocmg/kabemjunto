@@ -5,6 +5,7 @@
  * inicial do menu.
  */
 import { useEffect, useState } from 'react';
+import { revanchePedida } from '../services/metricas';
 import { Mesa3D } from './Mesa3D';
 import { useMesaLocal } from './useMesaLocal';
 
@@ -26,6 +27,7 @@ export default function MesaLocal3D({ onVoltarAoMenu, renderizacao }: MesaLocal3
 
   const jogarNovamente = () => {
     const eu = controlador.estado.jogadores.find((jogador) => jogador.id === controlador.jogadorId);
+    revanchePedida(controlador.estado.partidaId);
     setNumeroDaPartida((numero) => numero + 1);
     iniciar(controlador.estado.jogadores.length, eu?.nome ?? 'Você');
   };

@@ -1,5 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
+import { situacaoDoBot } from './mesa/controleBot';
+import { useForaDaMesa } from './services/useForaDaMesa';
 import { useGameSocket } from './services/socketClient';
 import { AvatarComStatus } from './components/AvatarComStatus';
 import { WifiStatus } from './components/WifiStatus';
@@ -116,6 +118,7 @@ function OnlineApp({
   onJogarContraBots: (nome: string, totalJogadores: number) => void;
 }) {
   const online = useGameSocket();
+  useForaDaMesa(online);
   const semInternet = useSemInternet();
   const [chatInput, setChatInput] = useState('');
   const [copiedCode, setCopiedCode] = useState(false);
@@ -147,6 +150,12 @@ function OnlineApp({
     );
     return () => window.clearTimeout(timer);
   }, [buscaFalhou, onJogarContraBots, pedidoRapido, sairDaBusca]);
+
+  // A tela de fim é um diálogo: a gaveta não pode ficar por cima disputando o foco.
+  const partidaFinalizada = Boolean(online.state.estado?.finalizada);
+  useEffect(() => {
+    if (partidaFinalizada) setUtilityOpen(false);
+  }, [partidaFinalizada]);
 
   useEffect(() => {
     if (!utilityOpen) return undefined;
@@ -244,6 +253,9 @@ function OnlineApp({
               />
               <span style={{ flex: 1 }}>
                 <strong>{jogador.nome}</strong>
+                {jogador.controladoPorBot && (
+                  <small className="muted"> {situacaoDoBot(jogador)}</small>
+                )}
               </span>
               <small>{jogador.quantidadeCartas} cartas</small>
             </li>
@@ -357,6 +369,7 @@ function OnlineApp({
           onEntrar={(credentials) => online.entrarSala(credentials)}
           onJogarAgora={online.jogarRapido}
           erro={online.state.erro}
+          aviso={online.avisoMenu}
           desabilitado={online.state.status === 'connecting'}
           semInternet={semInternet}
           salasPublicas={online.state.salasPublicas}
