@@ -440,4 +440,43 @@ describe('JsonRoomPersistence', () => {
       expect(persistence.probeWritable()).toBe(false);
     });
   });
+
+  it('placar é opcional, faz round-trip e é validado', () => {
+    const { file } = temporaryFile();
+    const persistence = new JsonRoomPersistence(file);
+    const base = activeRoom();
+    const [a, b] = base.sala.jogadores.map((jogador) => jogador.id) as [string, string];
+    const placar = {
+      partidas: 2,
+      vitorias: [
+        { jogadorId: a, vitorias: 1 },
+        { jogadorId: b, vitorias: 1 },
+      ],
+      ultimaPartidaId: 'game-anterior',
+    };
+    persistence.save([base]);
+    expect(persistence.load()[0]).not.toHaveProperty('placar');
+    persistence.save([{ ...base, placar }]);
+    expect(persistence.load()[0]!.placar).toEqual(placar);
+    const ruins: unknown[] = [
+      null,
+      { ...placar, partidas: 1 },
+      { ...placar, partidas: 1.5 },
+      { ...placar, ultimaPartidaId: undefined },
+      { ...placar, vitorias: [{ jogadorId: 'fora', vitorias: 0 }] },
+      { ...placar, vitorias: [{ jogadorId: a, vitorias: -1 }] },
+      {
+        ...placar,
+        vitorias: [
+          { jogadorId: a, vitorias: 1 },
+          { jogadorId: a, vitorias: 1 },
+        ],
+      },
+    ];
+    for (const ruim of ruins) {
+      expect(() => persistence.save([{ ...base, placar: ruim as typeof placar }])).toThrow(
+        RoomSnapshotError,
+      );
+    }
+  });
 });

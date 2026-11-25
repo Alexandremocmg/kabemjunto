@@ -9,7 +9,8 @@
  *   que um bot assumiu no lugar de alguém que saiu, caiu ou ficou inativo. Sem
  *   nenhuma pessoa conectada os bots param.
  * - **Limpeza:** sala terminada, ou sem ninguém conectado, sai da memória
- *   depois de um tempo de tolerância (reconexões rápidas não perdem a vaga).
+ *   depois de um tempo de tolerância (reconexões rápidas não perdem a vaga). Com
+ *   a partida terminada e gente conectada, espera mais, para dar tempo à revanche.
  *
  * É um observador do `RoomStore`: reage a cada estado gravado, então qualquer
  * caminho que muda a sala (jogada, compra, janela de Corta-Frente que expira,
@@ -25,6 +26,7 @@ import {
 import {
   humanPlayers,
   jogaComoBot,
+  possiveisNaRevanche,
   toPublicState,
   type RoomSession,
   type RoomStore,
@@ -35,10 +37,15 @@ export interface QuickPlayOptions {
   botDelayMs?: { min: number; max: number };
   /** Quanto uma sala terminada ou sem ninguém conectado demora para sair da memória. */
   graceMs?: number;
+  /** Teto, desde o fim, de uma sala terminada em que ainda há gente conectada. */
+  tetoTerminadaMs?: number;
+  /** Há uma contagem de revanche correndo nesta sala? Se sim, a limpeza espera por ela. */
+  revanchePendente?: (salaId: string) => boolean;
 }
 
 const BOT_PAUSA_PADRAO = { min: 900, max: 1700 };
 const LIMPEZA_PADRAO_MS = 60_000;
+const TETO_TERMINADA_PADRAO_MS = 5 * 60_000;
 /** Espera antes de tentar de novo quando a vez do bot falha (ex.: disco cheio). */
 const NOVA_TENTATIVA_MS = 5_000;
 
@@ -50,18 +57,22 @@ export class QuickPlayDirector {
     string,
     { timer: Cronometro; botId: string; partidaId: string }
   >();
-  private readonly limpezas = new Map<string, Cronometro>();
+  private readonly limpezas = new Map<string, { timer: Cronometro; comGente: boolean }>();
+  /** Quando esta partida terminou (visto por este processo). */
+  private readonly fins = new Map<string, { partidaId: string; em: number }>();
   private readonly pausaDoBot: { min: number; max: number };
   private readonly tolerancia: number;
+  private readonly tetoTerminada: number;
   private pararDeObservar: (() => void) | undefined;
 
   constructor(
     private readonly io: GameServer,
     private readonly store: RoomStore,
-    opcoes: QuickPlayOptions = {},
+    private readonly opcoes: QuickPlayOptions = {},
   ) {
     this.pausaDoBot = opcoes.botDelayMs ?? BOT_PAUSA_PADRAO;
     this.tolerancia = opcoes.graceMs ?? LIMPEZA_PADRAO_MS;
+    this.tetoTerminada = opcoes.tetoTerminadaMs ?? TETO_TERMINADA_PADRAO_MS;
   }
 
   /** Passa a observar o store e reavalia as salas que já existiam (ex.: depois de reiniciar). */
@@ -77,10 +88,11 @@ export class QuickPlayDirector {
     this.pararDeObservar = undefined;
     for (const timer of this.esperas.values()) clearTimeout(timer);
     for (const { timer } of this.bots.values()) clearTimeout(timer);
-    for (const timer of this.limpezas.values()) clearTimeout(timer);
+    for (const { timer } of this.limpezas.values()) clearTimeout(timer);
     this.esperas.clear();
     this.bots.clear();
     this.limpezas.clear();
+    this.fins.clear();
   }
 
   private aoMudar(session: RoomSession): void {
@@ -94,10 +106,11 @@ export class QuickPlayDirector {
     if (rapida && (!humanosConectados || estado?.finalizada || sala.status === 'FINALIZADA')) {
       this.cancelarEspera(id);
       this.cancelarBot(id);
-      this.agendarLimpeza(id);
+      this.agendarLimpeza(session);
       return;
     }
     this.cancelarLimpeza(id);
+    this.fins.delete(id);
 
     // 1. Esperando gente.
     if (sala.rapida && sala.status === 'AGUARDANDO') {
@@ -181,11 +194,28 @@ export class QuickPlayDirector {
 
   // ─── Limpeza ────────────────────────────────────────────────────────────────
 
-  private agendarLimpeza(id: string): void {
-    if (this.limpezas.has(id)) return;
-    const timer = setTimeout(() => this.limpar(id), this.tolerancia);
+  private agendarLimpeza(session: RoomSession): void {
+    const id = session.sala.id;
+    const comGente = possiveisNaRevanche(session).length > 0;
+    if (this.limpezas.get(id)?.comGente === comGente) return;
+    this.cancelarLimpeza(id);
+    let emMs = this.tolerancia;
+    if (session.estado?.finalizada) {
+      // O teto conta do fim da partida: cair e voltar não o renova.
+      const { partidaId } = session.estado;
+      const conhecido = this.fins.get(id);
+      const fim = conhecido?.partidaId === partidaId ? conhecido : { partidaId, em: Date.now() };
+      this.fins.set(id, fim);
+      const resta = Math.max(0, fim.em + this.tetoTerminada - Date.now());
+      emMs = comGente ? resta : Math.min(this.tolerancia, resta);
+    }
+    this.armarLimpeza(id, comGente, emMs);
+  }
+
+  private armarLimpeza(id: string, comGente: boolean, emMs: number): void {
+    const timer = setTimeout(() => this.limpar(id), emMs);
     timer.unref?.();
-    this.limpezas.set(id, timer);
+    this.limpezas.set(id, { timer, comGente });
   }
 
   private limpar(id: string): void {
@@ -194,8 +224,13 @@ export class QuickPlayDirector {
     if (!atual?.sala.rapida) return;
     const semGente = !humanPlayers(atual).some((jogador) => jogador.conectado);
     if (!semGente && !atual.estado?.finalizada && atual.sala.status !== 'FINALIZADA') return;
+    if (!semGente && this.opcoes.revanchePendente?.(id)) {
+      this.armarLimpeza(id, true, NOVA_TENTATIVA_MS);
+      return;
+    }
     this.cancelarEspera(id);
     this.cancelarBot(id);
+    this.fins.delete(id);
     this.store.removeRoom(id);
     this.io.in(id).socketsLeave(id);
   }
@@ -213,8 +248,8 @@ export class QuickPlayDirector {
   }
 
   private cancelarLimpeza(id: string): void {
-    const timer = this.limpezas.get(id);
-    if (timer) clearTimeout(timer);
+    const atual = this.limpezas.get(id);
+    if (atual) clearTimeout(atual.timer);
     this.limpezas.delete(id);
   }
 }

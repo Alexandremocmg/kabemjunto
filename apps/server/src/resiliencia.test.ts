@@ -214,7 +214,14 @@ describe('abandono explícito', () => {
   it('em nova partida na mesma sala, quem saiu continua representado por bot', () => {
     const t = montar(['ana', 'bia']);
     t.store.abandonGame(SALA, 'bia');
-    t.store.start(SALA, 's-ana');
+    expect(() => t.store.start(SALA, 's-ana')).toThrow('já começou');
+    const sessao = t.store.get(SALA)!;
+    gravar(t.store, {
+      ...sessao,
+      estado: { ...sessao.estado!, finalizada: true, vencedor: 'ana' },
+    });
+    expect(() => t.store.start(SALA, 's-ana')).toThrow('já começou');
+    t.store.startRematch(SALA, t.estado().partidaId, new Set(['ana']));
     expect(t.jogador('bia')).toMatchObject({ isBot: true, motivoBot: 'SAIU' });
   });
 });

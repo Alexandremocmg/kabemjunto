@@ -3,6 +3,7 @@ import {
   Constants,
   comprarCartas,
   criarPartidaInicial,
+  escolherPremios,
   executarDescarteMultiplo,
   executarJogada,
   executarTurnoBot,
@@ -10,6 +11,7 @@ import {
   abrirJanelaInterceptacao,
   interceptar as interceptarPure,
   resolverJanelaExpirada,
+  resumirPartida,
   isEligibleForInterception,
   saoCartasIdenticas,
   type Carta,
@@ -19,14 +21,16 @@ import {
   type JogadorPublico,
   type ModoJogo,
   type MotivoControleBot,
+  type PlacarSessao,
   type PrazoTurno,
   type Sala,
   type SalaId,
   type SalaRapida,
+  type ServerPartidaEncerradaEvent,
   type ServerSalaDisponivel,
   type VisibilidadeSala,
 } from '@kabemjunto/shared';
-import type { PersistedRoomSession, RoomPersistence } from './persistence.js';
+import type { PersistedRoomSession, PlacarGravado, RoomPersistence } from './persistence.js';
 
 /**
  * Duração da janela de Corta-Frente no servidor (autoridade). O cliente
@@ -56,6 +60,8 @@ export interface RoomSession {
   socketByPlayer: ReadonlyMap<JogadorId, string>;
   /** Hash SHA-256 do token rotativo. Nunca contém o token bruto. */
   resumeTokenHashByPlayer: ReadonlyMap<JogadorId, string>;
+  /** Placar desde a criação da sala; ausente até a primeira partida terminar. */
+  placar?: PlacarGravado;
 }
 
 export interface JoinRoomInput {
@@ -72,6 +78,8 @@ export interface JoinRoomInput {
   /** Só na criação: sala "Jogar agora", que espera e completa a mesa com bots. */
   rapida?: SalaRapida;
   resumeToken?: string;
+  /** Só vale para quem entra agora; quem volta mantém o avatar que já tinha. */
+  avatarId?: string;
 }
 
 export interface QuickJoinInput {
@@ -81,6 +89,7 @@ export interface QuickJoinInput {
   /** Tamanho da mesa quando começar (humanos + bots), 2 a 10. */
   tamanho: number;
   resumeToken?: string;
+  avatarId?: string;
 }
 
 export interface RoomStoreOptions {
@@ -165,6 +174,14 @@ function sanitizeRoomName(name: string | undefined, salaId: string): string {
   return normalized || `Sala ${salaId}`;
 }
 
+const AVATAR_PADRAO = '01';
+const AVATAR_BOT = '🤖';
+
+/** Aceita só '01' a '12'; qualquer outra coisa (inclusive snapshots antigos) vira o padrão. */
+export function normalizarAvatar(valor: unknown): string {
+  return typeof valor === 'string' && /^(0[1-9]|1[0-2])$/.test(valor) ? valor : AVATAR_PADRAO;
+}
+
 const AUTH_REQUIRED_MESSAGE = 'Credenciais de retomada inválidas.';
 
 function issueResumeToken(): { raw: string; hash: string } {
@@ -222,9 +239,12 @@ function semTurno(estado: EstadoPartida): EstadoPartida {
 
 function paraPersistir(session: RoomSession): PersistedRoomSession {
   const resumeTokenHashes = Object.fromEntries(session.resumeTokenHashByPlayer);
-  return session.estado === undefined
-    ? { sala: session.sala, resumeTokenHashes }
-    : { sala: session.sala, estado: semTurno(session.estado), resumeTokenHashes };
+  return {
+    sala: session.sala,
+    ...(session.estado === undefined ? {} : { estado: semTurno(session.estado) }),
+    resumeTokenHashes,
+    ...(session.placar === undefined ? {} : { placar: session.placar }),
+  };
 }
 
 /** Um bot joga a vez deste assento (bot de verdade ou assento controlado por bot). */
@@ -314,6 +334,56 @@ export function shouldOpenInterception(estado: EstadoPartida, origemId: JogadorI
   return unico.mao.some((carta) => saoCartasIdenticas(carta, topo));
 }
 
+/** Pessoas conectadas, com socket, que podem pedir revanche de uma partida terminada. */
+export function possiveisNaRevanche(session: RoomSession): JogadorId[] {
+  if (!session.estado?.finalizada) return [];
+  return humanPlayers(session)
+    .filter((jogador) => jogador.conectado && session.socketByPlayer.has(jogador.id))
+    .map((jogador) => jogador.id);
+}
+
+/**
+ * Números, prêmios e placar de uma partida terminada; sem nenhuma carta.
+ * Quem abandonou (assento SAIU) não concorre a prêmios.
+ */
+export function partidaEncerrada(session: RoomSession): ServerPartidaEncerradaEvent | undefined {
+  const { estado, placar } = session;
+  if (!estado?.finalizada) return undefined;
+  const resumo = resumirPartida(estado);
+  const ficaram = estado.jogadores.filter((jogador) => jogador.motivoBot !== 'SAIU');
+  return {
+    resumo: { ...resumo, premios: escolherPremios(ficaram, resumo.jogadores) },
+    placar: {
+      partidas: placar?.partidas ?? 0,
+      vitorias: session.sala.jogadores.map(({ id }) => ({
+        jogadorId: id,
+        vitorias: vitoriasDe(placar, id),
+      })),
+    },
+  };
+}
+
+function vitoriasDe(placar: PlacarSessao | undefined, jogadorId: JogadorId): number {
+  return placar?.vitorias.find((item) => item.jogadorId === jogadorId)?.vitorias ?? 0;
+}
+
+/** Conta o resultado uma única vez por `partidaId`, junto com a gravação do fim. */
+function comPlacar(session: RoomSession): RoomSession {
+  const { estado, placar } = session;
+  if (!estado?.finalizada || placar?.ultimaPartidaId === estado.partidaId) return session;
+  return {
+    ...session,
+    placar: {
+      partidas: (placar?.partidas ?? 0) + 1,
+      vitorias: session.sala.jogadores.map(({ id }) => ({
+        jogadorId: id,
+        vitorias: vitoriasDe(placar, id) + (estado.vencedor === id ? 1 : 0),
+      })),
+      ultimaPartidaId: estado.partidaId,
+    },
+  };
+}
+
 function botPublico(salaId: string, numero: number): JogadorPublico {
   return {
     id: `bot_${salaId}_${numero}`,
@@ -322,7 +392,7 @@ function botPublico(salaId: string, numero: number): JogadorPublico {
     isBot: true,
     conectado: true,
     disseUno: false,
-    avatar: '🤖',
+    avatar: AVATAR_BOT,
     pontos: 0,
   };
 }
@@ -425,21 +495,13 @@ export class RoomStore {
                 conectado: player.isBot,
               })),
             };
-      restored.set(
-        sala.id,
-        estado === undefined
-          ? {
-              sala,
-              socketByPlayer: new Map(),
-              resumeTokenHashByPlayer: new Map(Object.entries(room.resumeTokenHashes)),
-            }
-          : {
-              sala,
-              estado,
-              socketByPlayer: new Map(),
-              resumeTokenHashByPlayer: new Map(Object.entries(room.resumeTokenHashes)),
-            },
-      );
+      restored.set(sala.id, {
+        sala,
+        ...(estado === undefined ? {} : { estado }),
+        socketByPlayer: new Map(),
+        resumeTokenHashByPlayer: new Map(Object.entries(room.resumeTokenHashes)),
+        ...(room.placar === undefined ? {} : { placar: room.placar }),
+      });
     }
     this.rooms.clear();
     for (const [roomId, session] of restored) this.rooms.set(roomId, session);
@@ -571,7 +633,7 @@ export class RoomStore {
       isBot: false,
       conectado: true,
       disseUno: false,
-      avatar: '⭐',
+      avatar: normalizarAvatar(input.avatarId),
       pontos: 0,
     };
     const socketByPlayer = new Map(session.socketByPlayer);
@@ -616,7 +678,8 @@ export class RoomStore {
   /**
    * "Jogar agora": entra numa sala rápida que ainda espera gente (do mesmo
    * tamanho de mesa) ou cria uma nova. Quem já está numa sala rápida em
-   * andamento retoma a mesma; salas rápidas já terminadas são descartadas.
+   * andamento retoma a mesma; de uma sala rápida já terminada, sai sem afetar
+   * quem ainda está nela (a sala some se não sobra ninguém).
    */
   quickJoin(input: QuickJoinInput): JoinRoomResult {
     const tamanho = Math.trunc(input.tamanho);
@@ -628,6 +691,7 @@ export class RoomStore {
       nome: input.nome,
       socketId: input.socketId,
       ...(input.resumeToken !== undefined ? { resumeToken: input.resumeToken } : {}),
+      ...(input.avatarId !== undefined ? { avatarId: input.avatarId } : {}),
     };
     const agora = Date.now();
 
@@ -636,7 +700,17 @@ export class RoomStore {
       const assento = session.sala.jogadores.find((jogador) => jogador.id === input.jogadorId);
       if (!assento || assento.isBot) continue; // não participa, ou saiu e um bot ficou no lugar
       if (session.estado?.finalizada || session.sala.status === 'FINALIZADA') {
-        this.removeRoom(session.sala.id);
+        // Ids são públicos: só tira da sala uma pessoa conectada se for ela mesma.
+        const hash = session.resumeTokenHashByPlayer.get(input.jogadorId);
+        if (
+          assento.conectado &&
+          hash !== undefined &&
+          session.socketByPlayer.get(input.jogadorId) !== input.socketId &&
+          !validResumeToken(input.resumeToken, hash)
+        ) {
+          throw new RoomError('AUTH_REQUIRED', AUTH_REQUIRED_MESSAGE);
+        }
+        this.leaveFinishedRoom(session, input.jogadorId);
         continue;
       }
       return this.join({ ...base, salaId: session.sala.id, criar: false });
@@ -713,8 +787,11 @@ export class RoomStore {
       nomesCustomizados: jogadores.map((jogador) => jogador.nome),
       idsCustomizados: jogadores.map((jogador) => jogador.id),
       bots: jogadores.map((jogador) => jogador.isBot),
+      avatares: jogadores.map((jogador) =>
+        jogador.avatar === AVATAR_BOT ? AVATAR_BOT : normalizarAvatar(jogador.avatar),
+      ),
       salaId: session.sala.id,
-      partidaId: `game_${Date.now()}_${session.sala.id}`,
+      partidaId: `game_${Date.now()}_${session.sala.id}_${randomUUID().slice(0, 8)}`,
     });
     this.estouros.delete(session.sala.id);
     const next: RoomSession = {
@@ -733,6 +810,41 @@ export class RoomStore {
       },
     };
     return this.commit(next, true);
+  }
+
+  /**
+   * Nova partida na mesma sala com quem aceitou. Os outros assentos viram bots
+   * (mesmo id, posição e placar) e quem estava neles deixa de ser participante.
+   */
+  startRematch(
+    salaId: string,
+    partidaAnterior: string,
+    aceitaram: ReadonlySet<JogadorId>,
+  ): RoomSession {
+    const session = this.requireActive(salaId);
+    const { estado } = session;
+    if (!estado.finalizada || estado.partidaId !== partidaAnterior) {
+      throw new RoomError('INTERNAL', 'Esta partida não pode ter revanche agora.');
+    }
+    const ficam = possiveisNaRevanche(session).filter((id) => aceitaram.has(id));
+    if (ficam.length === 0) throw new RoomError('INTERNAL', 'Ninguém aceitou a revanche.');
+    const dentro = new Set(ficam);
+    const gravada = this.beginMatch({
+      ...session,
+      sala: {
+        ...session.sala,
+        hostId: dentro.has(session.sala.hostId) ? session.sala.hostId : ficam[0]!,
+        jogadores: session.sala.jogadores.map((jogador) =>
+          jogador.isBot || dentro.has(jogador.id) ? jogador : assentoAbandonado(jogador),
+        ),
+      },
+      socketByPlayer: new Map([...session.socketByPlayer].filter(([id]) => dentro.has(id))),
+      resumeTokenHashByPlayer: new Map(
+        [...session.resumeTokenHashByPlayer].filter(([id]) => dentro.has(id)),
+      ),
+    });
+    if (estado.interceptacao) this.clearInterceptionTimer(estado.interceptacao.janelaId);
+    return gravada;
   }
 
   /** Executa a vez de um bot (ou de um assento controlado por bot) e grava o novo estado. */
@@ -872,8 +984,53 @@ export class RoomStore {
     this.estouros.get(salaId)?.delete(jogadorId);
   }
 
+  /**
+   * Saída de uma sala cuja partida já terminou. O resultado não muda: o assento
+   * passa a um bot só na sala (para a revanche) e a identidade fica livre. Sem
+   * mais ninguém, a sala some (a sessão devolvida é só para avisar quem saiu).
+   */
+  private leaveFinishedRoom(session: RoomSession, jogadorId: JogadorId): RoomSession {
+    const assento = session.sala.jogadores.find((player) => player.id === jogadorId);
+    if (!assento || assento.isBot) throw new RoomError('AUTH_REQUIRED', AUTH_REQUIRED_MESSAGE);
+    const socketByPlayer = new Map(session.socketByPlayer);
+    socketByPlayer.delete(jogadorId);
+    const resumeTokenHashByPlayer = new Map(session.resumeTokenHashByPlayer);
+    resumeTokenHashByPlayer.delete(jogadorId);
+    const ficam = humanPlayers(session).filter((player) => player.id !== jogadorId);
+    const next: RoomSession = {
+      ...session,
+      sala: {
+        ...session.sala,
+        hostId:
+          session.sala.hostId === jogadorId && ficam.length > 0
+            ? (ficam.find((player) => player.conectado) ?? ficam[0])!.id
+            : session.sala.hostId,
+        jogadores: session.sala.jogadores.map((player) =>
+          player.id === jogadorId ? assentoAbandonado(player) : player,
+        ),
+      },
+      ...(session.estado === undefined
+        ? {}
+        : {
+            estado: {
+              ...session.estado,
+              jogadores: session.estado.jogadores.map((player) =>
+                player.id === jogadorId ? { ...player, conectado: false } : player,
+              ),
+            },
+          }),
+      socketByPlayer,
+      resumeTokenHashByPlayer,
+    };
+    if (ficam.length > 0) return this.commit(next);
+    this.removeRoom(session.sala.id);
+    return next;
+  }
+
+  /** Sai antes de a partida começar ou depois que ela terminou. */
   leaveWaitingRoom(salaId: string, jogadorId: JogadorId): RoomSession | undefined {
     const session = this.require(salaId);
+    if (session.estado?.finalizada) return this.leaveFinishedRoom(session, jogadorId);
     if (session.sala.status !== 'AGUARDANDO') {
       throw new RoomError('INTERNAL', 'Não é possível sair depois que a partida começou.');
     }
@@ -953,6 +1110,9 @@ export class RoomStore {
       // Em caso de reconexão do host, o hostId original (jogadorId do 1º jogador)
       // deve bater. Verificamos pelo socketByPlayer.
       throw new RoomError('INTERNAL', 'Apenas o host pode iniciar a partida.');
+    }
+    if (session.sala.status !== 'AGUARDANDO') {
+      throw new RoomError('INTERNAL', 'A partida desta sala já começou.');
     }
     // "Jogar agora": o anfitrião não quer mais esperar; completa a mesa com bots.
     if (session.sala.rapida) return this.startWithBots(salaId);
@@ -1175,6 +1335,7 @@ export class RoomStore {
     jogadorId: JogadorId,
   ): { session: RoomSession; penalized: boolean } {
     const session = this.requireActive(salaId);
+    if (session.estado.finalizada) return { session, penalized: false };
     const resultado = penalizarQuebraSilencio(session.estado, jogadorId);
     if (!resultado.penalizado) return { session, penalized: false };
     // Não é uma ação de turno: o prazo de quem está jogando continua o mesmo.
@@ -1192,6 +1353,7 @@ export class RoomStore {
    */
   abandonGame(salaId: string, jogadorId: JogadorId): RoomSession {
     const session = this.requireActive(salaId);
+    if (session.estado.finalizada) return this.leaveFinishedRoom(session, jogadorId);
     const assento = session.sala.jogadores.find((player) => player.id === jogadorId);
     if (!assento || assento.isBot) {
       throw new RoomError('AUTH_REQUIRED', AUTH_REQUIRED_MESSAGE);
@@ -1203,7 +1365,7 @@ export class RoomStore {
     this.zerarEstouros(session.sala.id, jogadorId);
 
     const ficam = humanPlayers(session).filter((player) => player.id !== jogadorId);
-    if (ficam.length > 0 && !session.estado.finalizada) {
+    if (ficam.length > 0) {
       const hostId =
         session.sala.hostId === jogadorId
           ? (ficam.find((player) => player.conectado) ?? ficam[0])!.id
@@ -1233,6 +1395,9 @@ export class RoomStore {
       this.clearInterceptionTimer(session.estado.interceptacao.janelaId);
     const estado: EstadoPartida = {
       ...session.estado,
+      jogadores: session.estado.jogadores.map((player) =>
+        player.id === jogadorId ? assentoAbandonado(player) : player,
+      ),
       interceptacao: undefined,
       finalizada: true,
       historico: [
@@ -1519,7 +1684,7 @@ export class RoomStore {
   }
 
   private commit(proposta: RoomSession, novaVez = false): RoomSession {
-    const { session, vez } = this.aplicarPrazo(proposta, novaVez);
+    const { session, vez } = this.aplicarPrazo(comPlacar(proposta), novaVez);
     const id = session.sala.id;
     if (this.persistence) {
       this.persistence.save([

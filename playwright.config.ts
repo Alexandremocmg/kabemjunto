@@ -32,6 +32,8 @@ export default defineConfig({
         // Sem limite por vez: os testes pausam entre jogadas e não podem ser
         // atropelados por uma jogada automática.
         TURN_LIMIT_MS: '0',
+        // Revanche: espera curta por quem não aceitou.
+        REVANCHE_WAIT_MS: '5000',
       },
       reuseExistingServer: false,
       timeout: 30_000,

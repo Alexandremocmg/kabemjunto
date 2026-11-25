@@ -23,12 +23,20 @@ export interface AppConfig {
   turnLimitMs?: number;
   /** Quanto esperar por quem caiu antes de um bot jogar por ele (ms); 0 desliga. */
   disconnectGraceMs?: number;
+  /** Quanto a revanche espera, desde o primeiro pedido, por quem ainda não aceitou (ms). */
+  revancheWaitMs?: number;
 }
 
 /** Limite por vez quando `TURN_LIMIT_MS` não é informada. */
 export const TURN_LIMIT_PADRAO_MS = 30_000;
 /** Tolerância a quedas quando `DISCONNECT_GRACE_MS` não é informada. */
 export const DISCONNECT_GRACE_PADRAO_MS = 20_000;
+/** Espera da revanche quando `REVANCHE_WAIT_MS` não é informada. */
+export const REVANCHE_WAIT_PADRAO_MS = 15_000;
+
+/** Variável vazia vale o padrão (`Number('')` é 0). */
+const vazioViraPadrao = (valor: unknown): unknown =>
+  typeof valor === 'string' && valor.trim() === '' ? undefined : valor;
 
 /**
  * Tempo em ms onde 0 desliga o recurso; abaixo de 1 s seria injogável. Variável
@@ -36,7 +44,7 @@ export const DISCONNECT_GRACE_PADRAO_MS = 20_000;
  */
 function tempoOuDesligado(padrao: number) {
   return z.preprocess(
-    (valor) => (typeof valor === 'string' && valor.trim() === '' ? undefined : valor),
+    vazioViraPadrao,
     z.coerce
       .number()
       .int()
@@ -58,6 +66,10 @@ const envSchema = z.object({
   QUICKPLAY_WAIT_MS: z.coerce.number().int().min(0).max(120_000).optional(),
   TURN_LIMIT_MS: tempoOuDesligado(TURN_LIMIT_PADRAO_MS),
   DISCONNECT_GRACE_MS: tempoOuDesligado(DISCONNECT_GRACE_PADRAO_MS),
+  REVANCHE_WAIT_MS: z.preprocess(
+    vazioViraPadrao,
+    z.coerce.number().int().min(1_000).max(120_000).default(REVANCHE_WAIT_PADRAO_MS),
+  ),
 });
 
 function parseOrigins(value: string | undefined): string[] | undefined {
@@ -107,5 +119,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     ...(data.QUICKPLAY_WAIT_MS !== undefined ? { quickPlayWaitMs: data.QUICKPLAY_WAIT_MS } : {}),
     turnLimitMs: data.TURN_LIMIT_MS,
     disconnectGraceMs: data.DISCONNECT_GRACE_MS,
+    revancheWaitMs: data.REVANCHE_WAIT_MS,
   };
 }

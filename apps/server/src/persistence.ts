@@ -17,6 +17,7 @@ import type {
   EstadoPartida,
   Jogador,
   JogadorPublico,
+  PlacarSessao,
   Sala,
   SalaRapida,
 } from '@kabemjunto/shared';
@@ -31,6 +32,13 @@ export interface PersistedRoomSession {
   estado?: EstadoPartida;
   /** SHA-256 hexadecimal do token de retomada por jogador. */
   resumeTokenHashes: Record<string, string>;
+  /** Ausente em snapshots antigos e até a primeira partida terminar. */
+  placar?: PlacarGravado;
+}
+
+/** Placar da sala, com a última partida já contada (para nunca contar duas vezes). */
+export interface PlacarGravado extends PlacarSessao {
+  ultimaPartidaId: string;
 }
 
 interface RoomSnapshot {
@@ -232,6 +240,23 @@ function isResumeTokenHashes(value: unknown, sala: Sala): value is Record<string
   );
 }
 
+function isPlacar(value: unknown, sala: Sala): value is PlacarGravado {
+  if (!isRecord(value) || !isInteger(value['partidas']) || value['partidas'] < 1) return false;
+  if (!isString(value['ultimaPartidaId']) || !Array.isArray(value['vitorias'])) return false;
+  const partidas = value['partidas'];
+  const pendentes = new Set(sala.jogadores.map((player) => player.id));
+  let total = 0;
+  for (const item of value['vitorias'] as unknown[]) {
+    // Cada assento da sala aparece no máximo uma vez.
+    if (!isRecord(item) || !isString(item['jogadorId']) || !pendentes.delete(item['jogadorId'])) {
+      return false;
+    }
+    if (!isInteger(item['vitorias']) || item['vitorias'] < 0) return false;
+    total += item['vitorias'];
+  }
+  return total <= partidas;
+}
+
 function isGameEvent(
   value: unknown,
   snapshotVersion: ReadableRoomSnapshotVersion,
@@ -418,6 +443,12 @@ function validateSnapshot(value: unknown): RoomSnapshot {
     if (!isResumeTokenHashes(candidate['resumeTokenHashes'], candidate['sala'])) {
       throw new RoomSnapshotError('Snapshot de salas inválido: hashes de retomada malformados.');
     }
+    const placar = candidate['placar'];
+    if (placar !== undefined && !isPlacar(placar, candidate['sala'])) {
+      throw new RoomSnapshotError(
+        `Snapshot de salas inválido: placar da sala ${candidate['sala'].id} malformado.`,
+      );
+    }
     const state = candidate['estado'];
     if (state !== undefined && !isGameState(state, version)) {
       throw new RoomSnapshotError(
@@ -452,15 +483,12 @@ function validateSnapshot(value: unknown): RoomSnapshot {
       );
     }
     roomIds.add(candidate['sala'].id);
-    rooms.push(
-      normalizedState === undefined
-        ? { sala: candidate['sala'], resumeTokenHashes: candidate['resumeTokenHashes'] }
-        : {
-            sala: candidate['sala'],
-            estado: normalizedState,
-            resumeTokenHashes: candidate['resumeTokenHashes'],
-          },
-    );
+    rooms.push({
+      sala: candidate['sala'],
+      ...(normalizedState === undefined ? {} : { estado: normalizedState }),
+      resumeTokenHashes: candidate['resumeTokenHashes'],
+      ...(placar === undefined ? {} : { placar }),
+    });
   }
 
   return { version: ROOM_SNAPSHOT_VERSION, rooms };

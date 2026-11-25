@@ -179,6 +179,9 @@ async function bootstrap(): Promise<void> {
     maxHttpBufferSize: SOCKET_MAX_BUFFER_BYTES,
   });
   registerSocketHandlers(io, store, metrics, {
+    ...(config.revancheWaitMs !== undefined
+      ? { revanche: { esperaMs: config.revancheWaitMs } }
+      : {}),
     ...(config.disconnectGraceMs !== undefined
       ? { resiliencia: { disconnectGraceMs: config.disconnectGraceMs } }
       : {}),
