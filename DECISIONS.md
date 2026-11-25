@@ -529,6 +529,19 @@ Este arquivo registra as Decisões de Arquitetura (ADRs) do projeto Kabemjunto.
       junto com a desconexão, então o abandono às vezes se perdia e o
       adversário ficava numa partida sem fim (valia também para a mesa 2D).
       Agora o cliente só desconecta depois da resposta do servidor (máx. 1,5 s).
+  11. **Peso das cartas, opcional** (2026-11-25): ao pousar no descarte, a carta
+      ganha um pop de escala que acomoda em 0,26 s, uma leve inclinação que
+      achata e uma sombra suave que acompanha o voo (maior e mais fraca quanto
+      mais alta). Só vale para cartas que voam até o descarte, sejam suas ou de
+      bots; as cartas da mão ficam como estão, porque a camada acessível se
+      alinha ao destino delas. Desligado por padrão: `?peso=1` liga, `?peso=0`
+      desliga, e a escolha fica em `kabemjunto.peso` no aparelho.
+      `prefers-reduced-motion` desliga tudo. As curvas são puras e testadas
+      (`cena/assentada.ts`); a cena usa uma reserva fixa de 6 sombras
+      reaproveitadas e `estatisticas().sombrasDeVoo` volta a 0 quando as cartas
+      param. **Ainda não medido em celular:** o custo é um pouco de aritmética
+      em ~0,26 s por jogada e o render ligado nesse intervalo; compare fps com
+      e sem a opção antes de ligar por padrão.
 - **Medição (Fase 1, build de produção, 375×812 @2x, CPU 4× mais lenta,
   6 jogadores, Intel HD 630):** mediana de 16,7 ms por quadro (60 fps),
   média entre 49 e 56 fps, p95 de 33 ms, picos de 150 a 200 ms nos eventos

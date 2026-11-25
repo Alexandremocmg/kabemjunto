@@ -92,7 +92,7 @@ const TODAS_AS_DICAS = JSON.stringify([
 async function abrirMesa(
   page: Page,
   estado: EstadoPartida,
-  { comDicas = false }: { comDicas?: boolean } = {},
+  { comDicas = false, caminho = '/' }: { comDicas?: boolean; caminho?: string } = {},
 ): Promise<void> {
   await page.addInitScript(
     ([dicas]) => {
@@ -113,7 +113,7 @@ async function abrirMesa(
     window.sessionStorage.setItem('kabemjunto.estado', salvo);
     window.localStorage.removeItem('kabemjunto.mesa');
   }, JSON.stringify(estado));
-  await page.goto('/');
+  await page.goto(caminho);
   await expect(page.locator('.mesa3d canvas')).toBeVisible();
   await esperarCartasParadas(page);
 }
@@ -227,6 +227,101 @@ test.describe('Mesa 3D — desktop 1280×800', () => {
     await expect(mesa(page)).toHaveAttribute('data-mao', '2');
     await expect(page.getByRole('list', { name: 'Sua mão: 2 cartas' })).toBeAttached();
     await page.screenshot({ path: 'tmp/mesa3d-desktop-1280x800.png' });
+  });
+
+  test('com ?peso=1 a carta voa com sombra, pousa e a mesa volta a parar sem erros', async ({
+    page,
+  }) => {
+    const erros: string[] = [];
+    page.on('pageerror', (erro) => erros.push(erro.message));
+    await abrirMesa(
+      page,
+      partida([
+        numerada('cinco-azul', 'AZUL', 5),
+        numerada('nove-verde', 'VERDE', 9),
+        numerada('dois-laranja', 'LARANJA', 2),
+      ]),
+      { caminho: '/?peso=1' },
+    );
+    await expect(page.getByText('SUA VEZ')).toBeVisible();
+    // Amostra, a cada quadro, quantas sombras de voo estão em uso.
+    await page.evaluate(() => {
+      const janela = window as unknown as Record<string, unknown>;
+      janela['__maxSombras'] = 0;
+      const amostrar = () => {
+        const mesa = janela['__kabemjuntoMesa'] as
+          { estatisticas: () => { sombrasDeVoo: number } } | undefined;
+        if (mesa) {
+          janela['__maxSombras'] = Math.max(
+            janela['__maxSombras'] as number,
+            mesa.estatisticas().sombrasDeVoo,
+          );
+        }
+        requestAnimationFrame(amostrar);
+      };
+      amostrar();
+    });
+
+    await arrastarAoCentro(page, 'cinco-azul');
+    await expect(mesa(page)).toHaveAttribute('data-topo-id', 'cinco-azul');
+    await esperarCartasParadas(page);
+
+    const usadas = await page.evaluate(
+      () => (window as unknown as Record<string, number>)['__maxSombras'],
+    );
+    expect(usadas).toBeGreaterThan(0);
+    // Parou: nenhuma sombra fica presa (a reserva voltou inteira).
+    const presas = await page.evaluate(
+      () =>
+        (
+          (window as unknown as Record<string, unknown>)['__kabemjuntoMesa'] as {
+            estatisticas: () => { sombrasDeVoo: number };
+          }
+        ).estatisticas().sombrasDeVoo,
+    );
+    expect(presas).toBe(0);
+    // Sem resíduo da acomodação: nenhuma carta fica com desvio de posição, giro ou escala.
+    const desvios = await page.evaluate(
+      () =>
+        (
+          (window as unknown as Record<string, unknown>)['__kabemjuntoMesa'] as {
+            estatisticas: () => { movimentos: string[] };
+          }
+        ).estatisticas().movimentos,
+    );
+    expect(desvios).toEqual([]);
+    expect(await page.evaluate(() => window.localStorage.getItem('kabemjunto.peso'))).toBe('1');
+    await expect(mesa(page)).toHaveAttribute('data-mao', '2');
+    expect(erros).toEqual([]);
+  });
+
+  test('sem ?peso a mesa não usa sombras de voo (o padrão não muda)', async ({ page }) => {
+    await abrirMesa(
+      page,
+      partida([numerada('cinco-azul', 'AZUL', 5), numerada('nove-verde', 'VERDE', 9)]),
+    );
+    await page.evaluate(() => {
+      const janela = window as unknown as Record<string, unknown>;
+      janela['__maxSombras'] = 0;
+      const amostrar = () => {
+        const mesa = janela['__kabemjuntoMesa'] as
+          { estatisticas: () => { sombrasDeVoo: number } } | undefined;
+        if (mesa) {
+          janela['__maxSombras'] = Math.max(
+            janela['__maxSombras'] as number,
+            mesa.estatisticas().sombrasDeVoo,
+          );
+        }
+        requestAnimationFrame(amostrar);
+      };
+      amostrar();
+    });
+    await arrastarAoCentro(page, 'cinco-azul');
+    await expect(mesa(page)).toHaveAttribute('data-topo-id', 'cinco-azul');
+    await esperarCartasParadas(page);
+    expect(
+      await page.evaluate(() => (window as unknown as Record<string, number>)['__maxSombras']),
+    ).toBe(0);
   });
 
   test('carta inválida volta para a mão com o motivo', async ({ page }) => {

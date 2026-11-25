@@ -9,6 +9,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ### Adicionado
 
+- **Peso das cartas (opcional):** ao pousar no descarte, a carta ganha um pop de escala, uma leve inclinação que achata e uma sombra suave que acompanha o voo. Desligado por padrão; `?peso=1` liga, `?peso=0` desliga, e a escolha fica no aparelho. Respeita `prefers-reduced-motion`. Ainda sem medição de fps em celular.
 - PWA instalável com ícones PNG e cache dos arquivos do build. Sem rede, o menu abre e a partida contra bots na mesa 3D (com o Three.js em cache) começa e é retomada ao recarregar na mesma janela; criar ou entrar em sala fica desabilitado com um aviso até a conexão voltar.
 - Atualizações do service worker aguardam o fechamento das janelas da versão anterior. A suíte de navegador verifica o manifest, os ícones, a retomada da partida contra bots e as rotas que dependem de rede.
 
