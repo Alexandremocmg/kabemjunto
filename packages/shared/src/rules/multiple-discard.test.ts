@@ -66,6 +66,37 @@ function estadoCom(mao: ReadonlyArray<Carta>, topo = numero('topo', 'LARANJA', 5
 }
 
 describe('executarDescarteMultiplo', () => {
+  it.each([
+    { total: 2, skips: 2, proximo: 'b' },
+    { total: 3, skips: 3, proximo: 'c' },
+    { total: 2, skips: 3, proximo: 'a' },
+  ])(
+    'no sentido anti-horário, $skips Pulas com $total jogadores dão a volta na mesa',
+    ({ total, skips, proximo }) => {
+      const cores = ['AZUL', 'VERDE', 'LARANJA'] as const;
+      const pulas = cores.slice(0, skips).map((cor) => acao(`skip-${cor}`, cor, 'SKIP'));
+      const base = estadoCom([], acao('topo-skip', 'LARANJA', 'SKIP'));
+      const estado: EstadoPartida = {
+        ...base,
+        sentido: -1,
+        vezDe: 'a',
+        jogadores: ['a', 'b', 'c']
+          .slice(0, total)
+          .map((id) =>
+            jogador(
+              id,
+              id === 'a' ? [...pulas, numero('resto', 'AZUL', 1)] : [numero(`n-${id}`, 'AZUL', 2)],
+            ),
+          ),
+      };
+      const { novoEstado } = executarDescarteMultiplo({
+        estado,
+        cartaIndices: pulas.map((_, i) => i),
+      });
+      expect(novoEstado.vezDe).toBe(proximo);
+    },
+  );
+
   it('descarta números de mesmo valor na ordem selecionada e usa a cor da última carta', () => {
     const seteAzul = numero('sete-azul', 'AZUL', 5);
     const seteVerde = numero('sete-verde', 'VERDE', 5);
