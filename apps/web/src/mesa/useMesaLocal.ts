@@ -20,6 +20,7 @@ import {
   saoCartasIdenticas,
   turnoBot,
 } from '../services/gameEngine';
+import { observarPartida, partidaAbandonada } from '../services/metricas';
 import { paraEstadoPublico } from './estadoPublico';
 import { CHAVE_PARTIDA_LOCAL } from './partidaLocal';
 import type { AvisoMesa, ControladorMesa, OpcoesDeJogada } from './tipos';
@@ -106,6 +107,10 @@ export function useMesaLocal(): MesaLocal {
     if (estado) window.sessionStorage.setItem(CHAVE_PARTIDA_LOCAL, JSON.stringify(estado));
     else window.sessionStorage.removeItem(CHAVE_PARTIDA_LOCAL);
   }, [estado]);
+
+  useEffect(() => {
+    if (estado && jogadorId) observarPartida(estado, 'local', jogadorId);
+  }, [estado, jogadorId]);
 
   // Vez de um bot: joga depois de uma pausa curta.
   useEffect(() => {
@@ -224,6 +229,7 @@ export function useMesaLocal(): MesaLocal {
   }, []);
 
   const encerrar = useCallback(() => {
+    if (estadoRef.current) partidaAbandonada(estadoRef.current.partidaId);
     setAviso(undefined);
     setEstado(null);
   }, []);

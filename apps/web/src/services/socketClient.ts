@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import {
-  logCustom,
   type Carta,
   type ClientChatEvent,
   type ClientDescarteMultiploEvent,
@@ -26,6 +25,7 @@ import {
   type ServerSalaDisponivel,
   type ServerSessaoEmitidaEvent,
 } from '@kabemjunto/shared';
+import { reconectado } from './metricas';
 
 type RoomCreationOptions = {
   nomeSala?: string;
@@ -274,13 +274,7 @@ export function useGameSocket(): {
 
       // Telemetria: log de reconexão (se houve queda anterior).
       if (disconnectAtRef.current !== undefined) {
-        const duracaoMs = Date.now() - disconnectAtRef.current;
-        logCustom('RECONECTADO', {
-          salaId: credentials?.salaId,
-          jogadorId: credentials?.jogadorId,
-          duracaoMs,
-          tentativa: tentativaReconexao,
-        });
+        reconectado(Date.now() - disconnectAtRef.current);
         disconnectAtRef.current = undefined;
         setTentativaReconexao(0);
       }
