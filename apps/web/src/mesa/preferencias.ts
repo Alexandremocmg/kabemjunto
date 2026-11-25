@@ -13,6 +13,31 @@ export function lerPreferenciaMesa(): PreferenciaMesa {
   }
 }
 
+const CHAVE_PESO = 'kabemjunto.peso';
+
+/**
+ * "Peso" das cartas (pop e sombra ao pousar no descarte): opcional e desligado
+ * por padrão. `?peso=1` liga e `?peso=0` desliga, e a escolha fica guardada no
+ * aparelho; sem o parâmetro vale o que estiver guardado.
+ */
+export function lerPreferenciaPeso(): boolean {
+  const daUrl = new URLSearchParams(window.location.search).get('peso');
+  if (daUrl === '1' || daUrl === '0') {
+    try {
+      if (daUrl === '1') window.localStorage.setItem(CHAVE_PESO, '1');
+      else window.localStorage.removeItem(CHAVE_PESO);
+    } catch {
+      // Sem armazenamento: vale só para esta visita.
+    }
+    return daUrl === '1';
+  }
+  try {
+    return window.localStorage.getItem(CHAVE_PESO) === '1';
+  } catch {
+    return false;
+  }
+}
+
 /** Testa WebGL sem segurar o contexto (ele é liberado na hora). */
 export function suportaWebGL(): boolean {
   try {

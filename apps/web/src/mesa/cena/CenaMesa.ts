@@ -64,6 +64,12 @@ import {
   criarMaterialDeContagem,
   ESPESSURA_CARTA,
 } from './geometria';
+import {
+  DISTANCIA_MINIMA_DO_POUSO,
+  DURACAO_ASSENTADA,
+  curvaDaAssentada,
+  sombraDeVoo,
+} from './assentada';
 import { BancoDeTexturas, desenharPlaqueta, type TemaMesa } from './texturas';
 
 // ─── Contratos ──────────────────────────────────────────────────────────────
@@ -129,6 +135,8 @@ export interface EventosCena {
 export interface OpcoesCena {
   tema: TemaMesa;
   movimentoReduzido: boolean;
+  /** Pop e sombra ao pousar no descarte (opção `?peso=1`; desligada por padrão). */
+  pesoDasCartas: boolean;
 }
 
 export interface EstatisticasCena {
@@ -139,6 +147,8 @@ export interface EstatisticasCena {
   pixelRatio: number;
   /** Alguma carta ainda está em movimento (voo, leque, tremor). */
   cartasAnimando: boolean;
+  /** Sombras de voo em uso; volta a 0 quando as cartas param. */
+  sombrasDeVoo: number;
   /** Diagnóstico: quais cartas se movem e quanto falta (posição, ângulo, escala). */
   movimentos: string[];
 }
@@ -158,10 +168,21 @@ const MAXIMO_NO_DESCARTE = 4;
 const MAXIMO_POR_ADVERSARIO = 7;
 const CAPACIDADE_INSTANCIAS = 9 * MAXIMO_POR_ADVERSARIO;
 const CIMA = new Vector3(0, 1, 0);
+const EIXO_X = new Vector3(1, 0, 0);
+/** Sombras de voo (peso das cartas): quantas cartas podem ter sombra ao mesmo tempo. */
+const SOMBRAS_DE_VOO = 6;
+const LARGURA_DA_SOMBRA = 1.7;
+const ALTURA_DA_SOMBRA = 2;
+const Y_DA_SOMBRA = 0.012;
 const PLANO_DA_MESA = new Plane(CIMA, 0);
 const BRANCO = new Color('#ffffff');
 
 type LocalDaCarta = 'mao' | 'descarte' | 'saindo';
+
+interface SombraDeCarta {
+  malha: Mesh;
+  material: MeshBasicMaterial;
+}
 
 interface ObjetoCarta {
   id: string;
@@ -186,6 +207,12 @@ interface ObjetoCarta {
   corBrilho: Color;
   pulsar: boolean;
   tremor: number;
+  /** Veio voar até o descarte: ganha pouso (pop e sombra) quando parar. */
+  pousoPendente: boolean;
+  /** Segundos que faltam da acomodação depois do pouso (0 = parada). */
+  assentar: number;
+  /** Sombra emprestada da reserva enquanto a carta voa e pousa. */
+  sombra: SombraDeCarta | undefined;
 }
 
 interface AssentoCena {
@@ -255,6 +282,8 @@ export class CenaMesa {
   private readonly materialContagem: ShaderMaterial;
   private readonly sombraArrasto: Mesh;
   private readonly materialSombra: MeshBasicMaterial;
+  private readonly reservaDeSombras: SombraDeCarta[] = [];
+  private sombrasEmUso = 0;
 
   private instantaneo: InstantaneoCena | undefined;
   private largura = 1;
@@ -383,6 +412,16 @@ export class CenaMesa {
     [this.sombraArrasto, this.materialSombra] = criarMancha('#000000', false);
     this.sombraArrasto.position.y = 0.012;
     this.sombraArrasto.scale.set(1.9, 2.5, 1);
+
+    // Sombras das cartas em voo (só usadas com o peso das cartas ligado).
+    if (opcoes.pesoDasCartas && !opcoes.movimentoReduzido) {
+      for (let i = 0; i < SOMBRAS_DE_VOO; i += 1) {
+        const [malha, material] = criarMancha('#000000', false);
+        malha.visible = false;
+        malha.position.y = Y_DA_SOMBRA;
+        this.reservaDeSombras.push({ malha, material });
+      }
+    }
 
     // Anel de sentido, na cor ativa.
     this.materialAnelSentido = new MeshBasicMaterial({
@@ -519,6 +558,7 @@ export class CenaMesa {
       triangulos: this.renderizador.info.render.triangles,
       pixelRatio: this.pixelRatio,
       cartasAnimando: this.cartasAnimando,
+      sombrasDeVoo: this.sombrasEmUso,
       movimentos: [...this.objetos.values()]
         .map((objeto) => {
           const distancia = objeto.base.distanceTo(objeto.alvoPos);
@@ -597,6 +637,7 @@ export class CenaMesa {
       } else {
         // Troca/Gira Mão: a mão antiga vai para o centro e some.
         objeto.local = 'saindo';
+        this.cancelarPouso(objeto);
         objeto.removerAoChegar = true;
         objeto.alvoEscala = 0.2;
         this.voar(objeto, new Vector3(0, 0.7, 0), this.orientacaoNaMesa(true, 0), 9);
@@ -638,6 +679,7 @@ export class CenaMesa {
       if (this.objetos.has(item.carta.id)) {
         const existente = this.objetos.get(item.carta.id)!;
         existente.local = 'mao';
+        this.cancelarPouso(existente);
         existente.removerAoChegar = false;
         this.descarteIds = this.descarteIds.filter((id) => id !== item.carta.id);
         return;
@@ -976,6 +1018,9 @@ export class CenaMesa {
       corBrilho: new Color('#ffffff'),
       pulsar: false,
       tremor: 0,
+      pousoPendente: false,
+      assentar: 0,
+      sombra: undefined,
     };
     this.objetos.set(id, objeto);
     return objeto;
@@ -1018,6 +1063,16 @@ export class CenaMesa {
     objeto.vooDistancia = Math.max(0.001, distancia);
     objeto.vooAltura =
       this.opcoes.movimentoReduzido || distancia < 1.2 ? 0 : Math.min(1.7, distancia * 0.24);
+    // Peso das cartas: quem voa até o descarte ganha sombra no ar e pouso ao parar.
+    if (
+      this.opcoes.pesoDasCartas &&
+      !this.opcoes.movimentoReduzido &&
+      objeto.local === 'descarte' &&
+      distancia > DISTANCIA_MINIMA_DO_POUSO
+    ) {
+      objeto.pousoPendente = true;
+      this.pegarSombra(objeto);
+    }
   }
 
   private removerObjeto(objeto: ObjetoCarta): void {
@@ -1027,6 +1082,7 @@ export class CenaMesa {
   }
 
   private liberarObjeto(objeto: ObjetoCarta): void {
+    this.soltarSombra(objeto);
     this.cena.remove(objeto.malha);
     objeto.frente?.dispose();
     objeto.materialBrilho?.dispose();
@@ -1397,6 +1453,87 @@ export class CenaMesa {
     return true;
   }
 
+  // ─── Peso das cartas (pop e sombra ao pousar) ─────────────────────────────
+
+  private pegarSombra(objeto: ObjetoCarta): void {
+    if (objeto.sombra) return;
+    const sombra = this.reservaDeSombras.pop();
+    if (!sombra) return;
+    sombra.material.opacity = 0;
+    sombra.malha.visible = true;
+    objeto.sombra = sombra;
+    this.sombrasEmUso += 1;
+  }
+
+  private soltarSombra(objeto: ObjetoCarta): void {
+    const sombra = objeto.sombra;
+    if (!sombra) return;
+    sombra.material.opacity = 0;
+    sombra.malha.visible = false;
+    this.reservaDeSombras.push(sombra);
+    objeto.sombra = undefined;
+    this.sombrasEmUso -= 1;
+  }
+
+  /** A carta deixou de ir ao descarte (troca de mão, volta à mão): sem pouso nem sombra. */
+  private cancelarPouso(objeto: ObjetoCarta): void {
+    objeto.pousoPendente = false;
+    objeto.assentar = 0;
+    this.soltarSombra(objeto);
+  }
+
+  /** Sombra no chão acompanhando a carta em voo: mais larga, fraca e deslocada quanto mais alta. */
+  private atualizarSombraDeVoo(objeto: ObjetoCarta, altura: number): void {
+    const sombra = objeto.sombra;
+    if (!sombra) return;
+    const forma = sombraDeVoo(altura);
+    const escala = objeto.malha.scale.x * forma.escala;
+    sombra.malha.position.set(
+      objeto.base.x + forma.deslocamentoX,
+      Y_DA_SOMBRA,
+      objeto.base.z + forma.deslocamentoZ,
+    );
+    sombra.malha.scale.set(LARGURA_DA_SOMBRA * escala, ALTURA_DA_SOMBRA * escala, 1);
+    sombra.material.opacity = forma.opacidade;
+  }
+
+  /** Fixa a carta no destino e começa a acomodação (pop, inclinação e sombra de impacto). */
+  private iniciarAssentada(objeto: ObjetoCarta): void {
+    objeto.pousoPendente = false;
+    objeto.base.copy(objeto.alvoPos);
+    objeto.malha.position.copy(objeto.base);
+    objeto.malha.quaternion.copy(objeto.alvoQuat);
+    objeto.malha.scale.setScalar(objeto.alvoEscala);
+    objeto.vooAltura = 0;
+    objeto.assentar = DURACAO_ASSENTADA;
+  }
+
+  private avancarAssentada(objeto: ObjetoCarta, dt: number): void {
+    objeto.assentar = Math.max(0, objeto.assentar - dt);
+    const curva = curvaDaAssentada(1 - objeto.assentar / DURACAO_ASSENTADA);
+    objeto.malha.scale.setScalar(objeto.alvoEscala * curva.escala);
+    // A carta "bate" com uma borda levemente erguida e achata: gira em torno do eixo da largura.
+    this.q1.setFromAxisAngle(EIXO_X, curva.inclinacao);
+    objeto.malha.quaternion.copy(objeto.alvoQuat).multiply(this.q1);
+    const sombra = objeto.sombra;
+    if (sombra) {
+      // Logo abaixo da carta de cima e acima da pilha: a borda aparece ao redor dela.
+      sombra.malha.position.set(
+        objeto.alvoPos.x,
+        objeto.alvoPos.y - ESPESSURA_CARTA * 0.65,
+        objeto.alvoPos.z,
+      );
+      const escala = objeto.alvoEscala * curva.sombraEscala;
+      sombra.malha.scale.set(LARGURA_DA_SOMBRA * escala, ALTURA_DA_SOMBRA * escala, 1);
+      sombra.material.opacity = curva.sombra;
+    }
+    if (objeto.assentar === 0) {
+      objeto.malha.scale.setScalar(objeto.alvoEscala);
+      objeto.malha.quaternion.copy(objeto.alvoQuat);
+      this.soltarSombra(objeto);
+    }
+  }
+
   /** Avança as cartas um quadro. Retorna se algo mudou (posição ou efeito visual). */
   private avancarCartas(dt: number): boolean {
     let emMovimento = false;
@@ -1412,10 +1549,26 @@ export class CenaMesa {
         deslocando = true;
         continue;
       }
+      // Acomodação depois do pouso: o pop é aplicado por cima do estado final.
+      if (objeto.assentar > 0) {
+        this.avancarAssentada(objeto, dt);
+        emMovimento = true;
+        deslocando = true;
+        continue;
+      }
+
       const fator = reduzido ? 1 : 1 - Math.exp(-objeto.rigidez * dt);
       const distancia = objeto.base.distanceTo(objeto.alvoPos);
       const angulo = objeto.malha.quaternion.angleTo(objeto.alvoQuat);
       const diferencaEscala = Math.abs(objeto.malha.scale.x - objeto.alvoEscala);
+
+      // Chegou ao descarte voando: encaixa no estado final e começa a acomodação.
+      if (objeto.pousoPendente && distancia < 0.03 && angulo < 0.02 && diferencaEscala < 0.01) {
+        this.iniciarAssentada(objeto);
+        emMovimento = true;
+        deslocando = true;
+        continue;
+      }
 
       // Perto do destino, encaixa de uma vez: a aproximação exponencial tem uma
       // cauda longa, que em aparelho lento (quadros espaçados) vira arrasto.
@@ -1444,10 +1597,13 @@ export class CenaMesa {
           objeto.malha.scale.x + (objeto.alvoEscala - objeto.malha.scale.x) * fator,
         );
         objeto.malha.position.copy(objeto.base);
+        let arco = 0;
         if (objeto.vooAltura > 0 && objeto.vooDistancia > 0) {
           const progresso = 1 - Math.min(1, distancia / objeto.vooDistancia);
-          objeto.malha.position.y += Math.sin(Math.PI * progresso) * objeto.vooAltura;
+          arco = Math.sin(Math.PI * progresso) * objeto.vooAltura;
+          objeto.malha.position.y += arco;
         }
+        if (objeto.sombra) this.atualizarSombraDeVoo(objeto, arco);
         if (objeto.tremor > 0) {
           objeto.tremor = Math.max(0, objeto.tremor - dt);
           objeto.malha.position.x += Math.sin(this.tempo * 70) * 0.05 * (objeto.tremor / 0.45);

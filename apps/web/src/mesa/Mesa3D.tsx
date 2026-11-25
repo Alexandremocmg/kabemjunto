@@ -54,7 +54,7 @@ import {
   rotuloDaCarta,
   type SituacaoCarta,
 } from './interacao';
-import { prefereMovimentoReduzido, suportaWebGL } from './preferencias';
+import { lerPreferenciaPeso, prefereMovimentoReduzido, suportaWebGL } from './preferencias';
 import { CORES_JOGAVEIS, type ControladorMesa, type CorJogavel } from './tipos';
 import './mesa3d.css';
 
@@ -160,6 +160,7 @@ export function Mesa3D({
   const { estado, mao, jogadorId, aviso } = controlador;
   const tema = useMemo(() => temaDaMesa(lerTema()), []);
   const movimentoReduzido = useMemo(prefereMovimentoReduzido, []);
+  const pesoDasCartas = useMemo(lerPreferenciaPeso, []);
 
   const palcoRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -354,7 +355,7 @@ export function Mesa3D({
                 setLayout((atual) => (layoutsIguais(atual, novo) ? atual : novo)),
               aoPerderContexto: () => setFalhaWebGL(true),
             },
-            { tema, movimentoReduzido },
+            { tema, movimentoReduzido, pesoDasCartas },
           );
         } catch {
           setFalhaWebGL(true);
@@ -389,7 +390,7 @@ export function Mesa3D({
       cancelado = true;
       desmontar?.();
     };
-  }, [modo2D, movimentoReduzido, tema]);
+  }, [modo2D, movimentoReduzido, pesoDasCartas, tema]);
 
   const instantaneo = useMemo<InstantaneoCena>(
     () => ({
