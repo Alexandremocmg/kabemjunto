@@ -15,7 +15,10 @@ type JogoOnline = ReturnType<typeof useGameSocket>;
 export function useMesaOnline(online: JogoOnline): ControladorMesa | undefined {
   const [aviso, setAviso] = useState<AvisoMesa>();
   const sequencia = useRef(0);
-  const { cartaRejeitada, erro, erroCodigo, estado, mao } = online.state;
+  const { cartaRejeitada, conexao, erro, erroCodigo, estado, fim, mao, revanche, status } =
+    online.state;
+  const { retomarControle } = online;
+  const codigoConvite = online.emSalaRapida ? undefined : online.salaId;
   const { comprarCarta, interceptar, jogadorId, jogarCarta, jogarMultiplasCartas } = online;
 
   const modo = online.state.rapida ? 'rapida' : 'online';
@@ -45,11 +48,32 @@ export function useMesaOnline(online: JogoOnline): ControladorMesa | undefined {
       aviso,
       jogar: (cartaId, opcoes) => jogarCarta(cartaId, opcoes?.cor, opcoes?.alvoTrocaId),
       jogarMultiplas: jogarMultiplasCartas,
+      fim,
+      revanche,
+      conexao,
+      conectado: status === 'connected',
+      codigoConvite,
+      retomarControle,
       comprar: comprarCarta,
       interceptar: (cartaId) => {
         const janela = estado.interceptacao;
         if (janela) interceptar(janela.janelaId, janela.revisao, cartaId);
       },
     };
-  }, [aviso, comprarCarta, estado, interceptar, jogadorId, jogarCarta, jogarMultiplasCartas, mao]);
+  }, [
+    aviso,
+    codigoConvite,
+    comprarCarta,
+    conexao,
+    estado,
+    fim,
+    interceptar,
+    jogadorId,
+    jogarCarta,
+    jogarMultiplasCartas,
+    mao,
+    retomarControle,
+    revanche,
+    status,
+  ]);
 }

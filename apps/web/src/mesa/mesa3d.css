@@ -138,6 +138,83 @@
   z-index: 2;
 }
 
+/* Prazo da vez, dentro da pílula de quem joga. */
+.mesa3d-vez {
+  position: relative;
+  overflow: hidden;
+}
+
+.mesa3d-prazo-segundos {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  opacity: 0.85;
+}
+
+.mesa3d-prazo-barra {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+}
+
+.mesa3d-prazo-barra > span {
+  display: block;
+  height: 100%;
+  background: currentColor;
+  transform-origin: left;
+  opacity: 0.6;
+  transition: transform 0.25s linear;
+}
+
+.mesa3d-prazo-urgente .mesa3d-prazo-segundos {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #b91c3c;
+  color: #fff;
+  font-size: 14px;
+  opacity: 1;
+}
+
+.mesa3d-prazo-urgente .mesa3d-prazo-barra > span {
+  background: #b91c3c;
+  opacity: 1;
+}
+
+.mesa3d-prazo-urgente.mesa3d-prazo-meu .mesa3d-prazo-segundos {
+  animation: mesa3d-urgencia 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes mesa3d-urgencia {
+  to {
+    transform: scale(1.12);
+  }
+}
+
+.mesa3d-ausente {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: #0f172a;
+  border: 3px solid var(--mesa-destaque);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mesa3d-prazo-urgente.mesa3d-prazo-meu .mesa3d-prazo-segundos {
+    animation: none;
+  }
+
+  .mesa3d-prazo-barra > span {
+    transition: none;
+  }
+}
+
 /* ── Faixa de anúncios ───────────────────────────────────────────────── */
 
 .mesa3d-faixa {
@@ -743,6 +820,18 @@
   height: 26px;
   border-radius: 50%;
   background: #f8fafc;
+}
+
+.mesa2d-avatar img {
+  display: block;
+  border-radius: 50%;
+}
+
+.mesa2d-situacao {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fde68a;
 }
 
 .mesa2d-contagem {

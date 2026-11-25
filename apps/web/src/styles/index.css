@@ -561,6 +561,46 @@ h5 {
   height: 28px;
   border-radius: 7px;
 }
+.collection-opcao {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 11px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.collection-opcao input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  flex: none;
+  accent-color: #f8c56b;
+}
+.collection-opcao small {
+  display: block;
+  margin-top: 3px;
+  color: #a9c1b0;
+  font-weight: 400;
+  line-height: 1.35;
+}
+.collection-opcao:focus-within {
+  outline: 3px solid #fff;
+  outline-offset: 2px;
+}
+.menu-aviso {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border: 1px solid #f8c56b;
+  border-radius: 12px;
+  background: rgba(248, 197, 107, 0.12);
+  color: #fff;
+  font-weight: 700;
+  text-align: center;
+}
 .collection-note {
   margin: 20px 0 0;
   color: #789780;

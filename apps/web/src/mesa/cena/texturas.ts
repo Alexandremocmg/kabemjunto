@@ -6,6 +6,7 @@
  * arte `.webp` existente. Cada face é criada uma vez e compartilhada por todas
  * as cartas iguais (cache por chave), e tudo é liberado em `destruir()`.
  */
+import { emojiDoAvatar } from '../../services/avatar';
 import { CanvasTexture, LinearFilter, LinearMipmapLinearFilter, SRGBColorSpace } from 'three';
 import type { Carta } from '@kabemjunto/shared';
 import { PALETA_CORES } from '@kabemjunto/shared/constants/cards';
@@ -356,6 +357,10 @@ export interface DadosPlaqueta {
   quantidadeCartas: number;
   naVez: boolean;
   conectado: boolean;
+  /** Por que um bot joga neste assento, em texto curto. */
+  situacao?: string | undefined;
+  /** Desenho do avatar já carregado; sem ele, vai o emoji. */
+  imagem?: HTMLImageElement | undefined;
   destaque: string;
 }
 
@@ -381,8 +386,13 @@ export function desenharPlaqueta(canvas: HTMLCanvasElement, dados: DadosPlaqueta
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillStyle = '#0f172a';
-  const avatar = /^\d+$/.test(dados.avatar) || dados.avatar === '' ? '👤' : dados.avatar;
-  ctx.fillText(avatar, 64, altura / 2 + 4);
+  if (dados.imagem) {
+    ctx.globalAlpha = dados.conectado ? 1 : 0.45;
+    ctx.drawImage(dados.imagem, 28, altura / 2 - 36, 72, 72);
+    ctx.globalAlpha = 1;
+  } else {
+    ctx.fillText(emojiDoAvatar(dados.avatar), 64, altura / 2 + 4);
+  }
 
   // Nome (cortado para caber).
   ctx.font = `800 34px ${FONTE}`;
@@ -393,7 +403,12 @@ export function desenharPlaqueta(canvas: HTMLCanvasElement, dados: DadosPlaqueta
   while (nome.length > 1 && ctx.measureText(nome).width > larguraMaxima) {
     nome = `${nome.slice(0, -2)}…`;
   }
-  ctx.fillText(nome, 116, altura / 2 + 2);
+  ctx.fillText(nome, 116, altura / 2 + (dados.situacao ? -14 : 2));
+  if (dados.situacao) {
+    ctx.font = `700 21px ${FONTE}`;
+    ctx.fillStyle = '#fde68a';
+    ctx.fillText(dados.situacao, 116, altura / 2 + 20, larguraMaxima);
+  }
 
   // Contador de cartas.
   retanguloArredondado(ctx, largura - 96, altura / 2 - 30, 74, 60, 18);

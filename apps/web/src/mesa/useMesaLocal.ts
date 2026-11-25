@@ -7,7 +7,7 @@
  * quando o bot joga, quando a janela de Corta-Frente abre e fecha.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Carta, EstadoPartida } from '@kabemjunto/shared';
+import { resumirPartida, type Carta, type EstadoPartida } from '@kabemjunto/shared';
 import {
   abrirJanelaDeInterceptacao,
   comprar,
@@ -244,6 +244,7 @@ export function useMesaLocal(): MesaLocal {
       mao: estado.jogadores.find((jogador) => jogador.id === jogadorId)?.mao ?? [],
       jogadorId,
       aviso,
+      ...(estado.finalizada ? { fim: { resumo: resumirPartida(estado) } } : {}),
       jogar,
       jogarMultiplas,
       comprar: comprarCarta,
