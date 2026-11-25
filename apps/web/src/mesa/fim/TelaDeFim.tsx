@@ -17,6 +17,13 @@ const CORES_CONFETE = ['#F39C12', '#3498DB', '#27AE60', '#9B59B6'];
 function useConfete(ligado: boolean): void {
   useEffect(() => {
     if (!ligado || prefereMovimentoReduzido()) return undefined;
+    // Canvas próprio e sem worker: a CSP do site (script-src 'self') bloqueia o worker de
+    // blob que o confete padrão cria, e a biblioteca não percebe (nada é desenhado).
+    const canvas = document.createElement('canvas');
+    canvas.className = 'fim-confete';
+    canvas.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(canvas);
+    const soltarConfete = confetti.create(canvas, { resize: true, useWorker: false });
     const fim = Date.now() + DURACAO_CONFETE_MS;
     let quadro = 0;
     const soltar = (): void => {
@@ -24,13 +31,12 @@ function useConfete(ligado: boolean): void {
         [60, 0],
         [120, 1],
       ] as const)
-        void confetti({
+        void soltarConfete({
           particleCount: 4,
           angle,
           spread: 55,
           origin: { x },
           colors: CORES_CONFETE,
-          zIndex: 10_000,
           disableForReducedMotion: true,
         });
       quadro = Date.now() < fim ? requestAnimationFrame(soltar) : 0;
@@ -38,7 +44,8 @@ function useConfete(ligado: boolean): void {
     soltar();
     return () => {
       cancelAnimationFrame(quadro);
-      confetti.reset();
+      soltarConfete.reset();
+      canvas.remove();
     };
   }, [ligado]);
 }

@@ -7,6 +7,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ## [Não lançado]
 
+### Corrigido
+
+- O confete da vitória não era desenhado em produção: a CSP bloqueava o worker da biblioteca. Agora desenha sem worker, e `e2e/csp.spec.ts` confere o build com a CSP real.
+
 ### Adicionado
 
 - **A partida online continua quando alguém sai, cai ou fica parado:** um bot assume o assento, e quem caiu ou ficou parado pode retomar. Limite de 30 s por vez, com aviso na tela (ADR-016).

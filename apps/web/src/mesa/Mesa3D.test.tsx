@@ -3,7 +3,9 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { Carta, EstadoPartidaPublico, JogadorPublico, TurnoPublico } from '@kabemjunto/shared';
-vi.mock('canvas-confetti', () => ({ default: Object.assign(vi.fn(), { reset: vi.fn() }) }));
+vi.mock('canvas-confetti', () => ({
+  default: { create: () => Object.assign(vi.fn(), { reset: vi.fn() }) },
+}));
 import { Mesa3D } from './Mesa3D';
 import type { ControladorMesa } from './tipos';
 
