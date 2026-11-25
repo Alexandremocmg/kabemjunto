@@ -844,3 +844,35 @@ describe('invariantes do estado', () => {
     expect(estado.corAtiva).not.toBe('NEUTRO');
   });
 });
+
+describe('criarPartidaInicial() com `bots` por posição (sala online completada com bots)', () => {
+  const baralho = baralhoGrande();
+
+  it('marca como bot só as posições indicadas, mesmo fora do modo BOTS', () => {
+    const estado = criarPartidaInicial({
+      baralho,
+      modo: 'ONLINE_PUBLICA',
+      totalJogadores: 4,
+      idsCustomizados: ['ana', 'bia', 'bot-1', 'bot-2'],
+      nomesCustomizados: ['Ana', 'Bia', 'Bot 1', 'Bot 2'],
+      bots: [false, false, true, true],
+    });
+    expect(estado.jogadores.map((j) => j.isBot)).toEqual([false, false, true, true]);
+    expect(estado.jogadores.map((j) => j.id)).toEqual(['ana', 'bia', 'bot-1', 'bot-2']);
+  });
+
+  it('sem `bots`, uma sala online continua só com humanos', () => {
+    const estado = criarPartidaInicial({ baralho, modo: 'ONLINE_PUBLICA', totalJogadores: 3 });
+    expect(estado.jogadores.every((j) => !j.isBot)).toBe(true);
+  });
+
+  it('no modo BOTS a regra antiga continua valendo e `bots` só acrescenta', () => {
+    const estado = criarPartidaInicial({
+      baralho,
+      modo: 'BOTS',
+      totalJogadores: 3,
+      bots: [true],
+    });
+    expect(estado.jogadores.map((j) => j.isBot)).toEqual([true, true, true]);
+  });
+});

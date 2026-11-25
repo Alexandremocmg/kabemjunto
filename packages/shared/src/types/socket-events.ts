@@ -16,6 +16,7 @@ import type { JogadorId, JogadorPublico } from './player.js';
 import type {
   EstadoPartidaPublico,
   SalaId,
+  SalaRapida,
   VisibilidadeSala,
   JanelaInterceptacao,
 } from './game.js';
@@ -79,6 +80,19 @@ export interface ClientEntrarSalaEvent {
   criar?: boolean;
   /** Só é usada na criação; omitida cria uma sala privada. */
   visibilidade?: VisibilidadeSala;
+}
+
+/**
+ * "Jogar agora": entra numa sala pública que ainda espera gente (ou cria uma).
+ * Se faltar gente até o fim da espera, o servidor completa a mesa com bots.
+ */
+export interface ClientJogarRapidoEvent {
+  jogadorId: string;
+  nome: string;
+  /** Tamanho da mesa quando começar (humanos + bots), 2 a 10. */
+  tamanho: number;
+  /** Token opaco emitido pelo servidor para retomar uma identidade existente. */
+  resumeToken?: string;
 }
 
 /** Solicita a lista sanitizada de salas públicas disponíveis. */
@@ -196,6 +210,8 @@ export interface ServerSalaAtualizadaEvent {
   /** Identidade estável do jogador que criou a sala. */
   hostId: JogadorId;
   jogadores: ReadonlyArray<JogadorPublico>;
+  /** Presente nas salas "Jogar agora": tamanho da mesa e quando a partida começa. */
+  rapida?: SalaRapida;
 }
 
 /** Erro genérico (auth, sala cheia, etc.). */
@@ -239,6 +255,7 @@ export interface SocketEventMap {
   'client:silencio:quebrar': ClientSilencioQuebrarEvent;
   'client:chat:msg': ClientChatEvent;
   'client:entrar:sala': ClientEntrarSalaEvent;
+  'client:jogar:rapido': ClientJogarRapidoEvent;
   'client:listar:salas': ClientListarSalasEvent;
   'client:sair:sala': ClientSairSalaEvent;
   'client:abandonar:partida': ClientAbandonarPartidaEvent;

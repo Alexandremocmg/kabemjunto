@@ -12,7 +12,14 @@ import {
 } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { dirname } from 'node:path';
-import type { Carta, EstadoPartida, Jogador, JogadorPublico, Sala } from '@kabemjunto/shared';
+import type {
+  Carta,
+  EstadoPartida,
+  Jogador,
+  JogadorPublico,
+  Sala,
+  SalaRapida,
+} from '@kabemjunto/shared';
 
 export const ROOM_SNAPSHOT_VERSION = 3 as const;
 const LEGACY_ROOM_SNAPSHOT_VERSION = 2 as const;
@@ -173,6 +180,16 @@ function isPlayer(value: unknown): value is Jogador {
   );
 }
 
+function isQuickPlay(value: unknown): value is SalaRapida {
+  return (
+    isRecord(value) &&
+    isInteger(value['tamanhoAlvo']) &&
+    value['tamanhoAlvo'] >= 2 &&
+    value['tamanhoAlvo'] <= 10 &&
+    isFiniteNumber(value['iniciaEm'])
+  );
+}
+
 function isRoom(value: unknown): value is Sala {
   return (
     isRecord(value) &&
@@ -189,7 +206,8 @@ function isRoom(value: unknown): value is Sala {
     (value['visibilidade'] === undefined ||
       isOneOf(value['visibilidade'], ['PRIVADA', 'PUBLICA'] as const)) &&
     isOneOf(value['status'], ROOM_STATUSES) &&
-    hasOptionalString(value, 'partidaId')
+    hasOptionalString(value, 'partidaId') &&
+    (value['rapida'] === undefined || isQuickPlay(value['rapida']))
   );
 }
 

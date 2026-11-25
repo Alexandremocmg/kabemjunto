@@ -38,6 +38,11 @@ export interface CriarPartidaOpcoes {
   avatares?: ReadonlyArray<string>;
   /** IDs customizados opcionais. Se vazio, gera `p_1`, `p_2`... */
   idsCustomizados?: ReadonlyArray<JogadorId>;
+  /**
+   * Marca, por posição, quem é bot (sala online que completa a mesa com bots).
+   * Soma-se à regra do modo `BOTS`; posições omitidas são humanas.
+   */
+  bots?: ReadonlyArray<boolean>;
   /** ID da sala. */
   salaId?: SalaId;
   /** ID da partida. */
@@ -75,7 +80,7 @@ export function criarPartidaInicial(opcoes: CriarPartidaOpcoes): EstadoPartida {
   // 1. Criar jogadores
   const jogadores: Jogador[] = [];
   for (let i = 0; i < totalJogadores; i++) {
-    const isBot = modo === 'BOTS' && i > 0;
+    const isBot = (modo === 'BOTS' && i > 0) || opcoes.bots?.[i] === true;
     const nomePadrao = isBot ? `Bot ${i}` : `Jogador ${i + 1}`;
     jogadores.push({
       id: ids[i] ?? `p_${i + 1}`,

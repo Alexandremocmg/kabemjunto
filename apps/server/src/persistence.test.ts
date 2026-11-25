@@ -214,6 +214,71 @@ describe('JsonRoomPersistence', () => {
     expect(readFileSync(file, 'utf8')).toBe(contents);
   });
 
+  it('mantém a sala "Jogar agora" (tamanho da mesa e hora de começar) depois de reiniciar', () => {
+    const { file } = temporaryFile();
+    const room = waitingRoom();
+    const rapida = {
+      sala: {
+        ...room.sala,
+        modo: 'ONLINE_PUBLICA' as const,
+        visibilidade: 'PUBLICA' as const,
+        maxJogadores: 4 as const,
+        rapida: { tamanhoAlvo: 4, iniciaEm: 1_800_000_000_000 },
+      },
+      resumeTokenHashes: room.resumeTokenHashes,
+    };
+    new JsonRoomPersistence(file).save([rapida]);
+    const [lida] = new JsonRoomPersistence(file).load();
+    expect(lida!.sala.rapida).toEqual({ tamanhoAlvo: 4, iniciaEm: 1_800_000_000_000 });
+  });
+
+  it('mantém os bots de uma partida "Jogar agora" depois de reiniciar', () => {
+    const { file } = temporaryFile();
+    const estado = criarPartidaInicial({
+      baralho: Constants.BARALHO_COMPLETO_108,
+      modo: 'ONLINE_PUBLICA',
+      totalJogadores: 3,
+      idsCustomizados: ['player-1', 'bot_ABC123_1', 'bot_ABC123_2'],
+      salaId: 'ABC123',
+      partidaId: 'game_1_ABC123',
+      bots: [false, true, true],
+    });
+    const room = waitingRoom();
+    const sala: Sala = {
+      ...room.sala,
+      modo: 'ONLINE_PUBLICA',
+      visibilidade: 'PUBLICA',
+      status: 'EM_PARTIDA',
+      partidaId: 'game_1_ABC123',
+      jogadores: estado.jogadores.map((j) => ({
+        id: j.id,
+        nome: j.nome,
+        quantidadeCartas: j.mao.length,
+        isBot: j.isBot,
+        conectado: true,
+        disseUno: false,
+        avatar: j.avatar,
+        pontos: 0,
+      })),
+      rapida: { tamanhoAlvo: 3, iniciaEm: 1 },
+    };
+    new JsonRoomPersistence(file).save([
+      { sala, estado, resumeTokenHashes: room.resumeTokenHashes },
+    ]);
+    const [lida] = new JsonRoomPersistence(file).load();
+    expect(lida!.estado!.jogadores.map((j) => j.isBot)).toEqual([false, true, true]);
+  });
+
+  it('rejeita "Jogar agora" com tamanho de mesa inválido', () => {
+    const { file } = temporaryFile();
+    const room = waitingRoom();
+    const ruim = {
+      sala: { ...room.sala, rapida: { tamanhoAlvo: 1, iniciaEm: 5 } },
+      resumeTokenHashes: room.resumeTokenHashes,
+    };
+    expect(() => new JsonRoomPersistence(file).save([ruim])).toThrow(/malformada/);
+  });
+
   it('rejeita IDs de sala duplicados', () => {
     const { file } = temporaryFile();
     const room = waitingRoom();
