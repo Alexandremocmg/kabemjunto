@@ -50,8 +50,6 @@ export interface ControladorMesa {
   conectado?: boolean;
   /** Muda a cada reconexão. */
   conexao?: number;
-  /** Código que o link compartilhado leva (sala criada à mão). */
-  codigoConvite?: string | undefined;
   /** Online: a pessoa voltou a jogar no lugar do bot. */
   retomarControle?: () => void;
 }

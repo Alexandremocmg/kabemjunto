@@ -505,14 +505,17 @@ export function Mesa3D({
   }, [mao]);
 
   // A carta focada pelo teclado saiu da mão: o foco vai para a vizinha.
+  const finalizada = estado.finalizada;
   useEffect(() => {
+    // No fim, o foco é da tela de fim.
+    if (finalizada) return;
     const indice = indiceFocoTecladoRef.current;
     if (indice === undefined) return;
     if (document.activeElement && document.activeElement !== document.body) return;
     const botoes = maoRef.current?.querySelectorAll<HTMLButtonElement>('button');
     if (!botoes || botoes.length === 0) return;
     botoes[Math.min(indice, botoes.length - 1)]?.focus();
-  }, [mao]);
+  }, [finalizada, mao]);
 
   // Sem resposta (rede caiu, evento perdido): devolve o controle ao jogador.
   useEffect(() => {

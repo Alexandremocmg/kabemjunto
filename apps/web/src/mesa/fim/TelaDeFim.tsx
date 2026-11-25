@@ -5,7 +5,7 @@ import { linkDoJogo } from '../../services/convite';
 import { prefereMovimentoReduzido } from '../preferencias';
 import type { ControladorMesa } from '../tipos';
 import { useRestante } from '../useRestante';
-import { compartilhar } from './compartilhar';
+import { compartilhar } from '../../services/compartilhar';
 import { gerarImagemDoResultado } from './imagemDoResultado';
 import './telaDeFim.css';
 
@@ -56,6 +56,7 @@ export function TelaDeFim({ controlador, onJogarDeNovo, onVoltarAoMenu }: TelaDe
   const revanche =
     controlador.revanche?.partidaId === estado.partidaId ? controlador.revanche : undefined;
 
+  const fundoRef = useRef<HTMLDivElement>(null);
   const dialogoRef = useRef<HTMLElement>(null);
   const tituloRef = useRef<HTMLHeadingElement>(null);
   const menuRef = useRef<HTMLButtonElement>(null);
@@ -86,7 +87,23 @@ export function TelaDeFim({ controlador, onJogarDeNovo, onVoltarAoMenu }: TelaDe
   // Foco no título, não num botão: o Enter da última carta não pode virar clique.
   useEffect(() => tituloRef.current?.focus(), []);
 
+  // O resto da mesa sai do alcance do Tab e do leitor de tela.
+  useEffect(() => {
+    const fundo = fundoRef.current;
+    const irmaos = [...(fundo?.parentElement?.children ?? [])].filter((no) => no !== fundo);
+    const inertes = irmaos.filter((no) => !no.hasAttribute('inert'));
+    for (const no of inertes) no.setAttribute('inert', '');
+    return () => {
+      for (const no of inertes) no.removeAttribute('inert');
+    };
+  }, []);
+
   const pronto = revanche?.prontos.includes(jogadorId) ?? false;
+  const desconectado = online && controlador.conectado === false;
+  // Confirmado (agora manda o servidor) ou perdido na queda: não prende mais o botão.
+  useEffect(() => {
+    if (pronto || desconectado) setPedido(false);
+  }, [desconectado, pronto]);
   useEffect(() => {
     if (!pedido || pronto) return undefined;
     const timer = window.setTimeout(() => {
@@ -112,11 +129,12 @@ export function TelaDeFim({ controlador, onJogarDeNovo, onVoltarAoMenu }: TelaDe
   const restante = useRestante(
     revanche?.restanteMs === undefined ? undefined : revanche.recebidaEm + revanche.restanteMs,
   );
-  const desconectado = online && controlador.conectado === false;
+  const desligado = online && (pronto || pedido || foraDaRevanche || desconectado);
   const prontos = revanche?.prontos ?? [];
   const totalPossiveis = Math.max(revanche?.possiveis.length ?? 0, prontos.length);
 
   const jogarDeNovo = (): void => {
+    if (desligado) return;
     if (online) {
       setPedido(true);
       setMensagem('');
@@ -125,9 +143,10 @@ export function TelaDeFim({ controlador, onJogarDeNovo, onVoltarAoMenu }: TelaDe
   };
 
   const aoCompartilhar = async (): Promise<void> => {
+    if (compartilhando) return;
     setCompartilhando(true);
     setMensagem('');
-    const link = linkDoJogo(controlador.codigoConvite);
+    const link = linkDoJogo(undefined);
     const meu = estado.jogadores.find((jogador) => jogador.id === jogadorId)?.nome;
     const tituloPublico =
       vencedorId === undefined
@@ -177,9 +196,7 @@ export function TelaDeFim({ controlador, onJogarDeNovo, onVoltarAoMenu }: TelaDe
     }
     if (evento.key !== 'Tab') return;
     const focaveis = [
-      ...(dialogoRef.current?.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), [tabindex="0"]',
-      ) ?? []),
+      ...(dialogoRef.current?.querySelectorAll<HTMLElement>('button, [tabindex="0"]') ?? []),
     ];
     const primeiro = focaveis[0];
     const ultimo = focaveis[focaveis.length - 1];
@@ -194,7 +211,7 @@ export function TelaDeFim({ controlador, onJogarDeNovo, onVoltarAoMenu }: TelaDe
   };
 
   return (
-    <div className="fim" role="presentation" onKeyDown={aoTeclar}>
+    <div ref={fundoRef} className="fim" role="presentation" onKeyDown={aoTeclar}>
       <section
         ref={dialogoRef}
         className="fim-painel"
@@ -277,7 +294,8 @@ export function TelaDeFim({ controlador, onJogarDeNovo, onVoltarAoMenu }: TelaDe
           <button
             type="button"
             className="mesa3d-botao-primario"
-            disabled={online && (pronto || pedido || foraDaRevanche || desconectado)}
+            // `disabled` derrubaria o foco para fora do diálogo.
+            aria-disabled={desligado}
             onClick={jogarDeNovo}
           >
             {!online
@@ -292,7 +310,7 @@ export function TelaDeFim({ controlador, onJogarDeNovo, onVoltarAoMenu }: TelaDe
             <button
               type="button"
               className="mesa3d-botao-secundario"
-              disabled={compartilhando}
+              aria-disabled={compartilhando}
               onClick={() => void aoCompartilhar()}
             >
               Compartilhar

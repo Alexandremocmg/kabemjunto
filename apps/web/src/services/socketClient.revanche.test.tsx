@@ -34,15 +34,22 @@ class FakeSocket {
 const falso = new FakeSocket();
 vi.mock('socket.io-client', () => ({ io: vi.fn(() => falso) }));
 const reconectado = vi.fn();
-vi.mock('./metricas', () => ({ reconectado: (ms: number) => reconectado(ms) }));
+vi.mock('./metricas', () => ({
+  reconectado: (ms: number) => reconectado(ms),
+  observarPartida: () => {},
+}));
 
 import { useGameSocket } from './socketClient';
+import { useMesaOnline } from '../mesa/useMesaOnline';
+import type { ControladorMesa } from '../mesa/tipos';
 import { AVISO_MESA_DESFEITA, AVISO_REVANCHE, FOLGA_MS, useForaDaMesa } from './useForaDaMesa';
 
 let hook: ReturnType<typeof useGameSocket>;
+let mesa: ControladorMesa | undefined;
 function Harness(): null {
   hook = useGameSocket();
   useForaDaMesa(hook);
+  mesa = useMesaOnline(hook);
   return null;
 }
 
@@ -79,6 +86,8 @@ const revanche = (partidaId: string, prontos: string[], restanteMs?: number) => 
   ...(restanteMs === undefined ? {} : { restanteMs }),
 });
 const servidor = (evento: string, payload?: unknown) => act(() => falso.servidor(evento, payload));
+const emitida = (jogadorId = EU, salaId = 'ABC234') =>
+  servidor('server:sessao:emitida', { jogadorId, salaId, resumeToken: 't' });
 const conectar = () => {
   falso.connected = true;
   servidor('connect');
@@ -113,6 +122,7 @@ beforeEach(() => {
   act(() => root.render(<Harness />));
   act(() => hook.entrarSala({ jogadorId: EU, salaId: 'ABC234', nome: 'Eu' }));
   conectar();
+  emitida();
 });
 afterEach(() => {
   act(() => root.unmount());
@@ -224,6 +234,89 @@ describe('quem fica de fora', () => {
     act(() => hook.sair());
     expect(falso.emit).toHaveBeenCalledWith('client:sair:sala', {});
     expect(hook.avisoMenu).toBeUndefined();
+  });
+});
+
+describe('prazo da revanche e reconexão', () => {
+  it('revanche recebida antes da queda não expulsa; a recebida depois arma o prazo', () => {
+    servidor('server:estado:atualizado', estado('p1', { finalizada: true }));
+    servidor('server:revanche:atualizada', revanche('p1', ['ana'], 5000));
+    expect(mesa?.revanche?.prontos).toEqual(['ana']);
+    falso.connected = false;
+    servidor('disconnect', 'transport close');
+    act(() => vi.advanceTimersByTime(20_000));
+    conectar();
+    expect(mesa?.revanche).toBeUndefined();
+    act(() => vi.advanceTimersByTime(20_000));
+    expect(hook.avisoMenu).toBeUndefined();
+    servidor('server:revanche:atualizada', revanche('p1', ['ana'], 1000));
+    act(() => vi.advanceTimersByTime(1500 + FOLGA_MS));
+    expect(hook.avisoMenu).toBe(AVISO_REVANCHE);
+  });
+});
+
+describe('sair e entrar em outra sala', () => {
+  const velho = () => servidor('server:estado:atualizado', estado('p1', { finalizada: true }));
+  const novo = (salaId: string) => {
+    const { estado: base } = estado('p9', { salaId });
+    const jogadores = base.jogadores.map((j) =>
+      j.id === EU ? { ...j, id: hook.jogadorId ?? '' } : j,
+    );
+    servidor('server:estado:atualizado', { estado: { ...base, jogadores } });
+  };
+
+  it('ignora tudo da sala anterior até a sessão da nova', () => {
+    velho();
+    act(() => hook.sair());
+    act(() => hook.entrarSala({ jogadorId: 'novo', salaId: 'xyz234', nome: 'Eu' }));
+    velho();
+    servidor('server:partida:encerrada', encerrada('p1'));
+    servidor('server:revanche:atualizada', revanche('p1', ['ana'], 1000));
+    servidor('server:sala:atualizada', { hostId: 'ana', jogadores: estado('p1').estado.jogadores });
+    servidor('server:mao:atualizada', { mao: [{ id: 'x' }] });
+    servidor('server:chat:msg', { jogadorId: 'ana', texto: 'oi', timestamp: 1 });
+    servidor('server:erro', { codigo: 'NAO_SUA_VEZ', mensagem: 'velho' });
+    emitida(EU, 'ABC234');
+    velho();
+    expect(hook.state).toMatchObject({ jogadores: [], mao: [], mensagens: [] });
+    expect(hook.state.estado ?? hook.state.fim ?? hook.state.revanche).toBeUndefined();
+    expect(hook.state.erro).toBeUndefined();
+
+    emitida('novo', 'XYZ234');
+    velho();
+    expect(hook.state.estado).toBeUndefined();
+    novo('XYZ234');
+    expect(hook.state.estado?.partidaId).toBe('p9');
+  });
+
+  it('o erro da própria entrada continua aparecendo', () => {
+    act(() => hook.sair());
+    act(() => hook.entrarSala({ jogadorId: 'novo', salaId: 'XYZ234', nome: 'Eu' }));
+    servidor('server:erro', { codigo: 'SALA_INEXISTENTE', mensagem: 'Sala não encontrada.' });
+    expect(hook.state.erroCodigo).toBe('SALA_INEXISTENTE');
+  });
+
+  it('"Jogar agora": a sala vem na sessão, e o estado da anterior não entra', () => {
+    velho();
+    act(() => hook.sair());
+    act(() => hook.jogarRapido('Eu', 2));
+    velho();
+    expect(hook.state.estado).toBeUndefined();
+    emitida(hook.jogadorId, 'RAP234');
+    expect(hook.salaId).toBe('RAP234');
+    velho();
+    expect(hook.state.estado).toBeUndefined();
+    novo('RAP234');
+    expect(hook.state.estado?.partidaId).toBe('p9');
+  });
+
+  it('reconexão: o primeiro estado da mesma sala entra, mesmo antes da sessão', () => {
+    servidor('server:estado:atualizado', estado('p1'));
+    falso.connected = false;
+    servidor('disconnect', 'transport close');
+    conectar();
+    servidor('server:estado:atualizado', estado('p1', { vezDe: 'ana' }));
+    expect(hook.state.estado?.vezDe).toBe('ana');
   });
 });
 

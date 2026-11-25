@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { situacaoDoBot } from './mesa/controleBot';
 import { useForaDaMesa } from './services/useForaDaMesa';
 import { useGameSocket } from './services/socketClient';
+import { ConvidarSala } from './components/ConvidarSala';
 import { AvatarComStatus } from './components/AvatarComStatus';
 import { WifiStatus } from './components/WifiStatus';
 import { Reconectando } from './components/Reconectando';
@@ -393,7 +394,9 @@ function OnlineApp({
             <div className="room-toolbar">
               <div>
                 <p className="eyebrow">CÓDIGO DA SALA</p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div
+                  style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px' }}
+                >
                   <strong className="room-code">{online.salaId}</strong>
                   <button
                     type="button"
@@ -404,6 +407,7 @@ function OnlineApp({
                   >
                     {textoCopiar}
                   </button>
+                  {online.salaId && <ConvidarSala salaId={online.salaId} />}
                 </div>
               </div>
               <button className="button button-secondary" onClick={online.sair}>

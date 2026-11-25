@@ -3,6 +3,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { Carta, EstadoPartidaPublico, JogadorPublico, TurnoPublico } from '@kabemjunto/shared';
+vi.mock('canvas-confetti', () => ({ default: Object.assign(vi.fn(), { reset: vi.fn() }) }));
 import { Mesa3D } from './Mesa3D';
 import type { ControladorMesa } from './tipos';
 
@@ -163,6 +164,18 @@ it('aviso de vez: conta por restanteMs, anuncia uma vez e reinicia em prazo novo
   expect(regiao.textContent).toBe('');
   mostrar(estado({ vezDe: 'eu' }));
   expect(segundos()).toBeUndefined();
+});
+
+it('partida finalizada: mudança na mão não puxa o foco de volta para as cartas', () => {
+  mostrar(estado({ vezDe: 'eu' }));
+  act(() => caixa.querySelector<HTMLButtonElement>('.mesa3d-mao button')!.focus());
+  // O foco caiu no body sem outro destino (a posição na mão continua lembrada).
+  act(() => (document.activeElement as HTMLElement).blur());
+  mostrar(estado({ finalizada: true, vencedor: 'ana' }));
+  expect(document.activeElement?.id).toBe('fim-titulo');
+  act(() => (document.activeElement as HTMLElement).blur());
+  mostrar(estado({ finalizada: true, vencedor: 'ana' }));
+  expect(document.activeElement?.closest('.mesa3d-mao')).toBeNull();
 });
 
 it('na vez dos outros a urgência não é anunciada', () => {

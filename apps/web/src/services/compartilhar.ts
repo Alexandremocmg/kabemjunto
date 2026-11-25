@@ -6,7 +6,7 @@ export interface Compartilhavel {
   texto: string;
   link: string;
   /** Desenhada no aparelho; `undefined` se não deu. */
-  gerarImagem: () => Promise<Blob | undefined>;
+  gerarImagem?: () => Promise<Blob | undefined>;
 }
 
 const cancelou = (erro: unknown): boolean =>
@@ -38,7 +38,7 @@ export async function compartilhar(item: Compartilhavel): Promise<ResultadoDeCom
   const textoComLink = `${texto}\n${link}`;
   if (typeof navigator.share === 'function') {
     try {
-      const imagem = await gerarImagem().catch(() => undefined);
+      const imagem = await gerarImagem?.().catch(() => undefined);
       const files = imagem ? [new File([imagem], 'kabemjunto.png', { type: 'image/png' })] : [];
       if (files.length > 0 && navigator.canShare?.({ files })) {
         // O link vai no texto: vários aplicativos ignoram `url` junto de arquivos.
