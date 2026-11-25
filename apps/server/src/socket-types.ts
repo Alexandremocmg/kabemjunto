@@ -11,6 +11,7 @@ import type {
   ClientJogarEvent,
   ClientJogarRapidoEvent,
   ClientListarSalasEvent,
+  ClientRetomarControleEvent,
   ClientSairSalaEvent,
   ServerChatEvent,
   ServerCorTrocadaEvent,
@@ -35,6 +36,7 @@ export type ClientEvents = {
   'client:listar:salas': (payload: ClientListarSalasEvent) => void;
   'client:sair:sala': (payload: ClientSairSalaEvent) => void;
   'client:abandonar:partida': (payload: ClientAbandonarPartidaEvent) => void;
+  'client:retomar:controle': (payload: ClientRetomarControleEvent) => void;
   'client:iniciar:partida': (payload: ClientIniciarPartidaEvent) => void;
   'client:jogar': (payload: ClientJogarEvent) => void;
   'client:descarte:multiplo': (payload: ClientDescarteMultiploEvent) => void;

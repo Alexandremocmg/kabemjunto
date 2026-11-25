@@ -193,7 +193,7 @@ describe('socket — salas públicas', () => {
 });
 
 describe('socket — saídas explícitas', () => {
-  it('difunde a sala sem o host que saiu e finaliza a partida abandonada para todos', async () => {
+  it('difunde a sala sem o host que saiu e, no abandono, a partida segue com um bot', async () => {
     const { url } = await harness();
     const host = await connect(url);
     const guest = await connect(url);
@@ -229,7 +229,10 @@ describe('socket — saídas explícitas', () => {
       'server:estado:atualizado',
     );
     newHost.emit('client:abandonar:partida', {});
-    await expect(finalState).resolves.toMatchObject({ estado: { finalizada: true } });
+    await expect(finalState).resolves.toMatchObject({ estado: { finalizada: false } });
+    expect((await finalState).estado).toMatchObject({
+      jogadores: [{ id: 'host-2', isBot: true, motivoBot: 'SAIU' }, { id: 'second' }],
+    });
   });
 });
 

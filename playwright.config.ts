@@ -29,6 +29,9 @@ export default defineConfig({
         KABEMJUNTO_E2E_FIXTURE: '1',
         // "Jogar agora": espera curta para os bots entrarem rápido nos testes.
         QUICKPLAY_WAIT_MS: '6000',
+        // Sem limite por vez: os testes pausam entre jogadas e não podem ser
+        // atropelados por uma jogada automática.
+        TURN_LIMIT_MS: '0',
       },
       reuseExistingServer: false,
       timeout: 30_000,

@@ -5,7 +5,9 @@
  *   pessoas). Passado o prazo, completa a mesa com bots e começa a partida.
  * - **Bots:** depois que a partida começa, joga a vez de cada bot pelo motor
  *   compartilhado (`executarTurnoBot`), depois de uma pausa curta para a mesa
- *   não parecer instantânea.
+ *   não parecer instantânea. Vale para qualquer sala, e também para assentos em
+ *   que um bot assumiu no lugar de alguém que saiu, caiu ou ficou inativo. Sem
+ *   nenhuma pessoa conectada os bots param.
  * - **Limpeza:** sala terminada, ou sem ninguém conectado, sai da memória
  *   depois de um tempo de tolerância (reconexões rápidas não perdem a vaga).
  *
@@ -20,7 +22,13 @@ import {
   salaAtualizada,
   sendPrivateHands,
 } from './room-broadcast.js';
-import { humanPlayers, toPublicState, type RoomSession, type RoomStore } from './room-store.js';
+import {
+  humanPlayers,
+  jogaComoBot,
+  toPublicState,
+  type RoomSession,
+  type RoomStore,
+} from './room-store.js';
 
 export interface QuickPlayOptions {
   /** Pausa, em ms, antes de cada jogada de bot (sorteada entre `min` e `max`). */
@@ -31,6 +39,8 @@ export interface QuickPlayOptions {
 
 const BOT_PAUSA_PADRAO = { min: 900, max: 1700 };
 const LIMPEZA_PADRAO_MS = 60_000;
+/** Espera antes de tentar de novo quando a vez do bot falha (ex.: disco cheio). */
+const NOVA_TENTATIVA_MS = 5_000;
 
 type Cronometro = ReturnType<typeof setTimeout>;
 
@@ -43,6 +53,7 @@ export class QuickPlayDirector {
   private readonly limpezas = new Map<string, Cronometro>();
   private readonly pausaDoBot: { min: number; max: number };
   private readonly tolerancia: number;
+  private pararDeObservar: (() => void) | undefined;
 
   constructor(
     private readonly io: GameServer,
@@ -55,13 +66,15 @@ export class QuickPlayDirector {
 
   /** Passa a observar o store e reavalia as salas que já existiam (ex.: depois de reiniciar). */
   start(): void {
-    this.store.setCommitHandler((session) => this.aoMudar(session));
+    this.pararDeObservar?.();
+    this.pararDeObservar = this.store.addCommitObserver((session) => this.aoMudar(session));
     for (const session of this.store.sessions()) this.aoMudar(session);
   }
 
   /** Cancela todos os timers e para de observar (usado nos testes). */
   stop(): void {
-    this.store.setCommitHandler(undefined);
+    this.pararDeObservar?.();
+    this.pararDeObservar = undefined;
     for (const timer of this.esperas.values()) clearTimeout(timer);
     for (const { timer } of this.bots.values()) clearTimeout(timer);
     for (const timer of this.limpezas.values()) clearTimeout(timer);
@@ -73,7 +86,7 @@ export class QuickPlayDirector {
   private aoMudar(session: RoomSession): void {
     const { sala, estado } = session;
     const id = sala.id;
-    const temBots = (estado?.jogadores ?? []).some((jogador) => jogador.isBot);
+    const temBots = (estado?.jogadores ?? []).some(jogaComoBot);
     const rapida = sala.rapida !== undefined;
     const humanosConectados = humanPlayers(session).some((jogador) => jogador.conectado);
 
@@ -95,7 +108,7 @@ export class QuickPlayDirector {
     this.cancelarEspera(id);
 
     // 2. Partida com bots.
-    if (!estado || estado.finalizada || !temBots) {
+    if (!estado || estado.finalizada || !temBots || !humanosConectados) {
       this.cancelarBot(id);
       return;
     }
@@ -103,7 +116,7 @@ export class QuickPlayDirector {
     // da expiração chama esta função de novo).
     if (estado.interceptacao) return;
     const daVez = estado.jogadores.find((jogador) => jogador.id === estado.vezDe);
-    if (daVez?.isBot) this.agendarBot(id, estado.partidaId, daVez.id);
+    if (daVez && jogaComoBot(daVez)) this.agendarBot(id, estado.partidaId, daVez.id);
     else this.cancelarBot(id);
   }
 
@@ -133,12 +146,12 @@ export class QuickPlayDirector {
 
   // ─── Vez dos bots ───────────────────────────────────────────────────────────
 
-  private agendarBot(id: string, partidaId: string, botId: string): void {
+  private agendarBot(id: string, partidaId: string, botId: string, pausaMs?: number): void {
     const existente = this.bots.get(id);
     if (existente && existente.botId === botId && existente.partidaId === partidaId) return;
     this.cancelarBot(id);
     const { min, max } = this.pausaDoBot;
-    const pausa = min + Math.random() * Math.max(0, max - min);
+    const pausa = pausaMs ?? min + Math.random() * Math.max(0, max - min);
     const timer = setTimeout(() => this.jogarBot(id, botId), pausa);
     timer.unref?.();
     this.bots.set(id, { timer, botId, partidaId });
@@ -150,10 +163,13 @@ export class QuickPlayDirector {
     const estado = atual?.estado;
     if (!atual || !estado || estado.finalizada || estado.interceptacao) return;
     if (estado.vezDe !== botId) return; // o estado mudou enquanto esperava
+    const assento = estado.jogadores.find((jogador) => jogador.id === botId);
+    if (!assento || !jogaComoBot(assento)) return; // a pessoa voltou
     let resultado;
     try {
       resultado = this.store.playBotTurn(id);
     } catch {
+      this.agendarBot(id, estado.partidaId, botId, NOVA_TENTATIVA_MS);
       return;
     }
     broadcastState(this.io, id, { estado: toPublicState(resultado.session.estado!) });

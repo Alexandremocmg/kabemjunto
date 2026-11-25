@@ -279,6 +279,26 @@ describe('JsonRoomPersistence', () => {
     expect(() => new JsonRoomPersistence(file).save([ruim])).toThrow(/malformada/);
   });
 
+  it('guarda quem saiu da partida e rejeita marcador de bot malformado', () => {
+    const { file } = temporaryFile();
+    const room = activeRoom();
+    const marcar = (marcas: object): PersistedRoomSession => ({
+      ...room,
+      estado: {
+        ...room.estado!,
+        jogadores: room.estado!.jogadores.map((j, i) => (i === 0 ? { ...j, ...marcas } : j)),
+      },
+    });
+    const persistence = new JsonRoomPersistence(file);
+    persistence.save([marcar({ isBot: true, controladoPorBot: true, motivoBot: 'SAIU' })]);
+    expect(persistence.load()[0]!.estado!.jogadores[0]).toMatchObject({
+      isBot: true,
+      motivoBot: 'SAIU',
+    });
+    expect(() => persistence.save([marcar({ controladoPorBot: 'sim' })])).toThrow(/malformada/);
+    expect(() => persistence.save([marcar({ motivoBot: 'OUTRO' })])).toThrow(/malformada/);
+  });
+
   it('rejeita IDs de sala duplicados', () => {
     const { file } = temporaryFile();
     const room = waitingRoom();

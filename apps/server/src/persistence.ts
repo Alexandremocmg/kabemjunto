@@ -150,6 +150,15 @@ function isCard(value: unknown): value is Carta {
   );
 }
 
+/** Marcadores de "um bot joga por este assento": ausentes em snapshots antigos. */
+function hasValidBotControl(record: Record<string, unknown>): boolean {
+  return (
+    (record['controladoPorBot'] === undefined || isBoolean(record['controladoPorBot'])) &&
+    (record['motivoBot'] === undefined ||
+      isOneOf(record['motivoBot'], ['SAIU', 'CAIU', 'INATIVO'] as const))
+  );
+}
+
 function isPublicPlayer(value: unknown): value is JogadorPublico {
   return (
     isRecord(value) &&
@@ -161,7 +170,8 @@ function isPublicPlayer(value: unknown): value is JogadorPublico {
     isBoolean(value['conectado']) &&
     isBoolean(value['disseUno']) &&
     isString(value['avatar']) &&
-    isFiniteNumber(value['pontos'])
+    isFiniteNumber(value['pontos']) &&
+    hasValidBotControl(value)
   );
 }
 
@@ -176,7 +186,8 @@ function isPlayer(value: unknown): value is Jogador {
     isBoolean(value['conectado']) &&
     isBoolean(value['disseUno']) &&
     isString(value['avatar']) &&
-    isFiniteNumber(value['pontos'])
+    isFiniteNumber(value['pontos']) &&
+    hasValidBotControl(value)
   );
 }
 

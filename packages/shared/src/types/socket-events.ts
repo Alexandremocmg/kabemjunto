@@ -101,8 +101,17 @@ export type ClientListarSalasEvent = Record<string, never>;
 /** Sai explicitamente de uma sala antes de a partida iniciar. */
 export type ClientSairSalaEvent = Record<string, never>;
 
-/** Abandona explicitamente a partida em andamento, sem possibilidade de retomada. */
+/**
+ * Abandona explicitamente a partida em andamento, sem possibilidade de retomada.
+ * Um bot assume o assento se ainda sobrar alguma pessoa; senão a partida acaba.
+ */
 export type ClientAbandonarPartidaEvent = Record<string, never>;
+
+/**
+ * A pessoa avisa que voltou e quer jogar de novo, depois que um bot assumiu por
+ * inatividade. Qualquer ação de jogo ou mensagem de chat tem o mesmo efeito.
+ */
+export type ClientRetomarControleEvent = Record<string, never>;
 
 /** Host quer iniciar a partida. */
 export type ClientIniciarPartidaEvent = Record<string, never>;
@@ -259,6 +268,7 @@ export interface SocketEventMap {
   'client:listar:salas': ClientListarSalasEvent;
   'client:sair:sala': ClientSairSalaEvent;
   'client:abandonar:partida': ClientAbandonarPartidaEvent;
+  'client:retomar:controle': ClientRetomarControleEvent;
   'client:iniciar:partida': ClientIniciarPartidaEvent;
   'client:interceptar': ClientInterceptarEvent;
   // server → client

@@ -167,6 +167,31 @@ export interface EstadoPartida {
    * significa que ninguém pode interceptar no momento.
    */
   interceptacao?: JanelaInterceptacao | undefined;
+  /**
+   * Prazo da vez atual, só quando o relógio está correndo. Pertence ao
+   * servidor (nunca é gravado em disco nem usado pelo motor de regras).
+   */
+  turno?: PrazoTurno;
+}
+
+/** Prazo da vez de um jogador, pelo relógio do servidor. */
+export interface PrazoTurno {
+  jogadorId: JogadorId;
+  /** Instante (ms desde 1970, relógio do servidor) em que a vez estoura. */
+  expiraEm: number;
+  /** Duração total do limite por vez, em ms (para desenhar a barra). */
+  duracaoMs: number;
+  /** Muda a cada vez nova, inclusive quando ela volta ao mesmo jogador. */
+  revisao: number;
+}
+
+/** Prazo como o cliente recebe. */
+export interface TurnoPublico extends PrazoTurno {
+  /**
+   * Quanto falta, em ms, no momento do envio. O cliente deve contar a partir
+   * daqui (e não de `expiraEm`), pois o relógio do aparelho pode estar errado.
+   */
+  restanteMs: number;
 }
 
 /**
@@ -292,4 +317,9 @@ export interface EstadoPartidaPublico {
    * conteúdo de mão — apenas o alvo, prazo e turno de fallback.
    */
   interceptacao?: JanelaInterceptacao | undefined;
+  /**
+   * Prazo da vez. Ausente quando não há relógio correndo: limite desligado,
+   * Corta-Frente aberta, vez de bot, jogador desconectado ou partida terminada.
+   */
+  turno?: TurnoPublico;
 }

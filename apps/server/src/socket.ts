@@ -6,6 +6,7 @@ import type {
 import { createNoopMetrics, type MetricsRegistry } from './observability.js';
 import type { ClientEvents, GameServer, GameSocket, ServerEvents } from './socket-types.js';
 import { QuickPlayDirector, type QuickPlayOptions } from './quickplay.js';
+import { ResilienciaDirector, type ResilienciaOptions } from './resiliencia.js';
 import {
   broadcastState,
   maybeOpenInterceptionWindow,
@@ -40,10 +41,11 @@ export function registerSocketHandlers(
   io: GameServer,
   store: RoomStore,
   metrics: MetricsRegistry = createNoopMetrics(),
-  options: { quickPlay?: QuickPlayOptions } = {},
+  options: { quickPlay?: QuickPlayOptions; resiliencia?: ResilienciaOptions } = {},
 ): void {
   const limiter = new SocketRateLimiter();
   new QuickPlayDirector(io, store, options.quickPlay).start();
+  new ResilienciaDirector(io, store, options.resiliencia).start();
 
   store.setInterceptionExpiredHandler((salaId, session, janelaId, proximaVezId) => {
     io.to(salaId).emit('server:interceptacao:resolvida', {
@@ -62,6 +64,12 @@ export function registerSocketHandlers(
       mensagem: 'Muitas ações em pouco tempo. Aguarde um instante.',
     });
     return false;
+  }
+
+  /** A pessoa deu sinal de vida: se um bot jogava por ela, devolve o assento e avisa a mesa. */
+  function registrarPresenca(salaId: string, jogadorId: string): void {
+    const session = store.registrarPresenca(salaId, jogadorId);
+    if (session?.estado) broadcastState(io, salaId, { estado: toPublicState(session.estado) });
   }
 
   /** O que acontece depois de entrar numa sala (por código ou por "Jogar agora"). */
@@ -86,9 +94,10 @@ export function registerSocketHandlers(
     io.to(joined.session.sala.id).emit('server:sala:atualizada', salaAtualizada(joined.session));
 
     // Se a partida JÁ está em andamento (reconexão no meio do jogo),
-    // reenvia o estado público + a mão privada pro novo socket.
+    // reenvia o estado público + a mão privada pro novo socket. O estado vai
+    // para a mesa toda: a volta pode devolver o assento e religar o prazo da vez.
     if (joined.session.estado) {
-      socket.emit('server:estado:atualizado', {
+      broadcastState(io, joined.session.sala.id, {
         estado: toPublicState(joined.session.estado),
       });
       sendPrivateHands(io, joined.session);
@@ -202,6 +211,20 @@ export function registerSocketHandlers(
       }
     });
 
+    socket.on('client:retomar:controle', () => {
+      if (!checkRateLimit(socket, 'jogo')) return;
+      try {
+        const salaId = roomId(socket);
+        const jogadorId = jogadorIdFromSocket(socket);
+        if (!salaId || !jogadorId) {
+          throw new RoomError('SALA_INEXISTENTE', 'Entre em uma sala primeiro.');
+        }
+        registrarPresenca(salaId, jogadorId);
+      } catch (error) {
+        emitError(socket, error);
+      }
+    });
+
     socket.on('client:iniciar:partida', () => {
       if (!checkRateLimit(socket, 'jogo')) return;
       try {
@@ -230,6 +253,7 @@ export function registerSocketHandlers(
         if (!salaId || !jogadorId) {
           throw new RoomError('SALA_INEXISTENTE', 'Entre em uma sala primeiro.');
         }
+        registrarPresenca(salaId, jogadorId);
         const corEscolhida = payload.corEscolhida === 'NEUTRO' ? undefined : payload.corEscolhida;
         const session = store.play(
           salaId,
@@ -276,6 +300,7 @@ export function registerSocketHandlers(
         if (!salaId || !jogadorId) {
           throw new RoomError('SALA_INEXISTENTE', 'Entre em uma sala primeiro.');
         }
+        registrarPresenca(salaId, jogadorId);
         const session = store.playMultiple(salaId, jogadorId, payload.cartaIds);
         socket.emit('server:descarte:multiplo:aceito', { cartaIds: payload.cartaIds, jogadorId });
         broadcastState(io, salaId, { estado: toPublicState(session.estado!) });
@@ -297,6 +322,7 @@ export function registerSocketHandlers(
         if (!salaId || !jogadorId) {
           throw new RoomError('SALA_INEXISTENTE', 'Entre em uma sala primeiro.');
         }
+        registrarPresenca(salaId, jogadorId);
         const session = store.buy(salaId, jogadorId);
         broadcastState(io, salaId, { estado: toPublicState(session.estado!) });
         sendPrivateHands(io, session);
@@ -333,6 +359,7 @@ export function registerSocketHandlers(
         if (!salaId || !jogadorId) {
           throw new RoomError('SALA_INEXISTENTE', 'Entre em uma sala primeiro.');
         }
+        registrarPresenca(salaId, jogadorId);
         const session = store.intercept(
           salaId,
           jogadorId,
@@ -368,6 +395,11 @@ export function registerSocketHandlers(
       }
       const texto = payload.texto.replace(/[<>]/g, '').trim().slice(0, 240);
       if (!texto) return;
+      try {
+        registrarPresenca(salaId, jogadorId);
+      } catch {
+        // Falha ao gravar a presença não pode impedir a mensagem.
+      }
       const activeState = store.get(salaId)?.estado;
       const silence = activeState ? store.penalizeSilenceBreak(salaId, jogadorId) : undefined;
       const message: ServerChatEvent = { jogadorId, texto, timestamp: Date.now() };
@@ -384,10 +416,11 @@ export function registerSocketHandlers(
       limiter.releaseSocket(socket.id);
       const session = store.disconnect(socket.id);
       if (session) {
-        io.to(session.sala.id).emit('server:sala:atualizada', {
-          hostId: session.sala.hostId,
-          jogadores: session.sala.jogadores,
-        });
+        io.to(session.sala.id).emit('server:sala:atualizada', salaAtualizada(session));
+        // A queda de quem está na vez para o relógio: a mesa precisa saber.
+        if (session.estado && !session.estado.finalizada) {
+          broadcastState(io, session.sala.id, { estado: toPublicState(session.estado) });
+        }
       }
     });
   });

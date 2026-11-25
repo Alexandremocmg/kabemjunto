@@ -10,6 +10,14 @@
 export type JogadorId = string;
 
 /**
+ * Por que um bot assumiu o assento de uma pessoa:
+ * - `SAIU`    → abandonou a partida; não volta (`isBot` passa a ser `true`).
+ * - `CAIU`    → perdeu a conexão; volta a jogar ao reconectar.
+ * - `INATIVO` → deixou o tempo da vez acabar duas vezes; volta ao agir.
+ */
+export type MotivoControleBot = 'SAIU' | 'CAIU' | 'INATIVO';
+
+/**
  * Estado de um jogador dentro de uma partida.
  *
  * Invariantes:
@@ -37,6 +45,14 @@ export interface Jogador {
   avatar: string;
   /** Placar acumulado entre rodadas. */
   pontos: number;
+  /**
+   * Um bot está jogando por este assento. Com `isBot: false` é temporário: a
+   * pessoa recupera o controle ao voltar. Ausente = a própria pessoa joga (ou
+   * é um bot que está na mesa desde o início).
+   */
+  controladoPorBot?: boolean;
+  /** Por que um bot assumiu; só existe junto com `controladoPorBot`. */
+  motivoBot?: MotivoControleBot;
 }
 
 /**
@@ -53,6 +69,14 @@ export interface JogadorPublico {
   disseUno: boolean;
   avatar: string;
   pontos: number;
+  /**
+   * Um bot está jogando por este assento. Com `isBot: false` é temporário: a
+   * pessoa recupera o controle ao voltar. Ausente = a própria pessoa joga (ou
+   * é um bot que está na mesa desde o início).
+   */
+  controladoPorBot?: boolean;
+  /** Por que um bot assumiu; só existe junto com `controladoPorBot`. */
+  motivoBot?: MotivoControleBot;
 }
 
 /**
