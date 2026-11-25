@@ -4,6 +4,7 @@ import { situacaoDoBot } from './mesa/controleBot';
 import { useForaDaMesa } from './services/useForaDaMesa';
 import { useGameSocket } from './services/socketClient';
 import { ConvidarSala } from './components/ConvidarSala';
+import { CardDesafio } from './components/CardDesafio';
 import { AvatarComStatus } from './components/AvatarComStatus';
 import { WifiStatus } from './components/WifiStatus';
 import { Reconectando } from './components/Reconectando';
@@ -133,6 +134,11 @@ function OnlineApp({
   const procurandoMesa = online.pedidoRapido !== undefined;
   const salaRapida = Boolean(online.state.rapida) || procurandoMesa;
   const wifiOn = online.state.status === 'connected';
+  // No "Jogar agora" a mesa espera 10 s: um QR com o código venceria antes de ser aberto.
+  const cardDesafio =
+    online.state.visibilidadeSala === 'PUBLICA' && online.salaId && !salaRapida ? (
+      <CardDesafio key={online.salaId} salaId={online.salaId} />
+    ) : undefined;
 
   // Servidor fora do ar ou sem resposta: em vez de deixar a pessoa esperando, joga contra
   // bots no aparelho (o que "completar com bots" já prometia).
@@ -366,17 +372,22 @@ function OnlineApp({
           {...(online.state.erro ? { mensagem: online.state.erro } : {})}
         />
       ) : !entrouNaSala && !procurandoMesa ? (
-        <LobbyOnline
-          onEntrar={(credentials) => online.entrarSala(credentials)}
-          onJogarAgora={online.jogarRapido}
-          erro={online.state.erro}
-          aviso={online.avisoMenu}
-          desabilitado={online.state.status === 'connecting'}
-          semInternet={semInternet}
-          salasPublicas={online.state.salasPublicas}
-          onListarSalas={online.listarSalas}
-          onJogarContraBots={onJogarContraBots}
-        />
+        <>
+          <LobbyOnline
+            onEntrar={(credentials) => online.entrarSala(credentials)}
+            onJogarAgora={online.jogarRapido}
+            erro={online.state.erro}
+            aviso={online.avisoMenu}
+            desabilitado={online.state.status === 'connecting'}
+            semInternet={semInternet}
+            salasPublicas={online.state.salasPublicas}
+            onListarSalas={online.listarSalas}
+            onJogarContraBots={onJogarContraBots}
+          />
+          <div className="menu-desafio">
+            <CardDesafio />
+          </div>
+        </>
       ) : !partidaIniciada && salaRapida ? (
         <SalaRapidaEspera
           jogadores={online.state.jogadores}
@@ -417,6 +428,7 @@ function OnlineApp({
                         : {})}
                     />
                   )}
+                  {cardDesafio}
                 </div>
               </div>
               <button className="button button-secondary" onClick={online.sair}>

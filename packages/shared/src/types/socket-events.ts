@@ -230,6 +230,7 @@ export interface ServerSalaAtualizadaEvent {
   /** Identidade estável do jogador que criou a sala. */
   hostId: JogadorId;
   jogadores: ReadonlyArray<JogadorPublico>;
+  visibilidade?: VisibilidadeSala;
   /** Presente nas salas "Jogar agora": tamanho da mesa e quando a partida começa. */
   rapida?: SalaRapida;
   grupoRanking?: string;

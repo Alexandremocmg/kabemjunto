@@ -11,6 +11,7 @@ import {
   type ClientJogarEvent,
   type ClientJogarRapidoEvent,
   type EstadoPartidaPublico,
+  type VisibilidadeSala,
   type JogadorPublico,
   type SalaRapida,
   type ServerChatEvent,
@@ -86,6 +87,7 @@ export interface SocketGameState {
   salasPublicas: ReadonlyArray<ServerSalaDisponivel>;
   /** "Jogar agora": tamanho da mesa e quando o servidor completa com bots (só em sala rápida). */
   rapida: SalaRapida | undefined;
+  visibilidadeSala?: VisibilidadeSala | undefined;
   /** Incrementado cada vez que server:erro dispara enquanto há um batch pendente. */
   descarteMultiploErro: number;
   /** Fim da partida. Pode ser de outra partida: quem lê compara com `estado.partidaId`. */
@@ -453,12 +455,19 @@ export function useGameSocket(): {
       hostId: nextHostId,
       jogadores,
       rapida,
+      visibilidade,
       grupoRanking,
     }: ServerSalaAtualizadaEvent) => {
       if (foraDaSala()) return;
       setHostId(nextHostId);
       if (grupoRanking) lembrarGrupo(grupoRanking);
-      setState((current) => ({ ...current, jogadores, rapida, grupoRanking }));
+      setState((current) => ({
+        ...current,
+        jogadores,
+        rapida,
+        visibilidadeSala: visibilidade,
+        grupoRanking,
+      }));
     };
     const onChat = (message: ServerChatEvent) =>
       !foraDaSala() &&
@@ -524,6 +533,7 @@ export function useGameSocket(): {
           (!pedida.salaId || issued.salaId === pedida.salaId);
         if (!minha) return;
         entradaRef.current = undefined;
+        setState((current) => ({ ...current, visibilidadeSala: undefined }));
       }
       salaAtualRef.current = issued.salaId;
       setCredentials((current) => (current ? applyIssuedSession(current, issued) : current));
