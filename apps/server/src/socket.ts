@@ -1,73 +1,23 @@
-import type { Server, Socket } from 'socket.io';
 import type {
-  ClientAbandonarPartidaEvent,
-  ClientChatEvent,
-  ClientDescarteMultiploEvent,
-  ClientEntrarSalaEvent,
-  ClientEscolherCorEvent,
   ClientIniciarPartidaEvent,
-  ClientInterceptarEvent,
-  ClientJogarEvent,
-  ClientComprarEvent,
-  ClientListarSalasEvent,
-  ClientSairSalaEvent,
   ServerChatEvent,
-  ServerDescarteMultiploAceitoEvent,
-  ServerCorTrocadaEvent,
-  ServerEstadoAtualizadoEvent,
-  ServerErroEvent,
-  ServerInterceptacaoAbertaEvent,
-  ServerInterceptacaoResolvidaEvent,
-  ServerJogadaAceitaEvent,
-  ServerJogadaRejeitadaEvent,
-  ServerMaoAtualizadaEvent,
-  ServerSalaAtualizadaEvent,
-  ServerSalasDisponiveisEvent,
-  ServerSessaoEmitidaEvent,
-  ServerSilencioQuebradoEvent,
   SocketEventMap,
 } from '@kabemjunto/shared';
 import { createNoopMetrics, type MetricsRegistry } from './observability.js';
+import type { ClientEvents, GameServer, GameSocket, ServerEvents } from './socket-types.js';
+import { QuickPlayDirector, type QuickPlayOptions } from './quickplay.js';
+import {
+  broadcastState,
+  maybeOpenInterceptionWindow,
+  salaAtualizada,
+  sendPrivateHands,
+} from './room-broadcast.js';
 import { RoomError, RoomStore, toPublicState } from './room-store.js';
 import {
   isNonEmptyString,
   SocketRateLimiter,
   type SocketActionCategory,
 } from './socket-security.js';
-
-type ClientEvents = {
-  'client:entrar:sala': (payload: ClientEntrarSalaEvent) => void;
-  'client:listar:salas': (payload: ClientListarSalasEvent) => void;
-  'client:sair:sala': (payload: ClientSairSalaEvent) => void;
-  'client:abandonar:partida': (payload: ClientAbandonarPartidaEvent) => void;
-  'client:iniciar:partida': (payload: ClientIniciarPartidaEvent) => void;
-  'client:jogar': (payload: ClientJogarEvent) => void;
-  'client:descarte:multiplo': (payload: ClientDescarteMultiploEvent) => void;
-  'client:comprar': (payload: ClientComprarEvent) => void;
-  'client:escolher:cor': (payload: ClientEscolherCorEvent) => void;
-  'client:interceptar': (payload: ClientInterceptarEvent) => void;
-  'client:chat:msg': (payload: ClientChatEvent) => void;
-};
-
-type ServerEvents = {
-  'server:estado:atualizado': (payload: ServerEstadoAtualizadoEvent) => void;
-  'server:sessao:emitida': (payload: ServerSessaoEmitidaEvent) => void;
-  'server:jogada:aceita': (payload: ServerJogadaAceitaEvent) => void;
-  'server:descarte:multiplo:aceito': (payload: ServerDescarteMultiploAceitoEvent) => void;
-  'server:jogada:rejeitada': (payload: ServerJogadaRejeitadaEvent) => void;
-  'server:sala:atualizada': (payload: ServerSalaAtualizadaEvent) => void;
-  'server:salas:disponiveis': (payload: ServerSalasDisponiveisEvent) => void;
-  'server:cor:trocada': (payload: ServerCorTrocadaEvent) => void;
-  'server:silencio:quebrado': (payload: ServerSilencioQuebradoEvent) => void;
-  'server:chat:msg': (payload: ServerChatEvent) => void;
-  'server:mao:atualizada': (payload: ServerMaoAtualizadaEvent) => void;
-  'server:interceptacao:aberta': (payload: ServerInterceptacaoAbertaEvent) => void;
-  'server:interceptacao:resolvida': (payload: ServerInterceptacaoResolvidaEvent) => void;
-  'server:erro': (payload: ServerErroEvent) => void;
-};
-
-type GameServer = Server<ClientEvents, ServerEvents>;
-type GameSocket = Socket<ClientEvents, ServerEvents>;
 
 const EMPTY_EVENT: ClientIniciarPartidaEvent = {};
 const MAX_MULTIPLE_DISCARD_CARD_IDS = 109; // ADR-013: baralho canônico não contém mais que 109 cartas.
@@ -86,50 +36,14 @@ function jogadorIdFromSocket(socket: GameSocket): string | undefined {
   return socket.data.jogadorId as string | undefined;
 }
 
-function broadcastState(io: GameServer, salaId: string, estado: ServerEstadoAtualizadoEvent): void {
-  io.to(salaId).emit('server:estado:atualizado', estado);
-}
-
-/**
- * Envia a mão privada de cada jogador pro socket correspondente.
- * (Sprint 3 — M14: canal privado de mão, complemento do broadcast público.)
- */
-function sendPrivateHands(io: GameServer, session: ReturnType<RoomStore['get']>): void {
-  if (!session?.estado) return;
-  for (const [jogadorId, socketId] of session.socketByPlayer) {
-    const jogador = session.estado.jogadores.find((item) => item.id === jogadorId);
-    const playerSocket = io.sockets.sockets.get(socketId);
-    if (jogador && playerSocket) {
-      playerSocket.emit('server:mao:atualizada', { mao: jogador.mao });
-    }
-  }
-}
-
-/**
- * Após qualquer ação que possa deixar uma carta elegível no topo do
- * descarte (jogada normal, descarte múltiplo, compra que descarta — hoje
- * só as duas primeiras se aplicam), tenta abrir uma janela de Corta-Frente.
- * Sem efeito se não houver carta elegível, se já existir janela ativa, ou
- * se a partida já tiver terminado.
- */
-function maybeOpenInterceptionWindow(
-  io: GameServer,
-  store: RoomStore,
-  salaId: string,
-  jogadorOrigemId: string,
-): void {
-  const opened = store.openInterceptionWindow(salaId, jogadorOrigemId);
-  if (!opened?.estado?.interceptacao) return;
-  io.to(salaId).emit('server:interceptacao:aberta', { janela: opened.estado.interceptacao });
-  broadcastState(io, salaId, { estado: toPublicState(opened.estado) });
-}
-
 export function registerSocketHandlers(
   io: GameServer,
   store: RoomStore,
   metrics: MetricsRegistry = createNoopMetrics(),
+  options: { quickPlay?: QuickPlayOptions } = {},
 ): void {
   const limiter = new SocketRateLimiter();
+  new QuickPlayDirector(io, store, options.quickPlay).start();
 
   store.setInterceptionExpiredHandler((salaId, session, janelaId, proximaVezId) => {
     io.to(salaId).emit('server:interceptacao:resolvida', {
@@ -148,6 +62,37 @@ export function registerSocketHandlers(
       mensagem: 'Muitas ações em pouco tempo. Aguarde um instante.',
     });
     return false;
+  }
+
+  /** O que acontece depois de entrar numa sala (por código ou por "Jogar agora"). */
+  function finalizarEntrada(socket: GameSocket, joined: ReturnType<RoomStore['join']>): void {
+    socket.data.salaId = joined.session.sala.id;
+    socket.data.jogadorId = joined.jogadorId;
+    void socket.join(joined.session.sala.id);
+
+    // Revoga o socket anterior: uma identidade só pode ter uma conexão ativa por vez.
+    if (joined.previousSocketId && joined.previousSocketId !== socket.id) {
+      io.sockets.sockets.get(joined.previousSocketId)?.disconnect(true);
+    }
+
+    // Credenciais rotativas: só pro socket que autenticou, nunca em broadcast.
+    socket.emit('server:sessao:emitida', {
+      jogadorId: joined.jogadorId,
+      salaId: joined.session.sala.id,
+      resumeToken: joined.resumeToken,
+    });
+
+    // Broadcast: sala atualizada (incluindo `conectado: true` no reconectado).
+    io.to(joined.session.sala.id).emit('server:sala:atualizada', salaAtualizada(joined.session));
+
+    // Se a partida JÁ está em andamento (reconexão no meio do jogo),
+    // reenvia o estado público + a mão privada pro novo socket.
+    if (joined.session.estado) {
+      socket.emit('server:estado:atualizado', {
+        estado: toPublicState(joined.session.estado),
+      });
+      sendPrivateHands(io, joined.session);
+    }
   }
 
   io.on('connection', (socket: GameSocket) => {
@@ -183,36 +128,35 @@ export function registerSocketHandlers(
           ...(payload.visibilidade !== undefined ? { visibilidade: payload.visibilidade } : {}),
           ...(payload.resumeToken !== undefined ? { resumeToken: payload.resumeToken } : {}),
         });
-        socket.data.salaId = joined.session.sala.id;
-        socket.data.jogadorId = joined.jogadorId;
-        void socket.join(joined.session.sala.id);
+        finalizarEntrada(socket, joined);
+        metrics.recordEventOutcome('sala', 'accepted');
+      } catch (error) {
+        metrics.recordEventOutcome('sala', 'rejected');
+        if (!(error instanceof RoomError)) metrics.recordPersistenceFailure();
+        emitError(socket, error);
+      }
+    });
 
-        // Revoga o socket anterior: uma identidade só pode ter uma conexão ativa por vez.
-        if (joined.previousSocketId && joined.previousSocketId !== socket.id) {
-          io.sockets.sockets.get(joined.previousSocketId)?.disconnect(true);
-        }
-
-        // Credenciais rotativas: só pro socket que autenticou, nunca em broadcast.
-        socket.emit('server:sessao:emitida', {
-          jogadorId: joined.jogadorId,
-          salaId: joined.session.sala.id,
-          resumeToken: joined.resumeToken,
+    socket.on('client:jogar:rapido', (payload) => {
+      if (!checkRateLimit(socket, 'sala')) return;
+      if (
+        !isNonEmptyString(payload.jogadorId, 128) ||
+        !isNonEmptyString(payload.nome, 64) ||
+        !Number.isInteger(payload.tamanho) ||
+        (payload.resumeToken !== undefined && !isNonEmptyString(payload.resumeToken, 256))
+      ) {
+        emitError(socket, new RoomError('INTERNAL', 'Payload inválido para jogar agora.'));
+        return;
+      }
+      try {
+        const joined = store.quickJoin({
+          jogadorId: payload.jogadorId,
+          nome: payload.nome,
+          socketId: socket.id,
+          tamanho: payload.tamanho,
+          ...(payload.resumeToken !== undefined ? { resumeToken: payload.resumeToken } : {}),
         });
-
-        // Broadcast: sala atualizada (incluindo `conectado: true` no reconectado).
-        io.to(joined.session.sala.id).emit('server:sala:atualizada', {
-          hostId: joined.session.sala.hostId,
-          jogadores: joined.session.sala.jogadores,
-        });
-
-        // Se a partida JÁ está em andamento (reconexão no meio do jogo),
-        // reenvia o estado público + a mão privada pro novo socket.
-        if (joined.session.estado) {
-          socket.emit('server:estado:atualizado', {
-            estado: toPublicState(joined.session.estado),
-          });
-          sendPrivateHands(io, joined.session);
-        }
+        finalizarEntrada(socket, joined);
         metrics.recordEventOutcome('sala', 'accepted');
       } catch (error) {
         metrics.recordEventOutcome('sala', 'rejected');
@@ -233,10 +177,7 @@ export function registerSocketHandlers(
         delete socket.data.salaId;
         delete socket.data.jogadorId;
         if (session) {
-          io.to(salaId).emit('server:sala:atualizada', {
-            hostId: session.sala.hostId,
-            jogadores: session.sala.jogadores,
-          });
+          io.to(salaId).emit('server:sala:atualizada', salaAtualizada(session));
         }
       } catch (error) {
         emitError(socket, error);
@@ -252,10 +193,7 @@ export function registerSocketHandlers(
         }
         const session = store.abandonGame(salaId, jogadorId);
         broadcastState(io, salaId, { estado: toPublicState(session.estado!) });
-        io.to(salaId).emit('server:sala:atualizada', {
-          hostId: session.sala.hostId,
-          jogadores: session.sala.jogadores,
-        });
+        io.to(salaId).emit('server:sala:atualizada', salaAtualizada(session));
         void socket.leave(salaId);
         delete socket.data.salaId;
         delete socket.data.jogadorId;

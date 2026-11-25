@@ -584,11 +584,11 @@ test.describe('Menu e dicas', () => {
     }, TODAS_AS_DICAS);
     await page.goto('/');
     await expect(page.getByRole('heading', { name: 'Como você quer jogar?' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Jogar contra bots' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Entrar numa mesa' })).toBeVisible();
 
     await page.getByLabel('Seu apelido').fill('Duda');
     await page.getByLabel('3', { exact: true }).check();
-    await page.getByRole('button', { name: 'Jogar agora' }).click();
+    await page.getByRole('button', { name: 'Só contra bots, neste aparelho' }).click();
 
     await expect(page.locator('.mesa3d canvas')).toBeVisible();
     const jogadores = page.getByRole('list', { name: 'Jogadores' }).getByRole('listitem');

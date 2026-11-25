@@ -98,6 +98,40 @@ describe('sessao estavel do jogador', () => {
     });
   });
 
+  it('"Jogar agora": guarda o pedido sem sala e recebe o código da sala junto com o token', () => {
+    const pedido: SessionCredentials = { jogadorId: 'p1', salaId: '', nome: 'Ana', rapido: 3 };
+    saveSession(pedido);
+    expect(readSession()).toEqual(pedido);
+
+    const emitida = applyIssuedSession(pedido, {
+      jogadorId: 'p1',
+      salaId: 'ABC234',
+      resumeToken: 'token-novo',
+    });
+    expect(emitida).toMatchObject({ salaId: 'ABC234', resumeToken: 'token-novo', rapido: 3 });
+    expect(readSession()?.salaId).toBe('ABC234');
+  });
+
+  it('ignora o tamanho da mesa rápida quando não é um número inteiro', () => {
+    sessionStorage.setItem(
+      SESSION_KEY,
+      JSON.stringify({ jogadorId: 'p1', salaId: '', nome: 'Ana', rapido: '3' }),
+    );
+    expect(readSession()?.rapido).toBeUndefined();
+  });
+
+  it('não envia o campo interno "rapido" ao reentrar numa sala', () => {
+    const evento = toEntrarSalaEvent({
+      jogadorId: 'p1',
+      salaId: 'ABC234',
+      nome: 'Ana',
+      rapido: 3,
+      resumeToken: 't',
+    });
+    expect(evento).toEqual({ jogadorId: 'p1', salaId: 'ABC234', nome: 'Ana', resumeToken: 't' });
+    expect('rapido' in evento).toBe(false);
+  });
+
   it('ignora sessao antiga sem jogadorId', () => {
     sessionStorage.setItem(SESSION_KEY, JSON.stringify({ salaId: 'K4B3MJ', nome: 'Ana' }));
     expect(readSession()).toBeUndefined();

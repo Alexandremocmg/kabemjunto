@@ -23,7 +23,13 @@ export default defineConfig({
     {
       command: `${npm} --prefix apps/server run dev`,
       url: 'http://127.0.0.1:3101/health',
-      env: { PORT: '3101', NODE_ENV: 'test', KABEMJUNTO_E2E_FIXTURE: '1' },
+      env: {
+        PORT: '3101',
+        NODE_ENV: 'test',
+        KABEMJUNTO_E2E_FIXTURE: '1',
+        // "Jogar agora": espera curta para os bots entrarem rápido nos testes.
+        QUICKPLAY_WAIT_MS: '6000',
+      },
       reuseExistingServer: false,
       timeout: 30_000,
     },

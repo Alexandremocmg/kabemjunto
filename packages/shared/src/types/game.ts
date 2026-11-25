@@ -46,6 +46,19 @@ export interface Sala {
   status: 'AGUARDANDO' | 'EM_PARTIDA' | 'FINALIZADA';
   /** ID da partida atual (se status === 'EM_PARTIDA'). */
   partidaId?: PartidaId;
+  /**
+   * Sala criada pelo "Jogar agora": espera pessoas por um tempo e, se faltar
+   * gente, completa a mesa com bots. Ausente nas salas criadas à mão.
+   */
+  rapida?: SalaRapida;
+}
+
+/** Parâmetros de uma sala "Jogar agora". */
+export interface SalaRapida {
+  /** Tamanho da mesa quando a partida começa (humanos + bots), 2 a 10. */
+  tamanhoAlvo: number;
+  /** Instante (ms desde 1970) em que a partida começa, com bots se faltar gente. */
+  iniciaEm: number;
 }
 
 /**

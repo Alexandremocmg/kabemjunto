@@ -15,7 +15,12 @@ export interface LobbyOnlineCredentials {
 
 export interface LobbyOnlineProps {
   onEntrar: (credentials: LobbyOnlineCredentials & { criar: boolean }) => void;
-  /** Segundo caminho do menu: partida local, sem esperar ninguém. */
+  /**
+   * Caminho principal: entra numa mesa pública pelo servidor e, se faltar gente, os bots
+   * completam. Sem esta função (ou sem internet) o botão cai para a partida local.
+   */
+  onJogarAgora?: (nome: string, totalJogadores: number) => void;
+  /** Partida local, no aparelho, sem servidor e sem esperar ninguém. */
   onJogarContraBots?: (nome: string, totalJogadores: number) => void;
   erro?: string | undefined;
   desabilitado?: boolean;
@@ -31,6 +36,7 @@ function gerarCodigo(): string {
 
 export const LobbyOnline: React.FC<LobbyOnlineProps> = ({
   onEntrar,
+  onJogarAgora,
   onJogarContraBots,
   erro,
   desabilitado,
@@ -142,6 +148,19 @@ export const LobbyOnline: React.FC<LobbyOnlineProps> = ({
     onJogarContraBots?.(nome || 'Você', jogadoresContraBots);
   }
 
+  // Com servidor à vista, "Jogar agora" entra numa mesa pública; sem ele, joga no aparelho.
+  const jogarAgoraOnline = Boolean(onJogarAgora) && !semInternet && !desabilitado;
+
+  function jogarAgora(): void {
+    if (!jogarAgoraOnline || !onJogarAgora) {
+      jogarContraBots();
+      return;
+    }
+    const nome = nomeInput.trim();
+    if (nome) salvarNome(nome);
+    onJogarAgora(nome || 'Você', jogadoresContraBots);
+  }
+
   const totaisVisiveis = maisJogadores || jogadoresContraBots > 6 ? [7, 8, 9, 10] : [];
   const salasVisiveis = salasAbertas ?? salasPublicas.length > 0;
 
@@ -187,11 +206,15 @@ export const LobbyOnline: React.FC<LobbyOnlineProps> = ({
             aria-invalid={Boolean(errorMessage)}
           />
         </label>
-        {onJogarContraBots && (
+        {(onJogarContraBots || onJogarAgora) && (
           <section className="menu-escolha menu-escolha-bots" aria-labelledby="bots-title">
-            <span className="menu-etiqueta">Começa na hora</span>
-            <h3 id="bots-title">Jogar contra bots</h3>
-            <p className="muted">Sem internet e sem esperar ninguém.</p>
+            <span className="menu-etiqueta">Começa em segundos</span>
+            <h3 id="bots-title">{jogarAgoraOnline ? 'Entrar numa mesa' : 'Jogar contra bots'}</h3>
+            <p className="muted">
+              {jogarAgoraOnline
+                ? 'Você entra numa mesa pública. Se faltar gente, os bots completam.'
+                : 'Sem internet e sem esperar ninguém.'}
+            </p>
             <fieldset className="menu-jogadores">
               <legend>Quantos jogadores na mesa?</legend>
               <div className="menu-fichas">
@@ -219,9 +242,18 @@ export const LobbyOnline: React.FC<LobbyOnlineProps> = ({
                 )}
               </div>
             </fieldset>
-            <button type="button" className="button button-primary" onClick={jogarContraBots}>
+            <button type="button" className="button button-primary" onClick={jogarAgora}>
               Jogar agora
             </button>
+            {jogarAgoraOnline && onJogarContraBots && (
+              <button
+                type="button"
+                className="button button-secondary menu-so-bots"
+                onClick={jogarContraBots}
+              >
+                Só contra bots, neste aparelho
+              </button>
+            )}
           </section>
         )}
         <p className="menu-ou" aria-hidden="true">

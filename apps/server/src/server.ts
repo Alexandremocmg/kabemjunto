@@ -43,6 +43,7 @@ export async function buildServer(config: AppConfig = loadConfig(), webDistDir =
 
   const store = new RoomStore(
     config.roomStorageFile ? new JsonRoomPersistence(config.roomStorageFile) : undefined,
+    config.quickPlayWaitMs !== undefined ? { quickPlayWaitMs: config.quickPlayWaitMs } : {},
   );
   const metrics = createMetricsRegistry();
   app.addHook('onResponse', (_request, reply, done) => {

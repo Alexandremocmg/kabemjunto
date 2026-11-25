@@ -5,6 +5,7 @@ import {
   criarPartidaInicial,
   executarDescarteMultiplo,
   executarJogada,
+  executarTurnoBot,
   penalizarQuebraSilencio,
   abrirJanelaInterceptacao,
   interceptar as interceptarPure,
@@ -19,6 +20,7 @@ import {
   type ModoJogo,
   type Sala,
   type SalaId,
+  type SalaRapida,
   type ServerSalaDisponivel,
   type VisibilidadeSala,
 } from '@kabemjunto/shared';
@@ -30,6 +32,14 @@ import type { PersistedRoomSession, RoomPersistence } from './persistence.js';
  * bater exatamente, pois quem decide o resultado real é sempre o servidor.
  */
 export const INTERCEPTION_WINDOW_MS = 5000;
+
+/** Quanto a sala "Jogar agora" espera por outras pessoas antes de completar com bots. */
+export const QUICK_PLAY_WAIT_MS = 10_000;
+
+/** Salas que começam em menos que isso não aceitam mais gente (a pessoa esperaria à toa). */
+const QUICK_PLAY_JOIN_MARGIN_MS = 2_000;
+
+const CODIGO_ALFABETO = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 export interface RoomSession {
   sala: Sala;
@@ -51,7 +61,29 @@ export interface JoinRoomInput {
   nomeSala?: string;
   /** Só é aplicada na criação; omitida cria uma sala privada. */
   visibilidade?: VisibilidadeSala;
+  /** Só na criação: sala "Jogar agora", que espera e completa a mesa com bots. */
+  rapida?: SalaRapida;
   resumeToken?: string;
+}
+
+export interface QuickJoinInput {
+  jogadorId: string;
+  nome: string;
+  socketId: string;
+  /** Tamanho da mesa quando começar (humanos + bots), 2 a 10. */
+  tamanho: number;
+  resumeToken?: string;
+}
+
+export interface RoomStoreOptions {
+  /** Espera da sala "Jogar agora" antes de completar com bots. */
+  quickPlayWaitMs?: number;
+}
+
+export interface BotTurnResult {
+  session: RoomSession;
+  botId: JogadorId;
+  acao: 'JOGOU' | 'COMPROU';
 }
 
 export interface JoinRoomResult {
@@ -179,16 +211,84 @@ export function toPublicState(estado: EstadoPartida): EstadoPartidaPublico {
   };
 }
 
+/** Humanos (não bots) de uma sala, conectados ou não. */
+export function humanPlayers(session: RoomSession): JogadorPublico[] {
+  return session.sala.jogadores.filter((jogador) => !jogador.isBot);
+}
+
+/**
+ * Decide se a jogada de `origemId` deve abrir a janela de Corta-Frente.
+ *
+ * - Sala só de humanos: sempre abre. É de propósito: se abrisse só quando
+ *   alguém tem a carta idêntica, a própria janela revelaria a mão dos outros.
+ * - Sala com bots e vários humanos: também sempre abre, pelo mesmo motivo.
+ * - Sala com bots e UM humano: abre só se esse humano pode cortar a frente
+ *   (como na mesa local). Bots não cortam a frente, então esperar 5 s por
+ *   eles só travaria a partida, e não há outro humano a quem revelar a mão.
+ */
+export function shouldOpenInterception(estado: EstadoPartida, origemId: JogadorId): boolean {
+  if (!estado.jogadores.some((jogador) => jogador.isBot)) return true;
+  const humanos = estado.jogadores.filter((jogador) => !jogador.isBot);
+  if (humanos.length !== 1) return true;
+  const unico = humanos[0]!;
+  const topo = estado.monteDescarte[estado.monteDescarte.length - 1];
+  if (!topo || unico.id === origemId) return false;
+  return unico.mao.some((carta) => saoCartasIdenticas(carta, topo));
+}
+
+function botPublico(salaId: string, numero: number): JogadorPublico {
+  return {
+    id: `bot_${salaId}_${numero}`,
+    nome: `Bot ${numero}`,
+    quantidadeCartas: 0,
+    isBot: true,
+    conectado: true,
+    disseUno: false,
+    avatar: '🤖',
+    pontos: 0,
+  };
+}
+
 export class RoomStore {
   private readonly rooms = new Map<SalaId, RoomSession>();
+  private commitHandler: ((session: RoomSession) => void) | undefined;
+  private readonly quickPlayWaitMs: number;
   /** Timers de janelas de Corta-Frente ativas, indexados por `janelaId`. */
   private readonly interceptionTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private interceptionExpiredHandler:
     | ((salaId: SalaId, session: RoomSession, janelaId: string, proximaVezId: JogadorId) => void)
     | undefined;
 
-  constructor(private readonly persistence?: RoomPersistence) {
+  constructor(
+    private readonly persistence?: RoomPersistence,
+    options: RoomStoreOptions = {},
+  ) {
+    this.quickPlayWaitMs = options.quickPlayWaitMs ?? QUICK_PLAY_WAIT_MS;
     if (persistence) this.restoreState(persistence.load());
+  }
+
+  /** Observador chamado depois de cada mudança gravada (usado pelos bots e pelas salas rápidas). */
+  setCommitHandler(handler: ((session: RoomSession) => void) | undefined): void {
+    this.commitHandler = handler;
+  }
+
+  /** Todas as salas atuais (para varrer o que ficou pendente depois de reiniciar). */
+  sessions(): RoomSession[] {
+    return [...this.rooms.values()];
+  }
+
+  /** Apaga a sala (partida terminada, abandonada ou sem ninguém). */
+  removeRoom(salaId: string): void {
+    const id = salaId.trim().toUpperCase();
+    const session = this.rooms.get(id);
+    if (!session) return;
+    if (session.estado?.interceptacao) {
+      this.clearInterceptionTimer(session.estado.interceptacao.janelaId);
+    }
+    this.rooms.delete(id);
+    if (this.persistence) {
+      this.persistence.save(this.exportState().filter((room) => room.sala.id !== id));
+    }
   }
 
   setInterceptionExpiredHandler(
@@ -307,10 +407,11 @@ export class RoomStore {
         // O socketId muda a cada reconexão, mas o jogadorId não.
         hostId: input.jogadorId,
         jogadores: [],
-        maxJogadores: 10,
+        maxJogadores: (input.rapida ? input.rapida.tamanhoAlvo : 10) as Sala['maxJogadores'],
         modo: input.visibilidade === 'PUBLICA' ? 'ONLINE_PUBLICA' : 'ONLINE_PRIVADA',
         visibilidade: input.visibilidade ?? 'PRIVADA',
         status: 'AGUARDANDO',
+        ...(input.rapida ? { rapida: input.rapida } : {}),
       };
       session = {
         sala,
@@ -403,6 +504,7 @@ export class RoomStore {
       const host = session.sala.jogadores.find((player) => player.id === session.sala.hostId);
       if (
         session.sala.visibilidade !== 'PUBLICA' ||
+        session.sala.rapida !== undefined ||
         session.sala.status !== 'AGUARDANDO' ||
         !host?.conectado ||
         session.sala.jogadores.length >= session.sala.maxJogadores
@@ -419,6 +521,137 @@ export class RoomStore {
         },
       ];
     });
+  }
+
+  /**
+   * "Jogar agora": entra numa sala rápida que ainda espera gente (do mesmo
+   * tamanho de mesa) ou cria uma nova. Quem já está numa sala rápida em
+   * andamento retoma a mesma; salas rápidas já terminadas são descartadas.
+   */
+  quickJoin(input: QuickJoinInput): JoinRoomResult {
+    const tamanho = Math.trunc(input.tamanho);
+    if (!Number.isFinite(tamanho) || tamanho < 2 || tamanho > 10) {
+      throw new RoomError('INTERNAL', 'Tamanho de mesa inválido (de 2 a 10 jogadores).');
+    }
+    const base = {
+      jogadorId: input.jogadorId,
+      nome: input.nome,
+      socketId: input.socketId,
+      ...(input.resumeToken !== undefined ? { resumeToken: input.resumeToken } : {}),
+    };
+    const agora = Date.now();
+
+    for (const session of [...this.rooms.values()]) {
+      if (!session.sala.rapida) continue;
+      if (!session.sala.jogadores.some((jogador) => jogador.id === input.jogadorId)) continue;
+      if (session.estado?.finalizada || session.sala.status === 'FINALIZADA') {
+        this.removeRoom(session.sala.id);
+        continue;
+      }
+      return this.join({ ...base, salaId: session.sala.id, criar: false });
+    }
+
+    const candidata = [...this.rooms.values()]
+      .filter(
+        (session) =>
+          session.sala.rapida !== undefined &&
+          session.sala.status === 'AGUARDANDO' &&
+          session.sala.rapida.tamanhoAlvo === tamanho &&
+          session.sala.jogadores.length < tamanho &&
+          session.sala.rapida.iniciaEm - agora > QUICK_PLAY_JOIN_MARGIN_MS,
+      )
+      .sort(
+        (a, b) =>
+          b.sala.jogadores.length - a.sala.jogadores.length ||
+          a.sala.rapida!.iniciaEm - b.sala.rapida!.iniciaEm,
+      )[0];
+    if (candidata) return this.join({ ...base, salaId: candidata.sala.id, criar: false });
+
+    return this.join({
+      ...base,
+      salaId: this.novoCodigoDeSala(),
+      criar: true,
+      nomeSala: 'Jogar agora',
+      visibilidade: 'PUBLICA',
+      rapida: { tamanhoAlvo: tamanho, iniciaEm: agora + this.quickPlayWaitMs },
+    });
+  }
+
+  private novoCodigoDeSala(): string {
+    for (;;) {
+      const bytes = randomBytes(6);
+      const codigo = [...bytes]
+        .map((byte) => CODIGO_ALFABETO[byte % CODIGO_ALFABETO.length])
+        .join('');
+      if (!this.rooms.has(codigo)) return codigo;
+    }
+  }
+
+  /**
+   * Fecha a espera de uma sala rápida: completa a mesa com bots até o tamanho
+   * escolhido e começa a partida. Chamado quando o tempo acaba, quando a mesa
+   * enche de pessoas ou quando o anfitrião não quer mais esperar.
+   */
+  startWithBots(salaId: string): RoomSession {
+    const session = this.require(salaId);
+    const rapida = session.sala.rapida;
+    if (!rapida) throw new RoomError('INTERNAL', 'Esta sala não completa a mesa com bots.');
+    if (session.sala.status !== 'AGUARDANDO') {
+      throw new RoomError('INTERNAL', 'A partida desta sala já começou.');
+    }
+    if (humanPlayers(session).length === 0) {
+      throw new RoomError('INTERNAL', 'A sala está sem jogadores.');
+    }
+    const faltam = Math.max(0, rapida.tamanhoAlvo - session.sala.jogadores.length);
+    const bots = Array.from({ length: faltam }, (_, indice) =>
+      botPublico(session.sala.id, indice + 1),
+    );
+    return this.beginMatch({
+      ...session,
+      sala: { ...session.sala, jogadores: [...session.sala.jogadores, ...bots] },
+    });
+  }
+
+  /** Cria o estado da partida para os jogadores que a sala tem agora (humanos e bots). */
+  private beginMatch(session: RoomSession): RoomSession {
+    const jogadores = session.sala.jogadores;
+    const estado = criarPartidaInicial({
+      baralho: Constants.BARALHO_COMPLETO_108,
+      modo: session.sala.modo as ModoJogo,
+      totalJogadores: jogadores.length,
+      nomesCustomizados: jogadores.map((jogador) => jogador.nome),
+      idsCustomizados: jogadores.map((jogador) => jogador.id),
+      bots: jogadores.map((jogador) => jogador.isBot),
+      salaId: session.sala.id,
+      partidaId: `game_${Date.now()}_${session.sala.id}`,
+    });
+    const next: RoomSession = {
+      ...session,
+      sala: { ...session.sala, status: 'EM_PARTIDA', partidaId: estado.partidaId },
+      estado,
+    };
+    this.commit(next);
+    return next;
+  }
+
+  /** Executa a vez de um bot pelo motor compartilhado e grava o novo estado. */
+  playBotTurn(salaId: string): BotTurnResult {
+    const session = this.requireActive(salaId);
+    const estado = session.estado;
+    const bot = estado.jogadores.find((jogador) => jogador.id === estado.vezDe);
+    if (!bot?.isBot) throw new RoomError('NAO_SUA_VEZ', 'Não é a vez de um bot.');
+    if (estado.interceptacao) {
+      throw new RoomError('INTERCEPTACAO_INVALIDA', 'Corta-Frente em andamento.');
+    }
+    const resultado = executarTurnoBot({ estado, nivel: 'MEDIO' });
+    if (resultado.acao === 'PULOU') {
+      throw new RoomError('JOGADA_INVALIDA', 'O bot não tinha o que fazer.');
+    }
+    return {
+      session: this.saveState(session, resultado.novoEstado),
+      botId: bot.id,
+      acao: resultado.acao,
+    };
   }
 
   leaveWaitingRoom(salaId: string, jogadorId: JogadorId): RoomSession | undefined {
@@ -504,6 +737,8 @@ export class RoomStore {
       // deve bater. Verificamos pelo socketByPlayer.
       throw new RoomError('INTERNAL', 'Apenas o host pode iniciar a partida.');
     }
+    // "Jogar agora": o anfitrião não quer mais esperar; completa a mesa com bots.
+    if (session.sala.rapida) return this.startWithBots(salaId);
     if (session.sala.jogadores.length < 2) {
       throw new RoomError('INTERNAL', 'A sala precisa de pelo menos 2 jogadores.');
     }
@@ -615,6 +850,7 @@ export class RoomStore {
 
     const topo = session.estado.monteDescarte[session.estado.monteDescarte.length - 1];
     if (!topo || !isEligibleForInterception(topo)) return undefined;
+    if (!shouldOpenInterception(session.estado, jogadorOrigemId)) return undefined;
     // Precisa de pelo menos um outro jogador conectado além de quem descartou.
     if (session.estado.jogadores.length < 2) return undefined;
 
@@ -1056,5 +1292,10 @@ export class RoomStore {
       this.persistence.save(rooms);
     }
     this.rooms.set(next.sala.id, next);
+    try {
+      this.commitHandler?.(next);
+    } catch {
+      // O observador (bots e salas rápidas) nunca pode impedir uma jogada de ser gravada.
+    }
   }
 }
