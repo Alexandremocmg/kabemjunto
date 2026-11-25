@@ -4,19 +4,32 @@
 
 **Time:** Mavis (lead) · Codex (eng. pleno) · Antigravity (eng. júnior)
 **Fonte atual:** [README](./README.md) (operação), [GDD mestre](./GDD-Kabemjunto.md) v1.1 (regras) e código; plano e entradas anteriores são históricos
-**Base da revisão:** `main` em `54c4601`, com a mesa 3D (`feat/mesa-3d`, PR #29) como base do PWA em `docs/revisao-documentacao` (PR #30)
+**Base da revisão:** `main` em `c46a269` (2026-11-25), com mesa 3D, PWA, "Jogar agora", partida resiliente e revanche
 **Último briefing:** [Sprint 7](./briefings/sprint-7.md) — beta fechado e onboarding; conclusão das issues não revalidada nesta revisão
 
-### 2026-11-25 — Retenção, etapas 0 e 1 (branch `feat/retencao-etapas-0-1`)
+### 2026-11-25 — Situação atual
 
-- Partida resiliente, revanche, prêmios, placar, compartilhar, selos, avatar online e métricas desligadas (ADR-016). Não publicado na VPS.
+- **No ar:** `main` em `c46a269`, publicada na VPS em `https://kabemjunto.kabemmanager.online` (PRs #35 a #40). Conferido de fora: endereços principais, prazo da vez, avatar, bot assumindo quem sai, e confete na tela de fim.
+- **Próximo:** playtest fechado ([roteiro](./docs/PLAYTEST-FECHADO-v0.5.1.md), issue #16). Depois, decidir sobre as métricas (`docs/METRICAS.md`), a primeira partida (issue #17) e a moderação de chat e apelidos, antes de divulgar.
+- **Ainda não verificado:** pessoas reais nesta versão, celular físico, carga, e a revanche na VPS (passou nos testes locais e no CI).
+
+### 2026-11-25 — Retenção, etapas 0 e 1 (PR #38)
+
+- Partida resiliente, revanche, prêmios, placar, compartilhar, selos, avatar online e métricas desligadas (ADR-016). Publicado na VPS no mesmo dia.
 - **Não verificado:** jogadores reais, celular físico, leitor de tela real e carga.
 
-### 2026-11-25 — "Jogar agora" em sala pública com bots (branch `feat/jogar-agora-sala-publica`)
+### 2026-11-25 — "Jogar agora" em sala pública com bots (PR #36)
 
 - O botão principal do menu entra numa sala pública do servidor e, passados 10 s sem mais gente, completa a mesa com bots (ADR-015). "Só contra bots, neste aparelho" mantém o modo local, que também é o plano B sem internet ou sem resposta em 8 s.
 - Verificado em ambiente local: testes unitários e de integração com Socket.IO real (servidor, compartilhado e web) e cenários Playwright (sozinho, dois jogadores, "Começar agora com bots", cancelar, servidor fora do ar).
-- **Não verificado:** jogadores reais; o tempo de espera de 10 s é um palpite. A VPS ainda não recebeu essa versão: exige build e reinício de `kabemjunto.service`.
+- **Não verificado:** jogadores reais; o tempo de espera de 10 s é um palpite. Publicado na VPS no mesmo dia.
+
+### 2026-11-21 — Vitrine dos jogos publicada
+
+- **https://jogos.kabemmanager.online** reunia, nessa data, os seis jogos no ar (Kabemjunto, Turbo Maré, Corrida Sem Fim, Circuito das Fendas, Esconde ou Morre e Raízes Cruzadas) numa página com imagem de partida, descrição e botão **Jogar**, para trazer jogadores de forma orgânica. Código em `Alexandremocmg/kabem-jogos` (público). O Turbo Maré foi adicionado em seguida e **continua no GitHub Pages**; a sala online dele usa o serviço público `itty.ws`.
+- Mesma infraestrutura dos jogos estáticos: clone em `/srv/jogos/vitrine`, `server` no nginx dos jogos, rota `jogos-vitrine.yaml` no Traefik e registro `A` `jogos` no hPanel. Log de acesso em `/var/log/jogos-static/access.log`, com rotação semanal; mostra o IP do Traefik, não o do visitante.
+- Validado de fora, em Chromium (desktop e celular): sem erro de console, sem rolagem horizontal, imagens carregando e o botão **Jogar** dos seis jogos abrindo o jogo certo. Os PRs de documentação dos quatro jogos (#33 e os três dos repositórios dos jogos) foram mergeados.
+- Pendências: cadastrar o endereço no Google Search Console e no Bing Webmaster e enviar o `sitemap.xml`; conferir a prévia ao compartilhar no WhatsApp; os jogos Circuito das Fendas (Beta) e Esconde ou Morre (Protótipo) aparecem com esses selos e podem ser tirados do `games.json` se ainda não devem ser divulgados.
 
 ### 2026-11-21 — Outros jogos na mesma VPS e documentação
 

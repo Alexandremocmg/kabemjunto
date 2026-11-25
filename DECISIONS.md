@@ -609,7 +609,7 @@ produto: ao clicar em jogar, entrar numa sala pública e, se faltar gente, compl
 
 ### ADR-016: Partida resiliente, revanche e métricas sem dados pessoais
 
-**Status:** Proposto · **Data:** 2026-11-25
+**Status:** Aceito (PR #38, publicado em 2026-11-25) · **Data:** 2026-11-25
 
 **Contexto.** Sair de uma partida online a encerrava para todos, não havia limite de tempo por vez e o fim só
 levava ao menu. Com o "Jogar agora" juntando desconhecidos, isso custava partidas.

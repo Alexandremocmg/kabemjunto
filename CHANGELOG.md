@@ -24,12 +24,18 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 - PWA instalável com ícones PNG e cache dos arquivos do build. Sem rede, o menu abre e a partida contra bots na mesa 3D (com o Three.js em cache) começa e é retomada ao recarregar na mesma janela; criar ou entrar em sala fica desabilitado com um aviso até a conexão voltar.
 - Atualizações do service worker aguardam o fechamento das janelas da versão anterior. A suíte de navegador verifica o manifest, os ícones, a retomada da partida contra bots e as rotas que dependem de rede.
 
+### Documentação — 2026-11-25
+
+- GDD, README, STATUS, ADR-016 e manual da VPS atualizados para `c46a269`. O conteúdo da vitrine (PR #34) foi incorporado, com o catálogo atual.
+- Novo roteiro e ficha de playtest (`docs/PLAYTEST-FECHADO-v0.5.1.md`).
+
 ### Documentação — 2026-11-21
 
 - Novo [`docs/OPERACAO-VPS.md`](./docs/OPERACAO-VPS.md): onde o jogo roda hoje (VPS da Hostinger, systemd, túnel rápido da Cloudflare), como atualizar, validar e voltar atrás, e os pontos de atenção.
 - README, STATUS e GDD apontam para esse documento; o GDD deixa de tratar o Railway como o único destino de deploy.
 - O mesmo documento passou a registrar a URL estável (`kabemjunto.kabemmanager.online`, via Traefik) e o firewall da porta 3001, com os passos para desfazer. O túnel rápido virou legado.
 - O runbook ganhou a seção 6, com os outros três jogos hospedados na mesma VPS (Raízes Cruzadas, Corrida Sem Fim e Esconde ou Morre), a infraestrutura compartilhada, como atualizar cada um, como adicionar um jogo e como desfazer. Também registra a configuração real da unit do Kabemjunto (variáveis, `CORS_ORIGINS` sem o domínio estável e o arquivo de salas).
+- O runbook também registra a vitrine dos jogos (`https://jogos.kabemmanager.online`, repositório `kabem-jogos`): como é gerada, onde roda, o log de acesso e como atualizar, e a lista de jogos e os comandos de atualização e de desfazer passam a incluí-la.
 
 ### Documentação — 2026-11-18
 

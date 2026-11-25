@@ -1,11 +1,11 @@
 # 🎴 GDD — KABEMJUNTO
 
 **Documento de Game Design para o time de desenvolvimento**
-**Versão:** 1.2 · **Data:** 2026-11-21 · **Status:** regras aprovadas; mesa 3D, menu e PWA em revisão (PR #29 e #30)
+**Versão:** 1.3 · **Data:** 2026-11-25 · **Status:** regras aprovadas; versão publicada para testes (`main` em `c46a269`)
 **Autor:** Mavis Team · **Idioma:** PT-BR
 **Público-alvo:** Engenharia, Game Design, Produto, QA
 
-> **Como ler:** este é o GDD mestre e descreve o jogo **como ele é hoje no código** da branch `feat/pwa-sobre-mesa-3d` (mesa 3D, menu de dois caminhos e PWA), mais o que ainda é meta ou proposta. Cada afirmação sobre o produto vem marcada: ✅ entregue no código, 🔜 em andamento ou pendente, 📋 proposta/meta ainda não validada. A seção 7 concentra as regras vigentes. As quatro seções detalhadas na raiz (`01` a `04`) preservam o design original e são históricas. Para operação, veja o [README](./README.md); para decisões, o [DECISIONS.md](./DECISIONS.md).
+> **Como ler:** este é o GDD mestre e descreve o jogo **como ele é hoje no código** da `main` (`c46a269`), mais o que ainda é meta ou proposta. Cada afirmação sobre o produto vem marcada: ✅ entregue no código, 🔜 em andamento ou pendente, 📋 proposta/meta ainda não validada. A seção 7 concentra as regras vigentes. As quatro seções detalhadas na raiz (`01` a `04`) preservam o design original e são históricas. Para operação, veja o [README](./README.md); para decisões, o [DECISIONS.md](./DECISIONS.md).
 
 ---
 
@@ -13,7 +13,7 @@
 
 **Kabemjunto** é um jogo de cartas digital para 2 a 10 jogadores, com baralho de **109 cartas** e partidas de 8 a 15 minutos. Parte da familiaridade do "tipo UNO" e acrescenta três camadas próprias: a **regra do 7** (silêncio social), o **acúmulo assimétrico de ataques** (+2 sobre +2, +4 sobre +2 e +4 sobre +4 acumulam; +2 sobre +4 é proibido) e a carta **0+ (Zero Mais)**, que devolve o ataque inteiro ao último atacante. Tem tematização brasileira e arte própria.
 
-Hoje o jogo roda no navegador e oferece dois caminhos a partir do menu: **jogar contra bots** (sem internet, sem espera) e **jogar online com amigos** (salas por código, servidor autoritativo). Ambos usam a mesma **mesa 3D**, em que a jogada principal é um gesto só: arrastar a carta que brilha até o centro. O jogo pode ser instalado como **PWA** e a partida contra bots funciona offline.
+Hoje o jogo roda no navegador. O botão principal, **Jogar agora**, entra numa mesa pública e completa com bots; há também **só contra bots** (no aparelho, sem internet) e **jogar com amigos** (salas por código). O servidor é autoritativo no online. Todos usam a mesma **mesa 3D**, em que a jogada principal é um gesto só: arrastar a carta que brilha até o centro. O jogo pode ser instalado como **PWA** e a partida contra bots funciona offline.
 
 ### Dados-chave
 
@@ -60,20 +60,24 @@ Hoje o jogo roda no navegador e oferece dois caminhos a partir do menu: **jogar 
 
 ## 2. Estado atual do produto
 
-| Área                                             | Situação | Observação                                                                                                                                                                                                        |
-| ------------------------------------------------ | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Motor de regras (109 cartas)                     | ✅       | Silêncio, 0+, +2 Para Todos, Corta-Frente, descarte múltiplo, Troca/Gira Mão                                                                                                                                      |
-| Online: salas públicas/privadas, retomada        | ✅       | Salas por código; persistência de snapshot em instância única; chat e falas rápidas                                                                                                                               |
-| Mesa 3D (bots e online)                          | ✅ em PR | PR #29: um componente para os dois modos; 2D simples sem WebGL ou com `?mesa=2d`                                                                                                                                  |
-| Menu de dois caminhos, logo e leque de cartas    | ✅ em PR | PR #29: "Jogar contra bots" em destaque e "Jogar com amigos"                                                                                                                                                      |
-| Dicas contextuais                                | ✅ em PR | Seis dicas, cada uma aparece uma vez, quando importa                                                                                                                                                              |
-| PWA instalável e partida offline                 | ✅ em PR | PR #30, sobre o #29: manifest, ícones, service worker; menu avisa "Sem internet"                                                                                                                                  |
-| Hot-seat (vários humanos no mesmo aparelho)      | ❌       | Existia na mesa antiga; saiu com a mesa 3D                                                                                                                                                                        |
-| Escolha de dificuldade dos bots                  | 🔜       | O motor tem Fácil, Médio e Difícil; a interface usa Fácil sem oferecer escolha                                                                                                                                    |
-| Meta de 60 fps de média em celular intermediário | 🔜       | Hoje: mediana 60 fps, média 49 a 56 no perfil de teste (CPU 4× mais lenta, 6 jogadores)                                                                                                                           |
-| Produção publicada                               | 🔜       | Ambiente de teste na VPS da Hostinger, atualizado para a `main` em 2026-11-21, com URL estável `https://kabemjunto.kabemmanager.online`; o deploy no Railway estava fora do ar em 2026-11-18 e não foi revalidado |
-| Playtest fechado, onboarding visual              | 📋       | Issues #16 e #17                                                                                                                                                                                                  |
-| Testes automatizados                             | ✅       | 440 testes unitários e 46 cenários E2E (Chromium) na branch integrada                                                                                                                                             |
+| Área                                             | Situação | Observação                                                                                                                               |
+| ------------------------------------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Motor de regras (109 cartas)                     | ✅       | Silêncio, 0+, +2 Para Todos, Corta-Frente, descarte múltiplo, Troca/Gira Mão                                                             |
+| Online: salas públicas/privadas, retomada        | ✅       | Salas por código; persistência de snapshot em instância única; chat e falas rápidas                                                      |
+| Mesa 3D (bots e online)                          | ✅       | Um componente para os dois modos; 2D simples sem WebGL ou com `?mesa=2d`; peso das cartas opcional (`?peso=1`); selos no jogador afetado |
+| Menu, logo e leque de cartas                     | ✅       | "Jogar agora" em destaque, "Só contra bots, neste aparelho" e "Jogar com amigos". As cartas do menu ainda têm nomes em inglês            |
+| Dicas contextuais                                | ✅       | Seis dicas, cada uma aparece uma vez, quando importa                                                                                     |
+| PWA instalável e partida offline                 | ✅       | Manifest, ícones, service worker; menu avisa "Sem internet"                                                                              |
+| "Jogar agora" com bots                           | ✅       | Sala pública rápida (ADR-015)                                                                                                            |
+| Partida resiliente, revanche, prêmios e placar   | ✅       | ADR-016; não medido com jogadores reais                                                                                                  |
+| Métricas de retenção                             | 🔜       | Prontas e desligadas (`docs/METRICAS.md`)                                                                                                |
+| Moderação de chat e apelidos                     | 📋       | Necessária antes de divulgar para desconhecidos                                                                                          |
+| Hot-seat (vários humanos no mesmo aparelho)      | ❌       | Existia na mesa antiga; saiu com a mesa 3D                                                                                               |
+| Escolha de dificuldade dos bots                  | 🔜       | O motor tem Fácil, Médio e Difícil, sem escolha na interface: Fácil no aparelho, Médio no servidor                                       |
+| Meta de 60 fps de média em celular intermediário | 🔜       | Hoje: mediana 60 fps, média 49 a 56 no perfil de teste (CPU 4× mais lenta, 6 jogadores)                                                  |
+| Produção publicada                               | 🔜       | Ambiente de teste na VPS da Hostinger, em `https://kabemjunto.kabemmanager.online` (`c46a269`, 2026-11-25); o Railway não foi revalidado |
+| Playtest fechado, onboarding visual              | 🔜 / 📋  | Roteiro pronto (issue #16), teste por fazer; onboarding na issue #17                                                                     |
+| Testes automatizados                             | ✅       | 722 testes unitários e de integração e 75 cenários E2E (Chromium) em `c46a269`                                                           |
 
 A última release marcada é `v0.5.1` e não inclui a mesa 3D nem o PWA.
 
@@ -85,11 +89,12 @@ A última release marcada é `v0.5.1` e não inclui a mesa 3D nem o PWA.
 
 1. **Abrir** o jogo (link ou ícone do PWA). Aparece o menu: logo, leque de cartas, campo de apelido e duas escolhas.
 2. **Escolher o caminho:**
-   - **Jogar contra bots:** escolher de 2 a 10 jogadores (fichas de 2 a 6; "7+" abre 7 a 10) e tocar em **Jogar agora**. O apelido é opcional.
+   - **Jogar agora:** escolher o tamanho da mesa (2 a 10; "7+" abre 7 a 10). Entra numa mesa pública; em 10 s sem mais gente, os bots completam. Sem internet ou sem resposta do servidor, vira partida no aparelho.
+   - **Só contra bots, neste aparelho:** partida local imediata. O apelido é opcional nos dois.
    - **Jogar com amigos:** informar o apelido e **Criar sala** (privada ou pública) ou **Entrar** com o código; também é possível entrar por uma sala pública da lista.
 3. **Sala de espera (online):** o host vê quem entrou e inicia a partida. Mãos são distribuídas em privado.
 4. **Partida:** loop de turnos na mesa 3D (abaixo).
-5. **Fim:** painel de vitória com ordem e estatísticas reais; voltar ao menu ou jogar de novo (contra bots).
+5. **Fim:** vencedor, até três prêmios, compartilhar e jogar de novo; no online, placar da sessão e revanche com a mesma mesa.
 
 ### Loop de turno (visão do jogador)
 
@@ -118,8 +123,13 @@ A última release marcada é `v0.5.1` e não inclui a mesa 3D nem o PWA.
 - **Criação privada por padrão;** o host pode escolher pública. Só salas públicas em `AGUARDANDO`, com host conectado e vaga, aparecem na descoberta, que expõe apenas `id`, nome sanitizado, nome do host e ocupação — nunca código, token, chat, mãos ou estado da partida.
 - O nome da sala é opcional e sanitizado no servidor; se ausente, vale `Sala <id>`. Somente o host inicia a partida.
 - **Servidor decide tudo:** o cliente envia intenções (jogar, comprar, cortar a frente, escolher cor/alvo) e recebe o estado público e a própria mão. As mãos dos outros nunca chegam ao cliente.
-- **Reconexão:** desconexão acidental **não é abandono**; mantém identidade, vaga e retomada autenticada por token durante a janela de reconexão. Saída voluntária antes do início remove o jogador (e transfere o host ou remove a sala vazia). Abandono durante a partida exige confirmação: finaliza a partida, registra `ABANDONO`, revoga a retomada do abandonador e avisa os restantes.
-- **Corta-Frente:** janela de **5 s**, com o primeiro pedido válido recebido vencendo, sem compensação de latência.
+- **Jogar agora:** sala pública rápida de 2 a 10, com espera de 10 s, completada por bots de nível Médio que jogam no servidor (ADR-015).
+- **Sala de espera:** saída voluntária remove o jogador e transfere o host ou remove a sala vazia.
+- **Prazo da vez:** 30 s. Ao estourar, um bot joga só aquela vez; dois estouros seguidos fazem o bot assumir até a pessoa agir ou tocar em **Voltei**.
+- **Queda:** não é abandono. Depois de 20 s um bot joga pelo assento, e a pessoa retoma com o token. Sem ninguém conectado, nada joga.
+- **Saída durante a partida:** exige confirmação. Um bot assume de vez e a retomada é revogada; a partida só termina quando sai a última pessoa, ou depois de 30 min sem ninguém conectado.
+- **Revanche:** começa quando todos aceitam, ou 15 s depois do primeiro pedido, com bots nas outras vagas. Quem fica de fora volta ao menu com o motivo. Quem cai com os demais prontos tem 5 s para voltar (ADR-016).
+- **Corta-Frente:** janela de **5 s**, com o primeiro pedido válido recebido vencendo, sem compensação de latência. Com bots e um único humano, só abre se ele puder cortar; com dois ou mais humanos, abre sempre, para não revelar mãos.
 - **Chat e falas rápidas:** chat de sala; seis falas rápidas prontas ("Boa jogada!", "Sua vez!", "Vou comprar.", "Calma aí!", "Vamos lá!", "GG!") que aparecem como **balão sobre o assento** de quem falou e ficam no histórico do menu da partida.
 
 ---
@@ -161,7 +171,7 @@ Termos canônicos usados em todo o GDD. Cada termo mantém o mesmo significado e
 
 ## 6. Estados da partida e da sala
 
-**Sala (online):** `AGUARDANDO` → `EM_PARTIDA` → `FINALIZADA`. Só `AGUARDANDO` aceita novos jogadores e inicia a partida.
+**Sala (online):** `AGUARDANDO` → `EM_PARTIDA` → `FINALIZADA`, e de volta a `EM_PARTIDA` na revanche. Só `AGUARDANDO` aceita novos jogadores.
 
 **Estado público da partida** (o que a mesa enxerga, nunca as mãos alheias): jogadores (nome, avatar, quantidade de cartas, bot ou humano), de quem é a vez, direção, cor ativa, topo do descarte, tamanho do monte, **ataque acumulado** e sua pilha, janela de **silêncio** (ativa ou não), janela de **Corta-Frente** (alvo, prazo, revisão), histórico de eventos e vencedor.
 
@@ -290,19 +300,20 @@ Cada cor contém 1 zero, 2 cópias de cada número de 1 a 9 (incluindo o 7 com S
 - **Avisos empilhados** no topo: Silêncio, ataque acumulado, reflexo do 0+, janela de Corta-Frente; **balões de fala** sobre os assentos.
 - **Animação das cartas:** distribuição, descarte e compra com deslocamento até o destino; cartas dos adversários desenhadas por instâncias; respeito a `prefers-reduced-motion`.
 - **Áudio:** efeitos sintetizados em tempo real pela Web Audio API, sem arquivos de som: compra, descarte, Skip, Reverse, +2, +4, 0+, silêncio ativado e quebrado, vitória.
-- **Painel de vitória:** ordem e estatísticas reais; nenhuma pontuação inventada.
+- **Tela de fim:** prêmios e placar calculados do histórico real, sem nenhuma carta; nenhuma pontuação inventada. O confete respeita movimento reduzido.
+- **Selos no jogador afetado** (`+N`, `REFLETIDO!`, `PULOU`, Silêncio quebrado), tremor da plaqueta e anel quando o 7 pousa.
 
 ### 9.4 Mesa 2D e acessibilidade
 
 - **Mesa 2D simples** em DOM, com as mesmas regras de interação, sem baixar o Three.js. Entra sozinha sem WebGL ou com `?mesa=2d` (a escolha fica salva).
 - **Camada acessível:** botões reais alinhados às cartas projetadas; `Tab` chega à mão, setas trocam de carta, `Enter` joga, `Espaço` seleciona; mudanças de turno e eventos anunciados em `aria-live`; foco preso nos diálogos.
-- **Personalização:** 12 avatares e 3 temas de mesa (Floresta, Neon, Areia) em "Personalizar perfil"; o tema vale também para a mesa 3D.
+- **Personalização:** 12 avatares e 3 temas de mesa (Floresta, Neon, Areia) em "Personalizar perfil"; o tema vale também para a mesa 3D e o avatar aparece para os outros no online. O mesmo painel desliga as métricas.
 
 ---
 
 ## 10. Menu, onboarding e dicas
 
-**Menu inicial (✅ em PR):** logo grande e leque com cinco cartas do jogo; **apelido** em campo único no topo (opcional contra bots); **Jogar contra bots** primeiro, em destaque, com "Começa na hora", fichas de jogadores e **Jogar agora**; **ou**; **Jogar com amigos** com _Criar sala_ e _código + Entrar_; **Salas públicas** recolhidas, com a contagem.
+**Menu inicial (✅):** logo grande e leque com cinco cartas do jogo; **apelido** em campo único no topo (opcional contra bots); **Entrar numa mesa** primeiro, em destaque, com fichas de jogadores, **Jogar agora** e **Só contra bots, neste aparelho**; **ou**; **Jogar com amigos** com _Criar sala_ e _código + Entrar_; **Salas públicas** recolhidas, com a contagem.
 
 Decisões de UX:
 
@@ -329,16 +340,17 @@ Decisões de UX:
 - **0+:** reviravolta para contar; o aviso e a animação do reflexo são parte do design ("momento viral").
 - **Corta-Frente:** reação rápida fora da vez, que quebra a previsibilidade do turno e dá protagonismo a quem estava de fora.
 - **Falas rápidas e balões:** comunicação leve, sem digitar, que também funciona durante o Silêncio.
-- **Compartilhamento:** convidar por código de sala; sala pública para quem não tem grupo.
-- 📋 **Retenção e meta-jogo:** baralhos temáticos, passe de temporada, conquistas e ranking não estão desenhados em detalhe nem entregues.
+- **Compartilhamento:** **Convidar** na sala de espera (link que preenche o código) e imagem do resultado no fim, só com o endereço do jogo.
+- **Revanche, prêmios e placar da sessão:** mantêm a mesma turma na mesa.
+- 📋 **Próximas etapas de retenção:** missões diárias, títulos e versos; depois desafios contra bots, presets e álbum. Só com números reais. Passe de temporada e ranking não estão desenhados nem entregues.
 
 ---
 
 ## 12. PWA e jogo offline
 
-- **✅ em PR #30:** manifest (nome, ícones de 192 e 512 px e _maskable_, `display: standalone`), service worker gerado no build e instalação pelo navegador. No iPhone: Compartilhar → Adicionar à Tela de Início.
+- **✅** manifest (nome, ícones de 192 e 512 px e _maskable_, `display: standalone`), service worker gerado no build e instalação pelo navegador. No iPhone: Compartilhar → Adicionar à Tela de Início.
 - **O que funciona offline:** o menu, a logo, as cartas, a mesa 3D (inclusive o pedaço do Three.js) e a partida contra bots, que é retomada ao recarregar na mesma janela. Criar e entrar em sala exigem conexão e ficam desabilitados com aviso.
-- **Cache:** 42 arquivos, cerca de 1,6 MB sem compressão, versionados por hash do conteúdo; **só arquivos públicos do build**, nunca rotas do servidor (`/health`, `/socket.io`). Uma nova versão aguarda o fechamento das janelas da anterior.
+- **Cache:** arquivos do build (42, cerca de 1,6 MB, na medição de 2026-11-21), versionados por hash do conteúdo; **só arquivos públicos do build**, nunca rotas do servidor (`/health`, `/socket.io`). Uma nova versão aguarda o fechamento das janelas da anterior.
 - 📋 Não verificados: instalação em aparelho físico e no Safari do iPhone; atualização entre duas versões reais.
 
 ---
@@ -372,9 +384,9 @@ Limites conhecidos: o servidor não confere a origem das conexões WebSocket (ba
 
 ### Próximos passos (ordem sugerida)
 
-1. **Revisar e mergear** os PRs #29 (mesa 3D e menu) e #30 (PWA e documentação); o #30 segue o #29.
-2. **Publicar de novo** (produção fora do ar) e validar com dois clientes: partida, Corta-Frente, retomada.
-3. **Playtest fechado** com protocolo sem dados pessoais (issue #16) e **onboarding visual** da primeira partida (issue #17).
+1. **Playtest fechado** (issue #16) e correções que ele mostrar.
+2. **Ligar as métricas** (chave e aviso de privacidade) e tratar a **moderação** de chat e apelidos.
+3. **Primeira partida guiada** (issue #17) e, então, divulgar em pequena escala.
 4. **Desempenho:** atingir 60 fps de média no perfil de teste; testar em celulares físicos, Safari e Firefox.
 5. **Bots:** oferecer a escolha de dificuldade (Fácil/Médio/Difícil) no menu e, depois, deixar os bots usarem o Corta-Frente.
 6. **Ajustar o 0+** com base nos dados do playtest.
@@ -382,7 +394,7 @@ Limites conhecidos: o servidor não confere a origem das conexões WebSocket (ba
 ### Pendências técnicas
 
 - Validação estrutural do estado local restaurado da `sessionStorage` (hoje confia no JSON salvo).
-- Dependências do web sem uso (`zustand`, `@tanstack/react-query`, `framer-motion`, `lucide-react`) a remover com aprovação.
+- Dependências do web sem uso a conferir (`zustand`, `@tanstack/react-query`, `framer-motion`) a remover com aprovação.
 - Checagem da origem do WebSocket no servidor.
 
 ### Riscos
@@ -391,7 +403,8 @@ Limites conhecidos: o servidor não confere a origem das conexões WebSocket (ba
 | ------------------------------------------------------------------ | ----- | ------- | -------------------------------------------------------------------------------------------------------------------------- |
 | 0+ desequilibrado (reflexo decide partidas)                        | Média | Alto    | Playtest fechado antes de balancear; métricas de uso do 0+                                                                 |
 | Desempenho da mesa 3D em celulares fracos                          | Média | Alto    | Fallback 2D, resolução adaptativa, atlas de faces                                                                          |
-| Jogador não descobre o modo contra bots / o que fazer na mesa      | Baixa | Médio   | Menu de dois caminhos, dicas contextuais, onboarding visual                                                                |
+| Jogador não entende o que fazer na mesa                            | Média | Alto    | Dicas contextuais; primeira partida guiada (issue #17)                                                                     |
+| Desconhecidos ofensivos no chat ou no apelido                      | Alta  | Alto    | Moderação antes de divulgar                                                                                                |
 | Instância única do servidor limita escala e disponibilidade        | Média | Médio   | Documentado (ADR-011); coordenação antes de aumentar réplicas                                                              |
 | Produção indisponível por custo ou plano da hospedagem             | Alta  | Alto    | Regularizar a hospedagem; alternativas gratuitas já levantadas                                                             |
 | A atualização da VPS é manual e o túnel rápido legado ainda existe | Alta  | Médio   | URL estável já configurada (subdomínio + Traefik); resta automatizar a atualização; procedimento em `docs/OPERACAO-VPS.md` |
