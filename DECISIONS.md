@@ -20,6 +20,7 @@ Este arquivo registra as Decisões de Arquitetura (ADRs) do projeto Kabemjunto.
 - [ADR-014: Mesa 3D com Three.js, Camada Acessível em DOM e Fallback 2D](#adr-014-mesa-3d-com-threejs-camada-acessível-em-dom-e-fallback-2d)
 - [ADR-015: "Jogar agora": sala pública rápida completada com bots](#adr-015-jogar-agora-sala-pública-rápida-completada-com-bots)
 - [ADR-016: Partida resiliente, revanche e métricas sem dados pessoais](#adr-016-partida-resiliente-revanche-e-métricas-sem-dados-pessoais)
+- [ADR-017: Ranking semanal entre amigos](#adr-017-ranking-semanal-entre-amigos)
 
 ---
 
@@ -633,3 +634,28 @@ levava ao menu. Com o "Jogar agora" juntando desconhecidos, isso custava partida
   service worker atualizar.
 - O progresso é por sala e por aparelho; não há conta nem ranking.
 - ❌ Não medido com jogadores reais, em celular físico nem sob carga.
+
+---
+
+### ADR-017: Ranking semanal entre amigos
+
+**Status:** Proposto · **Data:** 2026-11-25
+
+**Contexto.** A turma precisa de um motivo para voltar, sem conta nem ranking público.
+
+**Decisão.**
+
+1. O grupo é um código aleatório (UUID) no fragmento do convite, só em salas privadas. Quem tem o link participa.
+2. Cada navegador tem uma credencial aleatória por grupo; o servidor guarda só o hash.
+3. A semana vira na segunda-feira, em Brasília. O fim da partida e os pontos são gravados juntos.
+4. **Pontua quem joga até o fim sem bot na própria vez**, se pelo menos duas pessoas cumprirem isso. Bots e ausentes
+   não anulam a partida dos outros, porque um estouro de 30 s é comum. A mesa do ranking conta só essas pessoas, e se
+   um bot ou alguém que ficou fora vencer, ninguém ganha a vitória.
+5. Ficam a semana corrente e a anterior; o mais antigo sai na gravação seguinte.
+
+**Consequências.**
+
+- ⚠ O servidor passa a guardar apelidos e resultados por até duas semanas (mais, se nada for gravado).
+- ⚠ O link do grupo não expira nem pode ser revogado; quem quer sair cria outro grupo.
+- ⚠ Uma versão anterior do servidor ignora e apaga os totais. Um app antigo em cache não entra em sala com ranking.
+- ❌ A identidade é por navegador: dá para burlar com dois navegadores. Serve para amigos, não para prêmios.
