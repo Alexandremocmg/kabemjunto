@@ -18,7 +18,6 @@ export function useMesaOnline(online: JogoOnline): ControladorMesa | undefined {
   const { cartaRejeitada, conexao, erro, erroCodigo, estado, fim, mao, revanche, status } =
     online.state;
   const { retomarControle } = online;
-  const codigoConvite = online.emSalaRapida ? undefined : online.salaId;
   const { comprarCarta, interceptar, jogadorId, jogarCarta, jogarMultiplasCartas } = online;
 
   const modo = online.state.rapida ? 'rapida' : 'online';
@@ -49,10 +48,10 @@ export function useMesaOnline(online: JogoOnline): ControladorMesa | undefined {
       jogar: (cartaId, opcoes) => jogarCarta(cartaId, opcoes?.cor, opcoes?.alvoTrocaId),
       jogarMultiplas: jogarMultiplasCartas,
       fim,
-      revanche,
+      // Antes da queda: quem está pronto pode ter mudado; o servidor reenvia.
+      revanche: revanche?.conexao === conexao ? revanche : undefined,
       conexao,
       conectado: status === 'connected',
-      codigoConvite,
       retomarControle,
       comprar: comprarCarta,
       interceptar: (cartaId) => {
@@ -62,7 +61,6 @@ export function useMesaOnline(online: JogoOnline): ControladorMesa | undefined {
     };
   }, [
     aviso,
-    codigoConvite,
     comprarCarta,
     conexao,
     estado,

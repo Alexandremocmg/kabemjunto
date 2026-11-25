@@ -11,7 +11,7 @@ export function useForaDaMesa(
   online: Pick<ReturnType<typeof useGameSocket>, 'ficarDeFora' | 'jogadorId' | 'state'>,
 ): void {
   const { ficarDeFora, jogadorId } = online;
-  const { erroCodigo, estado, jogadores, revanche, status } = online.state;
+  const { conexao, erroCodigo, estado, jogadores, revanche, status } = online.state;
   const acabou = Boolean(estado?.finalizada);
 
   // A partida nova chegou, e a pessoa não está nela.
@@ -35,7 +35,11 @@ export function useForaDaMesa(
   }, [ficarDeFora, haviaPedido, recusada]);
 
   // A contagem acabou, ninguém avisou nada e a pessoa não tinha pedido.
-  const minha = acabou && revanche?.partidaId === estado?.partidaId ? revanche : undefined;
+  // Uma contagem de antes de uma queda não vale: o servidor reenvia a atual.
+  const minha =
+    acabou && revanche?.partidaId === estado?.partidaId && revanche?.conexao === conexao
+      ? revanche
+      : undefined;
   const prazo =
     minha?.restanteMs !== undefined &&
     minha.prontos.length > 0 &&

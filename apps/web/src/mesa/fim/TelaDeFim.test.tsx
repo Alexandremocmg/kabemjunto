@@ -9,7 +9,7 @@ const confete = vi.hoisted(() => Object.assign(vi.fn(), { reset: vi.fn() }));
 vi.mock('canvas-confetti', () => ({ default: confete }));
 
 import { ALTURA, LARGURA, desenharResultado } from './imagemDoResultado';
-import { compartilhar } from './compartilhar';
+import { compartilhar } from '../../services/compartilhar';
 import { TelaDeFim, ESPERA_DO_PEDIDO_MS } from './TelaDeFim';
 
 const EU = 'eu';
@@ -139,11 +139,13 @@ describe('tela de fim', () => {
     mostrar(
       controlador({
         fim: fim('velha'),
-        revanche: { partidaId: 'velha', prontos: [EU], possiveis: [EU], recebidaEm: 0 },
+        revanche: { partidaId: 'velha', prontos: [EU], possiveis: [EU], recebidaEm: 0, conexao: 1 },
       }),
     );
     expect(caixa.textContent).not.toContain('Espelho');
-    expect(botao('Jogar de novo com a mesma mesa').disabled).toBe(false);
+    expect(botao('Jogar de novo com a mesma mesa').getAttribute('aria-disabled') === 'true').toBe(
+      false,
+    );
   });
 
   it('foco no título, Esc leva à saída sem sair e Tab circula', () => {
@@ -167,7 +169,7 @@ describe('tela de fim', () => {
   it('pede a revanche uma vez, mostra quem está pronto e conta por restanteMs', () => {
     mostrar(controlador());
     act(() => botao('Jogar de novo com a mesma mesa').click());
-    expect(botao('Pedindo revanche…').disabled).toBe(true);
+    expect(botao('Pedindo revanche…').getAttribute('aria-disabled') === 'true').toBe(true);
     act(() => botao('Pedindo revanche…').click());
     expect(onJogarDeNovo).toHaveBeenCalledTimes(1);
     mostrar(
@@ -178,6 +180,7 @@ describe('tela de fim', () => {
           possiveis: [EU, 'ana'],
           restanteMs: 9000,
           recebidaEm: performance.now(),
+          conexao: 1,
         },
       }),
     );
@@ -185,7 +188,7 @@ describe('tela de fim', () => {
     expect(caixa.querySelector('.fim-contagem')?.textContent).toContain('Começa em 9 s');
     act(() => vi.advanceTimersByTime(4000));
     expect(caixa.querySelector('.fim-contagem')?.textContent).toContain('Começa em 5 s');
-    expect(botao('Esperando a mesa…').disabled).toBe(true);
+    expect(botao('Esperando a mesa…').getAttribute('aria-disabled') === 'true').toBe(true);
   });
 
   it('sem resposta, dá para pedir de novo; recusa aparece na tela', () => {
@@ -196,7 +199,68 @@ describe('tela de fim', () => {
     act(() => botao('Jogar de novo com a mesma mesa').click());
     mostrar(controlador({ aviso: { id: 7, tipo: 'erro', texto: 'Não dá agora.' } }));
     expect(caixa.querySelector('.fim-mensagem')?.textContent).toBe('Não dá agora.');
-    expect(botao('Jogar de novo com a mesma mesa').disabled).toBe(false);
+    expect(botao('Jogar de novo com a mesma mesa').getAttribute('aria-disabled') === 'true').toBe(
+      false,
+    );
+  });
+
+  it('confirmado e depois reconectado sem estar pronto: o botão volta na hora', () => {
+    const rev = (prontos: string[]) => ({
+      partidaId: 'p1',
+      prontos,
+      possiveis: [EU, 'ana'],
+      recebidaEm: 0,
+      conexao: 1,
+    });
+    mostrar(controlador());
+    act(() => botao('Jogar de novo com a mesma mesa').click());
+    mostrar(controlador({ revanche: rev([EU]) }));
+    mostrar(controlador({ revanche: rev([EU]), conectado: false }));
+    mostrar(controlador({ revanche: rev([]) }));
+    const voltou = botao('Jogar de novo com a mesma mesa');
+    expect(voltou.getAttribute('aria-disabled')).toBe('false');
+    act(() => voltou.click());
+    expect(onJogarDeNovo).toHaveBeenCalledTimes(2);
+  });
+
+  it('pedido perdido na queda também não prende o botão', () => {
+    mostrar(controlador());
+    act(() => botao('Jogar de novo com a mesma mesa').click());
+    mostrar(controlador({ conectado: false }));
+    mostrar(controlador());
+    expect(botao('Jogar de novo com a mesma mesa').getAttribute('aria-disabled')).toBe('false');
+  });
+
+  it('o botão desligado mantém o foco e não age; o fundo fica inerte', () => {
+    act(() =>
+      root.render(
+        <main>
+          <div id="mesa" />
+          <TelaDeFim
+            controlador={controlador()}
+            onJogarDeNovo={onJogarDeNovo}
+            onVoltarAoMenu={onVoltarAoMenu}
+          />
+        </main>,
+      ),
+    );
+    expect(caixa.querySelector('#mesa')?.hasAttribute('inert')).toBe(true);
+    expect(caixa.querySelector('.fim')?.hasAttribute('inert')).toBe(false);
+    const jogar = botao('Jogar de novo com a mesma mesa');
+    act(() => jogar.focus());
+    act(() => jogar.click());
+    expect(jogar.hasAttribute('disabled')).toBe(false);
+    expect(document.activeElement).toBe(jogar);
+    act(() => jogar.click());
+    expect(onJogarDeNovo).toHaveBeenCalledTimes(1);
+    act(() =>
+      root.render(
+        <main>
+          <div id="mesa" />
+        </main>,
+      ),
+    );
+    expect(caixa.querySelector('#mesa')?.hasAttribute('inert')).toBe(false);
   });
 
   it('no local o botão joga na hora', () => {
@@ -276,17 +340,14 @@ describe('compartilhar', () => {
     expect(await compartilhar(item)).toBe('erro');
   });
 
-  it('o link só leva o código quando há convite, e a imagem usa nomes reais', async () => {
+  it('o link nunca leva código de sala, e a imagem usa nomes reais', async () => {
     const share = vi.fn((_dados: ShareData) => Promise.resolve());
     definir({ share, canShare: () => false });
-    mostrar(controlador({ fim: fim(), codigoConvite: 'ABC234' }));
+    mostrar({ ...controlador({ fim: fim() }), codigoConvite: 'ABC234' } as ControladorMesa);
     await act(async () => botao('Compartilhar').click());
-    expect(share.mock.calls[0]![0].url).toContain('?sala=ABC234');
+    expect(share.mock.calls[0]![0].url).not.toContain('sala');
     expect(share.mock.calls[0]![0].text).toContain('Espelho: Beto');
     expect(caixa.querySelector('.fim-mensagem')?.textContent).toBe('Resultado compartilhado.');
-    mostrar(controlador({ fim: fim() }));
-    await act(async () => botao('Compartilhar').click());
-    expect(share.mock.calls[1]![0].url).not.toContain('sala');
   });
 
   it('a imagem não usa rede e corta nomes enormes', () => {

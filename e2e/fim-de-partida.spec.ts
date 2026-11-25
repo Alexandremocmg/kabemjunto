@@ -158,3 +158,24 @@ test('link de convite preenche o código e não entra sozinho', async ({ page })
   await page.goto('/?sala=abc-23');
   await expect(page.getByLabel('Código da sala')).toHaveValue('');
 });
+
+test('sala de espera: "Convidar" manda o link com o código', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 667 });
+  await page.addInitScript(() => {
+    Object.assign(navigator, {
+      share: async (dados: ShareData) => Object.assign(window, { __convite: dados.url }),
+    });
+  });
+  await page.goto('/');
+  await page.getByLabel('Seu apelido').fill('Ana');
+  await page.getByRole('button', { name: 'Criar sala' }).click();
+  await page.getByRole('button', { name: 'Criar sala privada' }).click();
+  const codigo = (await page.locator('.room-code').textContent()) ?? '';
+  await page.getByRole('button', { name: 'Convidar' }).click();
+  await expect(page.getByText('Convite enviado.')).toBeVisible();
+  expect(
+    await page.evaluate(() => (window as unknown as Record<string, unknown>)['__convite']),
+  ).toBe(`http://127.0.0.1:5175/?sala=${codigo}`);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
+  await page.screenshot({ path: 'tmp/convidar-375.png' });
+});
