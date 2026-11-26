@@ -22,7 +22,7 @@ const TEMAS: Array<{ id: TemaColecao; nome: string; cores: string[] }> = [
 
 const DECK_PREVIEW_SPECIALS: readonly { src: string; alt: string }[] = [
   { src: '/assets/cards/kabemjunto/mais-quatro.webp', alt: '+4' },
-  { src: '/assets/cards/kabemjunto/zero-mais.webp', alt: '0+ Reflexo' },
+  { src: '/assets/cards/kabemjunto/zero-mais.webp', alt: '0+ Zero Mais' },
   { src: '/assets/cards/kabemjunto/troca-mao.webp', alt: 'Troca Mão' },
 ];
 

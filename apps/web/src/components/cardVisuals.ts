@@ -8,7 +8,7 @@ const SPECIAL_ASSETS: Partial<Record<string, string>> = {
   TROCA_MAO: '/assets/cards/kabemjunto/troca-mao.webp',
   GIRA_MAO: '/assets/cards/kabemjunto/gira-mao.webp',
   CORINGA_SIMPLES: '/assets/cards/kabemjunto/coringa.webp',
-  MAIS_DOIS_TODOS: '/assets/cards/kabemjunto/mais-dois-todos.svg',
+  MAIS_DOIS_TODOS: '/assets/cards/kabemjunto/mais-dois-todos.webp',
 };
 
 export type CardVisualTemplate = 'numeric' | 'acao-colorida' | 'neutra-especial';
@@ -19,7 +19,7 @@ export type CardVisual =
 export function getCardVisual(carta: Carta): CardVisual {
   const acao = carta.acao;
 
-  // Cartas com arte premium (5 neutras especiais)
+  // Cartas com arte premium (6 neutras especiais)
   if (acao !== undefined && acao in SPECIAL_ASSETS) {
     return { kind: 'asset', src: SPECIAL_ASSETS[acao] as string };
   }
@@ -42,10 +42,11 @@ export function getCardAltText(carta: Carta): string {
   if (carta.valor !== undefined) return `Carta ${carta.valor}`;
   const labels: Record<string, string> = {
     MAIS_QUATRO: '+4',
-    ZERO_MAIS: '0+ Reflexo',
+    ZERO_MAIS: '0+ Zero Mais',
     TROCA_MAO: 'Troca Mão',
     GIRA_MAO: 'Gira Mão',
     CORINGA_SIMPLES: 'Coringa',
+    MAIS_DOIS_TODOS: '+2 Para Todos',
   };
   return labels[carta.acao ?? ''] ?? carta.efeito_texto_curto;
 }

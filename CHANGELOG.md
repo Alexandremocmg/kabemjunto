@@ -9,6 +9,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ### Corrigido
 
+- **Cartas 100% em português:** novas artes de Coringa, Gira Mão, Zero Mais e +2 Para Todos (esta passa de `.svg` para `.webp`, e o `.svg` foi removido), na mesa e no leque do menu. Textos alternativos unificados ("0+ Zero Mais", "+2 Para Todos"), inclusive na descrição do app instalável.
 - O confete da vitória não era desenhado em produção: a CSP bloqueava o worker da biblioteca. Agora desenha sem worker, e `e2e/csp.spec.ts` confere o build com a CSP real.
 
 ### Adicionado
