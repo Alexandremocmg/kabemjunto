@@ -60,24 +60,24 @@ Hoje o jogo roda no navegador. O botão principal, **Jogar agora**, entra numa m
 
 ## 2. Estado atual do produto
 
-| Área                                             | Situação | Observação                                                                                                                               |
-| ------------------------------------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Motor de regras (109 cartas)                     | ✅       | Silêncio, 0+, +2 Para Todos, Corta-Frente, descarte múltiplo, Troca/Gira Mão                                                             |
-| Online: salas públicas/privadas, retomada        | ✅       | Salas por código; persistência de snapshot em instância única; chat e falas rápidas                                                      |
-| Mesa 3D (bots e online)                          | ✅       | Um componente para os dois modos; 2D simples sem WebGL ou com `?mesa=2d`; peso das cartas opcional (`?peso=1`); selos no jogador afetado |
+| Área                                             | Situação | Observação                                                                                                                                                                         |
+| ------------------------------------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Motor de regras (109 cartas)                     | ✅       | Silêncio, 0+, +2 Para Todos, Corta-Frente, descarte múltiplo, Troca/Gira Mão                                                                                                       |
+| Online: salas públicas/privadas, retomada        | ✅       | Salas por código; persistência de snapshot em instância única; chat e falas rápidas                                                                                                |
+| Mesa 3D (bots e online)                          | ✅       | Um componente para os dois modos; 2D simples sem WebGL ou com `?mesa=2d`; peso das cartas opcional (`?peso=1`); selos no jogador afetado                                           |
 | Menu, logo e leque de cartas                     | ✅       | "Jogar agora" em destaque, "Só contra bots, neste aparelho" e "Jogar com amigos". Artes das cartas especiais em português (Coringa, Gira Mão, Troca Mão, Zero Mais, +2 Para Todos) |
-| Dicas contextuais                                | ✅       | Seis dicas, cada uma aparece uma vez, quando importa                                                                                     |
-| PWA instalável e partida offline                 | ✅       | Manifest, ícones, service worker; menu avisa "Sem internet"                                                                              |
-| "Jogar agora" com bots                           | ✅       | Sala pública rápida (ADR-015)                                                                                                            |
-| Partida resiliente, revanche, prêmios e placar   | ✅       | ADR-016; não medido com jogadores reais                                                                                                  |
-| Métricas de retenção                             | 🔜       | Prontas e desligadas (`docs/METRICAS.md`)                                                                                                |
-| Moderação de chat e apelidos                     | 📋       | Necessária antes de divulgar para desconhecidos                                                                                          |
-| Hot-seat (vários humanos no mesmo aparelho)      | ❌       | Existia na mesa antiga; saiu com a mesa 3D                                                                                               |
-| Escolha de dificuldade dos bots                  | 🔜       | O motor tem Fácil, Médio e Difícil, sem escolha na interface: Fácil no aparelho, Médio no servidor                                       |
-| Meta de 60 fps de média em celular intermediário | 🔜       | Hoje: mediana 60 fps, média 49 a 56 no perfil de teste (CPU 4× mais lenta, 6 jogadores)                                                  |
-| Produção publicada                               | 🔜       | Ambiente de teste na VPS da Hostinger, em `https://kabemjunto.kabemmanager.online` (`9f6f6cf`, 2026-11-25); o Railway não foi revalidado |
-| Playtest fechado, onboarding visual              | 🔜 / 📋  | Roteiro pronto (issue #16), teste por fazer; onboarding na issue #17                                                                     |
-| Testes automatizados                             | ✅       | 727 testes unitários e de integração e 79 cenários E2E (Chromium) em `9f6f6cf`                                                           |
+| Dicas contextuais                                | ✅       | Seis dicas, cada uma aparece uma vez, quando importa                                                                                                                               |
+| PWA instalável e partida offline                 | ✅       | Manifest, ícones, service worker; menu avisa "Sem internet"                                                                                                                        |
+| "Jogar agora" com bots                           | ✅       | Sala pública rápida (ADR-015)                                                                                                                                                      |
+| Partida resiliente, revanche, prêmios e placar   | ✅       | ADR-016; não medido com jogadores reais                                                                                                                                            |
+| Métricas de retenção                             | 🔜       | Prontas e desligadas (`docs/METRICAS.md`)                                                                                                                                          |
+| Moderação de chat e apelidos                     | 📋       | Necessária antes de divulgar para desconhecidos                                                                                                                                    |
+| Hot-seat (vários humanos no mesmo aparelho)      | ❌       | Existia na mesa antiga; saiu com a mesa 3D                                                                                                                                         |
+| Escolha de dificuldade dos bots                  | 🔜       | O motor tem Fácil, Médio e Difícil, sem escolha na interface: Fácil no aparelho, Médio no servidor                                                                                 |
+| Meta de 60 fps de média em celular intermediário | 🔜       | Hoje: mediana 60 fps, média 49 a 56 no perfil de teste (CPU 4× mais lenta, 6 jogadores)                                                                                            |
+| Produção publicada                               | 🔜       | Ambiente de teste na VPS da Hostinger, em `https://kabemjunto.kabemmanager.online` (`9f6f6cf`, 2026-11-25); o Railway não foi revalidado                                           |
+| Playtest fechado, onboarding visual              | 🔜 / 📋  | Roteiro pronto (issue #16), teste por fazer; onboarding na issue #17                                                                                                               |
+| Testes automatizados                             | ✅       | 727 testes unitários e de integração e 79 cenários E2E (Chromium) em `9f6f6cf`                                                                                                     |
 
 A última release marcada é `v0.5.1` e não inclui a mesa 3D nem o PWA.
 
