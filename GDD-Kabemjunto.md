@@ -65,7 +65,7 @@ Hoje o jogo roda no navegador. O botão principal, **Jogar agora**, entra numa m
 | Motor de regras (109 cartas)                     | ✅       | Silêncio, 0+, +2 Para Todos, Corta-Frente, descarte múltiplo, Troca/Gira Mão                                                             |
 | Online: salas públicas/privadas, retomada        | ✅       | Salas por código; persistência de snapshot em instância única; chat e falas rápidas                                                      |
 | Mesa 3D (bots e online)                          | ✅       | Um componente para os dois modos; 2D simples sem WebGL ou com `?mesa=2d`; peso das cartas opcional (`?peso=1`); selos no jogador afetado |
-| Menu, logo e leque de cartas                     | ✅       | "Jogar agora" em destaque, "Só contra bots, neste aparelho" e "Jogar com amigos". As cartas do menu ainda têm nomes em inglês            |
+| Menu, logo e leque de cartas                     | ✅       | "Jogar agora" em destaque, "Só contra bots, neste aparelho" e "Jogar com amigos". Artes das cartas especiais em português (Coringa, Gira Mão, Troca Mão, Zero Mais, +2 Para Todos) |
 | Dicas contextuais                                | ✅       | Seis dicas, cada uma aparece uma vez, quando importa                                                                                     |
 | PWA instalável e partida offline                 | ✅       | Manifest, ícones, service worker; menu avisa "Sem internet"                                                                              |
 | "Jogar agora" com bots                           | ✅       | Sala pública rápida (ADR-015)                                                                                                            |
